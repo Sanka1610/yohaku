@@ -39,6 +39,18 @@ def observe(settings, payload):
              "identity": ids, "payload_received": True, "expected_command_matches": match,
              "tool_response_present": "tool_response" in payload,
              "evidence_limit": "Hook invocation source must be established by the external runtime trace"}
+    if "tool_response" in payload:
+        response = payload["tool_response"]
+        rendered = json.dumps(response, ensure_ascii=False)
+        exit_match = re.search(r'(?:Process exited with code |"exit_code"\s*:\s*)(-?\d+)', rendered)
+        event["tool_result"] = {
+            "response_type": type(response).__name__,
+            "response_keys": sorted(response) if type(response) is dict else [],
+            "exit_code": int(exit_match[1]) if exit_match else None,
+            "bwrap_unavailable": "bubblewrap is unavailable" in rendered,
+            "read_only_filesystem": "Read-only file system" in rendered,
+            "response_sha256": hashlib.sha256(rendered.encode()).hexdigest(),
+        }
     directory = Path(settings["events"])
     if directory.is_symlink() or not directory.is_dir():
         raise ValueError("invalid event directory")

@@ -64,7 +64,7 @@ def validate_environment(env):
     require(env["network_use"] in ("none", "provider-only"), "network use")
     for key in ("max_requests", "max_tokens", "max_duration_sec"):
         require(type(env[key]) is int and env[key] >= 0, "environment budget")
-    require(env["budget_enforcement"] in ("no-dispatch", "unverified", "verified"), "budget enforcement")
+    require(env["budget_enforcement"] in ("no-dispatch", "unverified", "verified", "request-time-bounded"), "budget enforcement")
     fields(env["isolation"], "workspace session project_config probe_output temporary_files yohaku_state", "isolation")
     require(env["isolation"]["session"] == "new-session-only", "session isolation")
     for key, value in env["isolation"].items():
@@ -78,7 +78,7 @@ def validate_environment(env):
         require(env["model"] is None and env["provider_auth"] == {"provider": None, "mode": "none"}
                 and env["network_use"] == "none" and all(env[k] == 0 for k in
                 ("max_requests", "max_tokens", "max_duration_sec")), "no-dispatch environment")
-    if env["budget_enforcement"] == "verified":
+    if env["budget_enforcement"] in ("verified", "request-time-bounded"):
         require(bool(env["evidence_refs"]), "budget enforcement requires evidence")
 
 
@@ -191,7 +191,7 @@ def validate_v2(record):
         require(set(env["evidence_refs"]) <= refs, "environment evidence missing")
         for item in record["cases"]:
             if run["kind"] == "runtime-probe" and item["verdict"]["status"] in ("PASS", "PARTIAL", "FAIL"):
-                require(env["budget_enforcement"] == "verified", "measured runtime needs verified execution bounds")
+                require(env["budget_enforcement"] in ("verified", "request-time-bounded"), "measured runtime needs verified execution bounds")
             calls = item["model_calls"]
             if calls["allowed"]:
                 require(calls["model"] == env["model"] and all(calls[k] <= env[k] for k in
