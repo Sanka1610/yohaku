@@ -1,10 +1,10 @@
-"""Executable schema for Phase 1 metadata records (no runtime gate verdicts)."""
+"""Read v1/v2 records. All new records use v2; v1 is read-only."""
 
 import json
 import re
 from datetime import datetime
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 CASE_IDS = [f"{gate}{n:02}" for gate, count in (("A", 8), ("B", 6), ("C", 6))
             for n in range(1, count + 1)]
 OBSERVATIONS = {"environment", "codex_version", "features", "config", "source"}
@@ -83,9 +83,9 @@ def validate_value(name, value):
             require(text(path) and text(digest) and re.fullmatch(r"[0-9a-f]{64}", digest), "source hash")
 
 
-def validate(record):
+def validate_v1(record):
     fields(record, "schema_version run_id created_at kind runtime invocation observations cases limitations", "record fields")
-    require(type(record["schema_version"]) is int and record["schema_version"] == SCHEMA_VERSION, "schema version")
+    require(type(record["schema_version"]) is int and record["schema_version"] == 1, "schema version")
     require(text(record["run_id"]) and re.fullmatch(r"[0-9a-f]{32}", record["run_id"]), "run ID")
     timestamp(record["created_at"])
     require(record["kind"] in ("metadata-only", "synthetic"), "record kind")
@@ -94,7 +94,18 @@ def validate(record):
             and all(text(s) for s in record["invocation"]), "invocation")
     require(type(record["limitations"]) is list and bool(record["limitations"])
             and all(text(s) for s in record["limitations"]), "limitations")
-    observations = record["observations"]
+    validate_metadata(record["observations"])
+    require(type(record["cases"]) is list and len(record["cases"]) == len(CASE_IDS), "case count")
+    for case, case_id in zip(record["cases"], CASE_IDS):
+        fields(case, "id gate status reason evidence hook_failure_behavior", "case fields")
+        require(case["id"] == case_id and case["gate"] == case_id[0], "case identity")
+        require(case["status"] == "NOT_RUN", "Phase 1 accepts only NOT_RUN gates")
+        require(text(case["reason"]) and case["evidence"] == []
+                and case["hook_failure_behavior"] is None, "unexecuted case evidence")
+    json.dumps(record, allow_nan=False)
+
+
+def validate_metadata(observations):
     fields(observations, " ".join(sorted(OBSERVATIONS)), "observation names")
     for name, item in observations.items():
         fields(item, "status value reason evidence", f"{name}: fields")
@@ -120,14 +131,17 @@ def validate(record):
             if name == "source" and item["status"] == "OBSERVED":
                 require(item["value"]["git_head"] is not None and
                         item["value"]["dirty"] is not None, "complete source identity required")
-    require(type(record["cases"]) is list and len(record["cases"]) == len(CASE_IDS), "case count")
-    for case, case_id in zip(record["cases"], CASE_IDS):
-        fields(case, "id gate status reason evidence hook_failure_behavior", "case fields")
-        require(case["id"] == case_id and case["gate"] == case_id[0], "case identity")
-        require(case["status"] == "NOT_RUN", "Phase 1 accepts only NOT_RUN gates")
-        require(text(case["reason"]) and case["evidence"] == []
-                and case["hook_failure_behavior"] is None, "unexecuted case evidence")
-    json.dumps(record, allow_nan=False)
+
+
+def validate(record):
+    require(type(record) is dict and type(record.get("schema_version")) is int, "schema version")
+    if record["schema_version"] == 1:
+        validate_v1(record)
+    elif record["schema_version"] == 2:
+        from result_v2 import validate_v2
+        validate_v2(record)
+    else:
+        raise ValueError("unsupported schema version")
 
 
 def no_duplicates(pairs):
@@ -145,4 +159,7 @@ def read_record(path):
     require(len(content) <= 2 * 1024 * 1024, "result too large")
     record = json.loads(content, object_pairs_hook=no_duplicates)
     validate(record)
+    if record["schema_version"] == 2:
+        from result_v2 import verify_artifacts
+        verify_artifacts(record, path.parent)
     return record
