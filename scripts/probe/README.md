@@ -27,6 +27,8 @@ Codexへの呼出しは`--version`と`features list`。model session、Hook、MC
 
 設定の収集範囲は常に`PARTIAL`。終了code 0を、実効設定全体やGateのPASSとして扱わない。
 
+形式検証でも、configの完全取得を主張する記録を拒否する。sourceを`OBSERVED`とするにはGit HEADとdirty判定の両方を必要とし、取得できない場合は`PARTIAL`または`UNAVAILABLE`として記録する。Git HEADは40桁または64桁のhexに限る。
+
 ## 保存とfixture
 
 ```text

@@ -76,7 +76,7 @@ def validate_value(name, value):
         fields(value, "root git_head dirty sha256", "source fields")
         require(text(value["root"]), "source root")
         require(value["git_head"] is None or (text(value["git_head"]) and
-                re.fullmatch(r"[0-9a-f]{40,64}", value["git_head"])), "git revision")
+                re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", value["git_head"])), "git revision")
         require(value["dirty"] is None or type(value["dirty"]) is bool, "dirty flag")
         require(type(value["sha256"]) is dict and bool(value["sha256"]), "source hashes")
         for path, digest in value["sha256"].items():
@@ -115,6 +115,11 @@ def validate(record):
             validate_value(name, item["value"])
             require(evidence["coverage"] == ("partial" if item["status"] == "PARTIAL"
                     else "complete_for_declared_scope"), "observation coverage")
+            if name == "config":
+                require(item["status"] == "PARTIAL", "Phase 1 config collection is partial")
+            if name == "source" and item["status"] == "OBSERVED":
+                require(item["value"]["git_head"] is not None and
+                        item["value"]["dirty"] is not None, "complete source identity required")
     require(type(record["cases"]) is list and len(record["cases"]) == len(CASE_IDS), "case count")
     for case, case_id in zip(record["cases"], CASE_IDS):
         fields(case, "id gate status reason evidence hook_failure_behavior", "case fields")

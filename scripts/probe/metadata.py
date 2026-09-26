@@ -114,7 +114,7 @@ def source_metadata(root):
             hashes[str(path.relative_to(root))] = hashlib.sha256(path.read_bytes()).hexdigest()
     except OSError:
         return observation(None, "local_source", "Probe source identity", "source_read_failed")
-    head = revision.strip() if revision and re.fullmatch(r"[0-9a-f]{40,64}\s*", revision) else None
+    head = revision.strip() if revision and re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})\s*", revision) else None
     return observation({"root": str(root), "git_head": head,
                         "dirty": None if status is None else bool(status), "sha256": hashes},
                        "git_and_source_files", "Probe code and selected foundation files",
