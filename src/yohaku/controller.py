@@ -8,9 +8,11 @@ from dataclasses import replace
 from math import isfinite
 from uuid import uuid4
 
+from .codex import CodexCompletionPolicy
+from .completion import CompletionPolicy
 from .model import (
-    BoundaryVerification, Checkpoint, Completion, CompletionBinding,
-    CompletionKind, ContinuationBinding, Handoff, Lease, Request, ResumeVerification, Snapshot,
+    BoundaryVerification, Checkpoint,
+    ContinuationBinding, Handoff, Lease, Request, ResumeVerification, Snapshot,
     State, WorkspaceRevision,
 )
 
@@ -20,11 +22,14 @@ class TransitionError(ValueError):
 
 
 class Controller:
-    def __init__(self, thread_id: str, *, id_factory=None):
+    def __init__(self, thread_id: str, *, id_factory=None,
+                 completion_policy: CompletionPolicy | None = None):
         if not isinstance(thread_id, str) or not thread_id.strip():
             raise ValueError("exclusive thread identity is required")
         self._snapshot = Snapshot(thread_id=thread_id)
         self._id = id_factory or (lambda: uuid4().hex)
+        self._completion_policy = (CodexCompletionPolicy() if completion_policy is None
+                                   else completion_policy)
 
     @property
     def snapshot(self) -> Snapshot:
@@ -256,11 +261,11 @@ class Controller:
         self._require(State.ROLLOVER_REQUESTED, State.AMBIGUOUS)
         self._change(state=State.AMBIGUOUS, lease=None, reason=reason)
 
-    def bind_completion(self, binding: CompletionBinding):
-        """Adapter supplies observed request/thread/turn/item association, never a guess."""
+    def bind_completion(self, binding):
+        """Adapter supplies actual identity under this Controller's fixed policy."""
         s = self.snapshot
-        if (binding.request != s.request or not binding.compact_turn_id
-                or not binding.compact_item_id):
+        if (not self._completion_policy.valid_binding(binding)
+                or binding.request != s.request):
             raise TransitionError("invalid completion binding")
         if s.binding == binding:
             return False
@@ -272,15 +277,12 @@ class Controller:
         return True
 
     def _completed(self):
-        required = set(CompletionKind)
-        if self.snapshot.request and self.snapshot.request.origin == "native_auto":
-            required.remove(CompletionKind.COMPACT_TURN)
-        return {e.kind for e in self.snapshot.completions} == required
+        return self._completion_policy.completed(self.snapshot.request, self.snapshot.completions)
 
-    def observe_completion(self, event: Completion) -> bool:
+    def observe_completion(self, event) -> bool:
         """Accept normalized successful completion evidence, not RPC acceptance."""
         s = self.snapshot
-        if (not event.evidence_ref or not isinstance(event.kind, CompletionKind)
+        if (not self._completion_policy.valid_event(event) or not event.evidence_ref
                 or s.binding is None or event.binding != s.binding):
             if s.state == State.ROLLOVER_REQUESTED:
                 self.completion_unknown("uncorrelated completion")
@@ -324,8 +326,7 @@ class Controller:
                 or binding.request_id != s.continuation_request_id
                 or binding.thread_id != s.thread_id
                 or s.handoff is not None or not binding.turn_id
-                or (binding.turn_id == s.binding.compact_turn_id
-                    and s.request.origin != "native_auto")):
+                or not self._completion_policy.permits_continuation(s.binding, binding)):
             raise TransitionError("handoff needs completed rollover and a new continuation turn")
         handoff = Handoff(handoff_id or self._id(), s.request, binding.turn_id,
                           s.checkpoint.revisions.intent_revision,
@@ -421,9 +422,11 @@ class Controller:
                     or request.rollover_generation != saved.rollover_generation
                     or (saved.binding and saved.binding.request != request)):
                 raise TransitionError("inconsistent saved request journal")
+        if saved.binding is not None and not controller._completion_policy.valid_binding(saved.binding):
+            raise TransitionError("restart requires Codex version-1 completion binding")
         if saved.completions and (saved.binding is None or saved.request is None or any(
                 e.binding != saved.binding or not e.evidence_ref
-                or not isinstance(e.kind, CompletionKind) for e in saved.completions)):
+                or not controller._completion_policy.valid_event(e) for e in saved.completions)):
             raise TransitionError("inconsistent saved completion journal")
         controller._snapshot = saved
         if saved.request is not None:

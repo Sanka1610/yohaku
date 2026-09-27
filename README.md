@@ -8,8 +8,9 @@ state, check runtime completion, and verify the current task state before work
 continues. The existing implementation is a Python library with a bounded Codex
 reference integration.
 
-**Current status: experimental.** Claude Code and Hermes adapters are not
-implemented. The recorded Codex acceptance is scoped and overall **PARTIAL**;
+**Current status: experimental.** Complete Claude Code and Hermes adapters are not
+implemented. Hermes has a bounded host Probe and an in-memory completion predicate.
+The recorded Codex acceptance is scoped and overall **PARTIAL**;
 this repository does not declare an Alpha, Beta, or Stable release.
 
 ## Proactive Context Compaction
@@ -33,9 +34,10 @@ receipt, and resume verification form a transition within a declared coverage
 scope. “Verified” applies to the recorded conditions and observations.
 
 Compaction is one implementation strategy. Fresh-context rollover and session
-migration are other design categories, not available Yohaku adapters. The current
-Core retains Codex-specific completion predicates; shared interfaces will be
-settled after target-runtime capability probes.
+migration are other design categories, not available Yohaku adapters. The Core
+delegates completion predicates to a runtime-specific policy, with the existing
+Codex rules as the default. The Hermes predicate uses host history and storage
+readback rather than Codex events.
 
 ## How it works
 
@@ -62,7 +64,8 @@ checkpoint, so an emergency observation remains explicitly unverified.
 | Priority | Runtime | Yohaku implementation / evidence status |
 |---|---|---|
 | Reference | Codex | Experimental Python integration; bounded historical lab acceptance, overall PARTIAL |
-| Target | Claude Code / Hermes | Adapters unimplemented; live capability acceptance NOT_RUN |
+| Target | Hermes | H-CLI-01 bounded workflow PASS / profile PARTIAL; completion predicate only, full adapter unimplemented |
+| Target | Claude Code | Documentation/source contracts reviewed; adapter unimplemented, live acceptance NOT_RUN |
 | Next Target | DeepSeek Harness / OpenCode | Research candidates; adapters unimplemented |
 | Future | Gemini CLI / Antigravity | Research candidates; adapters unimplemented |
 | Research / Auxiliary | Claude Desktop / Cowork | Auxiliary research surfaces; no compact-control adapter |
@@ -114,10 +117,11 @@ durable storage and orchestration (`CompanionController`), and runtime observati
 and dispatch (`RuntimeHost` and its adapters). Optional archive support stores
 selected visible turns and retrieves only requested historical data.
 
-The current code is not a fully runtime-neutral Core. Codex-specific completion
-predicates, backend construction, and the `CODEX_HOME` storage root remain in the
-implementation. See [Architecture](docs/architecture.md) for module responsibilities
-and the planned boundary for later extraction.
+The current code is not a fully runtime-neutral integration. The Companion,
+backend construction, recovery transport, and `CODEX_HOME` store remain Codex
+specific. Runtime-specific completion predicates can connect to the in-memory
+Core; non-Codex proof persistence and restart are not implemented. See
+[Architecture](docs/architecture.md) for the boundary and compatibility limits.
 
 ## Known Limitations
 

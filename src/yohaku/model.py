@@ -162,6 +162,12 @@ class ResumeVerification:
 
 @dataclass(frozen=True)
 class Snapshot:
+    """Version-1 Codex storage layout; other policy proofs are in-memory only.
+
+    The binding/completions annotations remain the schema-1 decode contract.
+    SessionStore rejects runtime-owned values outside that storage contract.
+    """
+
     thread_id: str
     state: State = State.WORKING
     revisions: Revisions = Revisions()

@@ -238,6 +238,12 @@ class SessionStore:
 
     def append(self, snapshot: Snapshot, cursor: dict, event: str, *, recovery=None):
         self._ready()
+        # Runtime-owned proof objects are in-memory only until their storage
+        # contract exists. Never write a journal that schema 1 cannot reload.
+        try:
+            decode(Snapshot, encode(snapshot))
+        except (TypeError, ValueError) as exc:
+            raise PersistenceError("snapshot is not compatible with version-1 storage") from exc
         if snapshot.thread_id != self.thread_id:
             raise PersistenceError("wrong session")
         if snapshot.handoff and snapshot.handoff.recovered_context != f"handoff:{snapshot.handoff.handoff_id}":

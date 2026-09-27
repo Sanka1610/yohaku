@@ -10,6 +10,7 @@ does not yet ship an installable Plugin/Skill bundle or general-purpose launcher
 | Component | Responsibility | Code |
 |---|---|---|
 | Controller and domain model | Serialized transition decisions, revision checks, lease invalidation, completion and resume gates | [controller.py](../src/yohaku/controller.py), [model.py](../src/yohaku/model.py) |
+| Completion policy | Runtime binding, proof and continuation identity predicates; Codex default and bounded Hermes readback | [completion.py](../src/yohaku/completion.py), [codex.py](../src/yohaku/codex.py), [hermes.py](../src/yohaku/hermes.py) |
 | Companion and persistence | Durable checkpoints, journal, handoffs, local writer lock, orchestration | [companion.py](../src/yohaku/companion.py), [persistence.py](../src/yohaku/persistence.py), [codec.py](../src/yohaku/codec.py) |
 | Runtime host and Hook bridge | Owner-loop event handling, local Hook delivery, transport dispatch | [runtime.py](../src/yohaku/runtime.py), [hook.py](../src/yohaku/hook.py) |
 | Manual / native lifecycle | Codex request/event correlation and the separate native recovery path | [manual.py](../src/yohaku/manual.py), [native.py](../src/yohaku/native.py) |
@@ -54,22 +55,49 @@ authority and does not establish resume verification.
 See the [Codex reference](reference/codex.md) for exact storage paths, durability,
 compatibility, restart behavior, and API contracts.
 
-## Planned Core / Adapter boundary
+## Core / Adapter boundary
 
-The planned common Core covers boundary policy, revisions and freshness,
+The Core retains boundary policy, revisions and freshness,
 checkpoints, leases, archive integrity, ambiguity handling, handoff semantics,
-resume verification, and evidence scope. Runtime adapters will own lifecycle
+resume verification, and evidence scope. Runtime adapters own lifecycle
 events, tool taxonomy and work observation, triggers, completion proof, runtime
 identity, injection, continuation, and visible-turn extraction.
 
-This separation is a design direction. The current Core still contains Codex
-completion predicates; the Companion constructs `ManualCompactBackend`, and the
-store uses a Codex namespace. Target-runtime probes must establish the smallest
-necessary interface before extraction. Other runtimes must retain their actual
-signals and must not synthesize Codex events to satisfy the existing predicate.
+`Controller(..., completion_policy=...)` fixes one trusted, I/O-free policy for
+the owner's lifetime. Its four predicates validate the runtime binding, validate
+completion evidence, determine completion from accumulated evidence, and check
+the continuation identity. The Core checks full request/binding equality,
+evidence references, duplicate kinds, state, authority and resume requirements.
+Codex remains the default: manual completion requires three signals; native
+automatic completion requires two and the separate recovery path.
 
-Transition Strategy is the design term for a runtime/surface/backend contract,
-not an implemented public interface or a promise of multi-runtime support.
+`HermesManualCompletionPolicy` accepts metadata from the H-CLI-01 strategy:
+manual in-place compression, host-history update, independent SessionDB readback,
+then fresh current-state observation and controller-driven continuation. Only
+the completion predicate is implemented here. It requires one request and one
+readback, ordered and correlated to a fresh exclusive session at generation 1,
+with changed host history, matching host/DB projections and archived old rows.
+The pinned runtime is Hermes 0.21.0 at source commit
+`c5594ec4b34097cafbe24deb6dfd9ac4b21d411d`. Engine return or compressor count alone
+cannot establish completion. Host instrumentation remains responsible for the
+truth of observations; matching hashes are not authentication.
+
+Hermes proof objects can be supplied to the in-memory Core without inventing
+Codex turn/item events. The `Snapshot` binding/completions annotations still
+describe the Codex schema-1 storage contract. `SessionStore` rejects records that
+cannot round-trip through that contract before writing; `Controller.restart`
+accepts only the existing Codex binding and evidence types. No schema migration,
+new namespace, or runtime registry is provided. `CompanionController` continues
+to construct the Codex backend and recovery lifecycle.
+
+Completion does not establish handoff receipt or resume verification. Hermes
+host I/O, durable orchestration, fresh-read/continuation scheduling, explicit
+receipt and restart remain adapter work. The Core's receipt and resume gates
+are unchanged. Work ledgers, tool taxonomies, Hook delivery and visible-turn
+collectors remain runtime specific; their meanings and coverage are not unified.
+
+Transition Strategy describes a runtime/surface/backend contract. The completion
+policy boundary is not a general transport interface or full multi-runtime support.
 
 ## Verification boundary
 

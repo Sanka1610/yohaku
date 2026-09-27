@@ -1,8 +1,8 @@
 # Runtime support and evidence scope
 
-This page summarizes the preserved Codex reference records as of 2026-09-28.
-It does not report a new runtime run or compatibility with a current upstream
-version. The existing implementation is experimental; no public release channel
+This page summarizes the preserved Codex reference records and the bounded
+Hermes H-CLI-01 Probe as of 2026-09-28. The Core extraction's regression tests
+are local; they do not constitute a new runtime run. The implementation is experimental; no public release channel
 is declared. [Support policy](../SUPPORT_POLICY.md) defines the independent axes
 of priority, maturity, evidence level, verdict, and release channel.
 
@@ -33,7 +33,7 @@ bundle; publication of reviewed, shareable evidence remains release preparation.
 | Codex manual compaction | `ManualCompactBackend`; correlated compaction item completion, successful PostCompact, and successful compact turn completion | RPC ACK alone is insufficient; one outstanding request and exclusive ownership required |
 | Codex native automatic compaction recovery | Opt-in observer; correlated compaction item completion and PostCompact, followed by same-turn receipt and resume verification | One compaction per attachment; emergency delta unverified; native recovery restart UNSUPPORTED |
 | Codex experimental `new_context` | Not selected by the package; UNSUPPORTED in the measured configurations | No fresh-context support inferred from the manual path |
-| Other runtime strategies | Native/manual compaction, fresh-context rollover, and session migration are design candidates | No target adapter or shared strategy interface implemented; live acceptance NOT_RUN |
+| Hermes manual in-place compression | H-CLI-01 host-history update plus independent DB readback; in-memory completion predicate implemented | One fresh exclusive session, one manual request; full host/storage/continuation adapter unimplemented |
 
 Native recovery does not prove the proactive boundary/checkpoint/lease sequence
 was completed before native compaction. Manual and native results remain separate.
@@ -72,10 +72,26 @@ test conditions; they are not general failure-recovery guarantees.
 
 ## Target runtime status
 
-Claude Code and Hermes are Targets for capability probes. DeepSeek Harness and
+Claude Code and Hermes are Targets. DeepSeek Harness and
 OpenCode are Next Targets; Gemini CLI and Antigravity are Future candidates.
-Claude Desktop and Cowork are Research / Auxiliary surfaces. All non-Codex Yohaku
-adapters remain unimplemented and live acceptance remains NOT_RUN.
+Claude Desktop and Cowork are Research / Auxiliary surfaces. Complete non-Codex
+Yohaku adapters remain unimplemented. Claude Code's reviewed documentation/source
+contracts are design inputs; its live acceptance remains NOT_RUN.
+
+Hermes H-CLI-01 measured an instrumented native CLI host on Ubuntu-Hermes, version
+0.21.0 at `c5594ec4b34097cafbe24deb6dfd9ac4b21d411d`, using the existing
+`openai-codex` route with `gpt-5.6-luna` and low effort for main and compression.
+The single live synthetic-task run used eight provider requests and one manual
+compression. Bounded workflow: PASS; profile overall: PARTIAL. Host/DB reflection,
+fresh task-state read and nonduplicated controller-driven continuation were
+observed. Explicit handoff receipt remains PARTIAL; barrier, race and restart
+capabilities were not accepted. This is not interactive terminal acceptance or
+Strong Transition Assurance.
+
+The completion predicate was checked locally against saved Probe metadata and
+synthetic negatives. Those checks do not upgrade live coverage, nor do they
+establish a connected Yohaku checkpoint/lease/receipt/resume adapter. Historical
+Probe source associations and verdicts are preserved.
 
 Dated documentation/source research can identify candidate control points. Before
 implementation, each probe must fix runtime and SDK versions, surface, provider,

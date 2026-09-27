@@ -43,6 +43,8 @@ Priorityからmaturityを決めず、Evidence levelからVerdictを決めず、V
 
 制定時はCodex Referenceをexperimentalとする。これは新しい分類の初期値であり、既存の限定PASSを取り消すものでも、公開Alphaを承認するものでもない。他Runtimeはexperimentalの調査候補で、adapterは未実装・live capability受入はNOT_RUN。未実装という状態もmaturityと併記する。
 
+その後、Hermes H-CLI-01はbounded workflow PASS / profile PARTIALとなり、completion predicateをCoreから分離した。完成adapterと公開channelは未成立。更新後の実装・実測範囲は[Runtime support](docs/runtime-support.md#target-runtime-status)を参照する。
+
 Codexの既存受入はCLI `0.155.0-alpha.16.4` / WSL2 Ubuntu / Python `3.14.4`の限定profileである。Phase 14のlive信号を使った合成taskはlab tested / live-runtime、局所・合成テストはlab tested / local-syntheticとして読む。Field Evidenceの取得や現在版での再実行を示すものではない。native auto compactは1 attachmentにつき1回の範囲、native recovery途中のrestartはUNSUPPORTED、反復compactや一般の並列・外部work等は未受入である。
 
 重大な回帰やRuntime仕様変更が判明した場合は、該当version/profileの推奨を停止し、必要ならmaturityを下げる。旧versionの証拠を消さず、新versionは影響確認が済むまで未確認として扱う。
