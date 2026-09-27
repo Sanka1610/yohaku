@@ -8,7 +8,11 @@ from typing import get_args, get_origin, get_type_hints
 
 def encode(value):
     if is_dataclass(value):
-        return {f.name: encode(getattr(value, f.name)) for f in fields(value)}
+        result = {f.name: encode(getattr(value, f.name)) for f in fields(value)}
+        from .model import Request
+        if isinstance(value, Request) and value.origin == "controller":
+            del result["origin"]  # Preserve the existing manual on-disk format.
+        return result
     if isinstance(value, StrEnum):
         return value.value
     if isinstance(value, (tuple, frozenset)):
@@ -30,6 +34,9 @@ def decode(kind, value):
             raise ValueError("expected array")
         return origin(decode(args[0], v) for v in value)
     if is_dataclass(kind):
+        from .model import Request
+        if kind is Request and type(value) is dict and "origin" not in value:
+            value = dict(value, origin="controller")
         if type(value) is not dict or set(value) != {f.name for f in fields(kind)}:
             raise ValueError("unexpected storage fields")
         hints = get_type_hints(kind)

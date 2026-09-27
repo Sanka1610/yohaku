@@ -465,6 +465,72 @@ They do not alter Core state, release a barrier, restore authority or count as
 resume proof. Retrieval can inspect history while execution remains stopped.
 This read-only dynamic surface does not extend work-tool Hook coverage.
 
+## Bounded native automatic-compaction recovery
+
+An opt-in native observer handles one automatic compaction within an active turn
+on an exclusively owned Reference Runtime connection. Register the production
+Hook command for `PreCompact` (`auto|manual`) as well as the existing
+SessionStart, PostCompact and work Hooks. After constructing a host with its work
+ledger, attach:
+
+```python
+native = host.enable_native_recovery(
+    capture=capture_emergency, settle=incorporate_prior_work,
+    observe=observe_current_context, recovered=historical_task_data,
+    timeout=60.0,
+)
+```
+
+`capture(checkpoint_id, pending_keys)` returns an `EmergencyDelta` from
+`yohaku.recovery`: a unique snapshot ID, historical checkpoint ID, logical task
+ID, observed intent/execution revisions and workspace stamp, selected progress,
+pending tool IDs and evidence reference. This is unverified observation data,
+not a new verified checkpoint. The callback must select safe visible data and
+inspect current task effects; no generic diff or secret classifier is supplied.
+`settle(delta)` independently confirms terminal pre-compaction work and uses
+`host.work.incorporate()` for all pending effects, then returns updated
+`RecoveredData` for the same logical task. Its observed completed-work list must
+include confirmed progress since the checkpoint; the original checkpoint and
+unverified delta remain separately labeled. Unknown, active or remaining
+work prevents handoff. `observe` retains the existing `CurrentContext` contract.
+
+At correlated PreCompact(auto), the adapter writes a separate immutable
+`emergency/<snapshot-id>.json` with the existing SessionStore envelope, lock and
+fsync writer. It preserves the original checkpoint. The Core records
+`Request.origin = "native_auto"` with an empty lease ID and enters AMBIGUOUS;
+this is an observation identity, not a compact request or execution authority.
+No compact RPC is sent. A matching contextCompaction item completion and successful
+PostCompact are the native completion evidence. The active turn is still running,
+so its terminal event is reserved for the existing resume verifier, rather than
+being invented as a compact-turn completion. Manual compaction retains all three
+of its original completion requirements.
+
+On the correlated SessionStart(compact) notification, the adapter re-observes
+current state, rejects observations older than the emergency delta, and binds
+the existing durable handoff to the same active turn. It does not send turn/start.
+The handoff marks the checkpoint historical (`checkpoint_current: false`) and,
+when revisions/stamps differ, stale; the delta remains `unverified`. Both are
+DATA, NOT INSTRUCTIONS. ACK, injection confirmation, successful tool evidence,
+current-state reconciliation and task assessment still use RecoveryLifecycle.
+Only the existing resume verifier can establish RESUME_VERIFIED. Successful
+continuation does not retroactively verify the emergency delta or old checkpoint.
+
+One compaction per attachment is supported. Missing/mismatched observations,
+timeout, another native compact or conflict with an in-flight manual request
+stop native recovery and do not grant another continuation. Once such a conflict
+is detected, native notifications cannot complete the manual request. Restart of
+a native recovery remains stopped: thread/read alone cannot identify which items
+belong after the in-turn compaction, so native restart reconciliation is explicitly
+unsupported. Ordinary manual restart reconciliation is unchanged.
+
+Old manual Request/Handoff records retain their previous encoded form and load
+without rewriting. Native requests and emergency-bearing handoffs add explicit
+fields; older packages reject these new records, so native sessions cannot be
+downgraded. Unreferenced emergency records are data only, never restart authority.
+This is not an atomic Runtime freeze. Hook failures retain the measured FAIL_OPEN
+limitation, and unregistered tools, detached work, external writers and general
+parallel execution remain outside the accepted work scope.
+
 ## Focused verification
 
 ```sh
@@ -474,6 +540,7 @@ PYTHONPATH=src python3 -m unittest discover -s tests -p test_recovery.py -v
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_work.py -v
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_archive.py -v
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_runtime_archive.py -v
+PYTHONPATH=src python3 -m unittest discover -s tests -p test_native.py -v
 ```
 
 The first command checks Core contracts. The second uses real local POSIX files,

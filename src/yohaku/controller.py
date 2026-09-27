@@ -225,6 +225,33 @@ class Controller:
         self._change(request_accepted=True)
         return True
 
+    def observe_native_start(self):
+        """Record an external rollover observation; never authorize/send compact.
+
+        The existing checkpoint remains historical. Current revisions/workspace
+        are not replaced by its older values. The adapter must journal this
+        stopped state before returning from the correlated PreCompact Hook.
+        """
+        s = self.snapshot
+        self._require(State.WORKING, State.CANDIDATE, State.BARRIER_ARMING,
+                      State.QUIESCENCE_CHECK, State.WORKSPACE_SNAPSHOT, State.VERIFIED,
+                      State.CHECKPOINT_COMMITTED, State.ROLLOVER_AUTHORIZED)
+        cp = s.recoverable_checkpoint
+        if s.request is not None or cp is None or not cp.commit_evidence:
+            raise TransitionError("native recovery requires a durable historical checkpoint")
+        generation, transition = s.rollover_generation + 1, self._id()
+        request = Request(self._id(), s.thread_id, transition, cp.boundary_id,
+                          cp.checkpoint_id, "", generation, "native_auto")
+        self._change(state=State.AMBIGUOUS, request=request, checkpoint=cp,
+                     transition_id=transition, boundary_id=cp.boundary_id,
+                     rollover_generation=generation, barrier_requested=True,
+                     lease=None, revoked_lease_id=s.lease.lease_id if s.lease else s.revoked_lease_id,
+                     invalidated=True, verification=None, snapshot_captured=False,
+                     request_accepted=False, binding=None, completions=(),
+                     handoff=None, continuation_request_id=None,
+                     injection_evidence=None, receipt_evidence=None)
+        return request
+
     def completion_unknown(self, reason="completion timeout"):
         self._require(State.ROLLOVER_REQUESTED, State.AMBIGUOUS)
         self._change(state=State.AMBIGUOUS, lease=None, reason=reason)
@@ -245,7 +272,10 @@ class Controller:
         return True
 
     def _completed(self):
-        return {e.kind for e in self.snapshot.completions} == set(CompletionKind)
+        required = set(CompletionKind)
+        if self.snapshot.request and self.snapshot.request.origin == "native_auto":
+            required.remove(CompletionKind.COMPACT_TURN)
+        return {e.kind for e in self.snapshot.completions} == required
 
     def observe_completion(self, event: Completion) -> bool:
         """Accept normalized successful completion evidence, not RPC acceptance."""
@@ -294,7 +324,8 @@ class Controller:
                 or binding.request_id != s.continuation_request_id
                 or binding.thread_id != s.thread_id
                 or s.handoff is not None or not binding.turn_id
-                or binding.turn_id == s.binding.compact_turn_id):
+                or (binding.turn_id == s.binding.compact_turn_id
+                    and s.request.origin != "native_auto")):
             raise TransitionError("handoff needs completed rollover and a new continuation turn")
         handoff = Handoff(handoff_id or self._id(), s.request, binding.turn_id,
                           s.checkpoint.revisions.intent_revision,

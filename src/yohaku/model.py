@@ -95,6 +95,13 @@ class Request:
     checkpoint_id: str
     lease_id: str
     rollover_generation: int
+    origin: str = "controller"
+
+    def __post_init__(self):
+        if self.origin not in ("controller", "native_auto"):
+            raise ValueError("unknown rollover origin")
+        if self.origin == "native_auto" and self.lease_id:
+            raise ValueError("native observation cannot carry lease authority")
 
 
 @dataclass(frozen=True)

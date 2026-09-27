@@ -200,6 +200,8 @@ class CompanionController:
 
     def receive(self, message, *, request):
         self._ready()
+        if request is not None and request.origin == "native_auto":
+            return False  # Native observations never enter manual request correlation.
         before = self.snapshot
         event = self._backend.receive(message, request=request)
         if event or before != self.snapshot:

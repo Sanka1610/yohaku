@@ -17,7 +17,7 @@ def main():
         payload = json.loads(raw)
         response = {}
         event = payload.get("hook_event_name")
-        if (event in ("PreToolUse", "PostToolUse")
+        if (event in ("PreToolUse", "PostToolUse", "PreCompact")
                 or (event == "SessionStart" and payload.get("source") == "compact")):
             with socket.socket(socket.AF_UNIX) as client:
                 client.settimeout(5)

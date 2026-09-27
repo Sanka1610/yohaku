@@ -99,6 +99,7 @@ class RuntimeHost:
         if archive is not None and archive.owner is not companion:
             raise ValueError("archive adapter must share the Runtime owner")
         self.archive = archive
+        self.native = None
         from .work import WorkPlane
         self.work = WorkPlane(companion, cwd=work_cwd) if work_cwd is not None else None
         self.messages = queue.Queue()
@@ -125,6 +126,13 @@ class RuntimeHost:
         self.request = request
         return request
 
+    def enable_native_recovery(self, **kwargs):
+        from .native import NativeCompact
+        if self.native is not None:
+            raise TransitionError("native observer already attached")
+        self.native = NativeCompact(self, **kwargs)
+        return self.native
+
     def continue_task(self, recovered, *, cwd, observe, timeout=60.0, max_attempts=2):
         import math
         if not math.isfinite(timeout) or timeout <= 0:
@@ -136,6 +144,8 @@ class RuntimeHost:
 
     def receive(self, message):
         if message is None:
+            if self.native:
+                self.native.receive(None)
             if self.archive:
                 self.archive.receive(None)
             if self.work:
@@ -145,6 +155,12 @@ class RuntimeHost:
             return
         if not isinstance(message, dict):
             raise TransitionError("invalid Runtime envelope")
+        if self.native:
+            self.native.receive(message)
+            if self.native.stopped:
+                if self.work:
+                    self.work.receive(message)
+                return  # Never attribute an external compact to a pending manual request.
         if self.archive and self.archive.receive(message):
             return
         if self.work:
@@ -156,11 +172,21 @@ class RuntimeHost:
             self.on_unhandled(message)
 
     def deliver(self, payload):
+        if self.native:
+            output = self.native.deliver(payload)
+            if output is not None:
+                return output
+            if (self.native.stopped and payload.get("hook_event_name") == "SessionStart"
+                    and payload.get("source") == "compact"):
+                return {"continue": False}
         if self.work and payload.get("hook_event_name") in ("PreToolUse", "PostToolUse"):
             return self.work.deliver(payload)
         return self.companion.recovery.deliver(payload)
 
     def hook_expired(self, payload):
+        if (self.native and payload.get("hook_event_name") == "PreCompact"
+                and payload.get("session_id") == self.companion.snapshot.thread_id):
+            self.native.stop()
         if (self.work and payload.get("hook_event_name") in ("PreToolUse", "PostToolUse")
                 and payload.get("session_id") == self.companion.snapshot.thread_id):
             self.work.observation_lost()
@@ -179,6 +205,8 @@ class RuntimeHost:
         if self.bridge:
             self.bridge.poll(self)
         self.companion.poll_timeout()
+        if self.native:
+            self.native.poll()
         recovery = self.companion.recovery
         if self.deadline is not None and time.monotonic() >= self.deadline:
             self.deadline = None

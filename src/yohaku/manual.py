@@ -54,7 +54,7 @@ class ManualCompactBackend:
         self._allow_binding = False
 
     def request(self, request):
-        if (not self._pending_send or self.core.snapshot.state != State.ROLLOVER_REQUESTED
+        if (request.origin != "controller" or not self._pending_send or self.core.snapshot.state != State.ROLLOVER_REQUESTED
                 or self.core.snapshot.request != request):
             raise TransitionError("only the Controller's new durable request may dispatch")
         self._pending_send = False

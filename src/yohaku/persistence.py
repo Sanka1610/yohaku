@@ -227,6 +227,7 @@ class SessionStore:
             payload = _read(self.path / "handoffs" / f"{_component(handoff_id)}.json")["payload"]
             if type(payload) is dict and type(payload.get("recovered")) is dict:
                 payload["recovered"].setdefault("archive_ids", [])
+                payload["recovered"].setdefault("emergency", None)
             document = decode(HandoffDocument, payload)
             if document.handoff_id != handoff_id or document.request.thread_id != self.thread_id:
                 raise ValueError("handoff identity mismatch")
