@@ -92,10 +92,13 @@ class RuntimeHost:
     """
 
     def __init__(self, companion, stream=None, *, bridge=None, on_unhandled=None,
-                 work_cwd=None):
+                 work_cwd=None, archive=None):
         self.companion = companion
         self.bridge = bridge
         self.on_unhandled = on_unhandled
+        if archive is not None and archive.owner is not companion:
+            raise ValueError("archive adapter must share the Runtime owner")
+        self.archive = archive
         from .work import WorkPlane
         self.work = WorkPlane(companion, cwd=work_cwd) if work_cwd is not None else None
         self.messages = queue.Queue()
@@ -133,6 +136,8 @@ class RuntimeHost:
 
     def receive(self, message):
         if message is None:
+            if self.archive:
+                self.archive.receive(None)
             if self.work:
                 self.work.receive(None)
             if self.companion.snapshot.state not in (State.WORKING, State.RESUME_VERIFIED):
@@ -140,6 +145,8 @@ class RuntimeHost:
             return
         if not isinstance(message, dict):
             raise TransitionError("invalid Runtime envelope")
+        if self.archive and self.archive.receive(message):
+            return
         if self.work:
             self.work.receive(message)
         handled = self.companion.recovery.receive(message)

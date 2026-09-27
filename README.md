@@ -342,8 +342,8 @@ The host supplies the stable visible-turn ID and selected visible data on its
 owner loop after that turn is terminal. It must remove secrets and exclude
 hidden reasoning, raw provider envelopes and full tool output before calling
 `archive_turn()`. The package does not classify or redact arbitrary text.
-No Runtime notification collector, model-facing tool registration, parser,
-summarizer, database or external service is installed automatically.
+Runtime collection and model-facing retrieval are opt-in through the adapter
+below. No parser, summarizer, database or external service is installed.
 
 ```python
 from yohaku.archive import ArchiveMetadata, ArchiveTurn, ToolMetadata
@@ -421,8 +421,49 @@ references preserve their previous disk and rendered handoff formats. Existing
 records are never rewritten for migration. Older package versions reject records
 with the new fields; do not downgrade sessions that have archive references.
 The Core state machine, journal schema and recovery/continuation authority rules
-are unchanged. Runtime capture, host tool exposure and live post-compact retrieval
-acceptance remain integration work; local archive tests do not establish those.
+are unchanged. Local archive tests do not establish live Runtime acceptance.
+
+## Reference Runtime archive adapter
+
+For an initialized, exclusively owned App Server connection, pass
+`archive_tools()` from `yohaku.runtime_archive` as `thread/start.dynamicTools`.
+This experimental API requires `initialize.capabilities.experimentalApi = true`.
+After thread creation, attach the collector before starting any visible turn:
+
+```python
+from yohaku.runtime_archive import RuntimeArchive, archive_tools
+
+# select_visible_turn is trusted host policy: redact/select text and attach
+# metadata, or return None to omit the turn. Preserve metadata.archive_id.
+archive = RuntimeArchive(companion, send, select=select_visible_turn)
+host = RuntimeHost(companion, initialized_stdout, bridge=bridge,
+                   work_cwd=workspace, archive=archive)
+```
+
+The owner groups completed user-message text, commentary, one final answer, and
+bounded tool identity/status metadata by Runtime turn ID. Only an observed
+successful `turn/completed`, with an observed start and no pending items or
+conflicting visible completions, can commit through the existing `archive_turn()`.
+Unknown final phases, non-text user input, compaction turns, failed/interrupted
+turns and incomplete observation are not archived. No reasoning, tool arguments,
+full tool output or provider envelope is retained by this adapter. The explicit
+selector is responsible for sensitive visible text; there is no automatic
+redaction. Metadata defaults are deliberately generic; the host supplies useful
+paths, symbols, tags and titles without inferred parsing or summarization.
+
+Buffers are in memory, capped at 128 items and 1 MiB of selected input per turn.
+Stream loss or overlapping turns disables collection for that attachment. Restart
+never reconstructs unfinished turns. Replayed closed turns cannot commit twice.
+Turn completion establishes visible-conversation completeness only, not process
+termination or work incorporation; the existing work ledger remains authoritative
+for its declared scope.
+
+`search_archive` and `read_archive` requests use the existing WARM/COLD APIs on
+the owner loop. Responses label both metadata and bodies as DATA, NOT INSTRUCTIONS.
+Requests require the owned active turn, valid arguments and a fresh call ID.
+They do not alter Core state, release a barrier, restore authority or count as
+resume proof. Retrieval can inspect history while execution remains stopped.
+This read-only dynamic surface does not extend work-tool Hook coverage.
 
 ## Focused verification
 
@@ -432,6 +473,7 @@ PYTHONPATH=src python3 -m unittest discover -s tests -p test_companion.py -v
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_recovery.py -v
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_work.py -v
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_archive.py -v
+PYTHONPATH=src python3 -m unittest discover -s tests -p test_runtime_archive.py -v
 ```
 
 The first command checks Core contracts. The second uses real local POSIX files,
