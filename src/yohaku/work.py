@@ -82,7 +82,9 @@ class WorkPlane:
             run = p.get("run", {})
             if (p.get("turnId") == self._turn
                     and run.get("eventName") in ("preToolUse", "postToolUse")
-                    and run.get("status") != "completed"):
+                    and run.get("status") != "completed"
+                    and not (run.get("eventName") == "preToolUse"
+                             and run.get("status") == "blocked")):
                 self.observation_lost()
 
     def _continuation_work(self, turn_id):

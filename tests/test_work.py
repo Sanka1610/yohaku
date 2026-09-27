@@ -48,6 +48,15 @@ class WorkTests(unittest.TestCase):
         self.assertEqual(self.work.active, ())
         self.assertTrue(self.c.snapshot.barrier_requested)
 
+    def test_normal_runtime_blocked_status_keeps_barrier_armed(self):
+        self.work.quiesce("boundary")
+        self.deny(self.host.deliver(self.payload()))
+        self.host.receive(self.event("hook/completed", turnId="turn",
+            run={"eventName": "preToolUse", "status": "blocked"}))
+        self.assertFalse(self.work.observation_uncertain)
+        self.assertTrue(self.c.snapshot.barrier_requested)
+        self.deny(self.host.deliver(self.payload(ident="patch", name="apply_patch")))
+
     def test_registered_work_defers_releases_and_preserves_active(self):
         self.assertEqual(self.host.deliver(self.payload()), {})
         self.assertEqual(self.work.quiesce("boundary"), State.DEFERRED)
