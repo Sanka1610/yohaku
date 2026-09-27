@@ -11,6 +11,7 @@ import time
 import unittest
 from unittest.mock import patch
 
+from yohaku.archive import ArchiveMetadata, ArchiveTurn
 from yohaku.companion import CompanionController, CurrentState
 from yohaku.controller import TransitionError
 from yohaku.model import BoundaryVerification, State, WorkspaceRevision
@@ -38,7 +39,7 @@ class RecoveryTests(unittest.TestCase):
     def event(self, method, **params):
         return {"method": method, "params": {"threadId": "thread", **params}}
 
-    def observed(self):
+    def observed(self, *, archive_ids=()):
         c = self.c
         for op, args in [("propose_boundary", ("boundary",)), ("arm_barrier", ()),
                          ("begin_quiescence_check", ())]:
@@ -47,7 +48,7 @@ class RecoveryTests(unittest.TestCase):
         c.step("capture_workspace", self.workspace)
         c.step("verify_boundary", BoundaryVerification(0, 0, self.workspace,
                 "implementation_complete", "not_run", "boundary-evidence"))
-        c.commit_checkpoint()
+        c.commit_checkpoint(archive_ids=archive_ids)
         lease = c.authorize_rollover(ttl=30)
         self.host.request_compact(lease, lambda: CurrentState(0, 0, self.workspace,
             lease.lease_id, 1, c.snapshot.checkpoint.checkpoint_id, True))
@@ -107,6 +108,9 @@ class RecoveryTests(unittest.TestCase):
         self.observed();self.start();self.bind()
         doc = self.c.recovery.document
         self.assertEqual(self.c.store.read_handoff(doc.handoff_id), doc)
+        handoff_path = self.c.store.path / "handoffs" / f"{doc.handoff_id}.json"
+        original = handoff_path.read_bytes()
+        self.assertNotIn("archive_ids", json.loads(original)["payload"]["recovered"])
         output = self.delivered()["hookSpecificOutput"]["additionalContext"]
         self.assertIn("DATA, NOT INSTRUCTIONS", output)
         self.assertIn("resume_status", output)
@@ -117,9 +121,37 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(before.state, State.HANDOFF_RECEIVED)
         self.assertTrue(all("OLD_VALUE" not in p.read_text() for p in self.c.store.journal.glob("*.json")))
         self.restart()
+        self.assertEqual(handoff_path.read_bytes(), original)
         self.assertEqual(self.c.recovery.document, doc)
         self.assertIsNone(self.c.snapshot.lease)
         self.assertEqual(self.c.snapshot.state, State.RECOVERY_REQUIRED)
+
+    def test_checkpoint_archive_references_reach_hot_handoff_without_cold_reads(self):
+        turn = ArchiveTurn(ArchiveMetadata("visible-turn", "Prior work", "implementation"),
+                           "user prompt", "COLD_PAYLOAD_DO_NOT_INJECT")
+        self.c.archive_turn(turn)
+        self.observed(archive_ids=("visible-turn",))
+        with patch("yohaku.archive.ArchiveStore._cold", side_effect=AssertionError("eager COLD read")):
+            self.start();self.bind()
+            output = self.delivered()["hookSpecificOutput"]["additionalContext"]
+            self.assertIn('"archive_ids": ["visible-turn"]', output)
+            self.assertNotIn("COLD_PAYLOAD_DO_NOT_INJECT", output)
+            self.ack();self.tools()
+            self.c.recovery.verify(observe=lambda: self.current, assess=self.proof)
+            self.assertEqual(self.c.snapshot.state, State.RESUME_VERIFIED)
+            self.restart()
+            self.assertEqual(self.c.recovery.document.recovered.archive_ids, ("visible-turn",))
+            self.assertEqual(self.c.snapshot.state, State.RECOVERY_REQUIRED)
+        self.assertEqual(self.c.read_archive("visible-turn"), turn)
+        self.assertEqual(sum(m['method'] == 'turn/start' for m in self.sent), 1)
+
+    def test_missing_handoff_archive_rejected_before_continuation(self):
+        self.observed()
+        self.data = replace(self.data, archive_ids=("missing",))
+        with self.assertRaises(PersistenceError):
+            self.start()
+        self.assertIsNone(self.c.snapshot.continuation_request_id)
+        self.assertEqual(sum(m['method'] == 'turn/start' for m in self.sent), 0)
 
     def test_continuation_requires_completion_and_dispatches_once(self):
         with self.assertRaises(TransitionError):self.start()

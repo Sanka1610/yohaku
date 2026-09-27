@@ -126,6 +126,14 @@ class SessionStore:
                 if any(p.is_symlink() or not p.is_dir() for p in (self.checkpoints, self.journal)):
                     raise PersistenceError("incomplete session layout")
                 self._load()
+            from .archive import ArchiveStore
+            self.archives = ArchiveStore(self)
+            if self.latest:
+                snapshot, _ = self.latest
+                for checkpoint in (snapshot.checkpoint, snapshot.recoverable_checkpoint):
+                    if checkpoint and checkpoint.commit_evidence:
+                        self.archives.validate_references(
+                            self.checkpoint_archive_ids(checkpoint.checkpoint_id))
         except Exception:
             self.close()
             raise
@@ -153,29 +161,44 @@ class SessionStore:
             self._poisoned = True
             raise PersistenceError("durable write failed; no further dispatch allowed") from exc
 
-    def commit_checkpoint(self, checkpoint: Checkpoint) -> Checkpoint:
+    def commit_checkpoint(self, checkpoint: Checkpoint, *, archive_ids=()) -> Checkpoint:
         self._ready()
+        self.archives.validate_references(archive_ids)
         checkpoint_id = _component(checkpoint.checkpoint_id)
         committed = replace(checkpoint, commit_evidence=f"checkpoint:{checkpoint_id}")
         path = self.checkpoints / f"{checkpoint_id}.json"
         if path.exists():
-            if self.read_checkpoint(checkpoint_id) != committed:
+            if (self.read_checkpoint(checkpoint_id) != committed
+                    or self.checkpoint_archive_ids(checkpoint_id) != archive_ids):
                 raise PersistenceError("checkpoint ID content conflict")
             _sync_directory(self.checkpoints)
         else:
-            self._write(path, {"thread_id": self.thread_id, "checkpoint": encode(committed)})
+            payload = {"thread_id": self.thread_id, "checkpoint": encode(committed)}
+            if archive_ids:
+                payload["archive_ids"] = list(archive_ids)
+            self._write(path, payload)
         return committed
 
     def read_checkpoint(self, checkpoint_id):
+        return self._checkpoint(checkpoint_id)[0]
+
+    def checkpoint_archive_ids(self, checkpoint_id):
+        return self._checkpoint(checkpoint_id)[1]
+
+    def _checkpoint(self, checkpoint_id):
+        from .archive import archive_ids
         payload = _read(self.checkpoints / f"{_component(checkpoint_id)}.json")["payload"]
         try:
-            if set(payload) != {"thread_id", "checkpoint"} or payload["thread_id"] != self.thread_id:
+            if (set(payload) not in ({"thread_id", "checkpoint"},
+                                    {"thread_id", "checkpoint", "archive_ids"})
+                    or payload["thread_id"] != self.thread_id):
                 raise ValueError("wrong checkpoint owner")
+            references = archive_ids(decode(tuple[str, ...], payload.get("archive_ids", [])))
             checkpoint = decode(Checkpoint, payload["checkpoint"])
             if (checkpoint.checkpoint_id != checkpoint_id
                     or checkpoint.commit_evidence != f"checkpoint:{checkpoint_id}"):
                 raise ValueError("checkpoint identity mismatch")
-            return checkpoint
+            return checkpoint, references
         except (TypeError, ValueError) as exc:
             raise PersistenceError("invalid checkpoint") from exc
 
@@ -187,6 +210,7 @@ class SessionStore:
         from .recovery import HandoffDocument
         if not isinstance(document, HandoffDocument) or document.request.thread_id != self.thread_id:
             raise PersistenceError("wrong handoff owner")
+        self.archives.validate_references(document.recovered.archive_ids)
         directory = self.path / "handoffs"
         _mkdir(directory)
         path = directory / f"{_component(document.handoff_id)}.json"
@@ -195,15 +219,18 @@ class SessionStore:
                 raise PersistenceError("handoff ID conflict")
             _sync_directory(directory)
         else:
-            self._write(path, encode(document))
+            self._write(path, document.storage_payload())
 
     def read_handoff(self, handoff_id):
         from .recovery import HandoffDocument
         try:
-            document = decode(HandoffDocument, _read(
-                self.path / "handoffs" / f"{_component(handoff_id)}.json")["payload"])
+            payload = _read(self.path / "handoffs" / f"{_component(handoff_id)}.json")["payload"]
+            if type(payload) is dict and type(payload.get("recovered")) is dict:
+                payload["recovered"].setdefault("archive_ids", [])
+            document = decode(HandoffDocument, payload)
             if document.handoff_id != handoff_id or document.request.thread_id != self.thread_id:
                 raise ValueError("handoff identity mismatch")
+            self.archives.validate_references(document.recovered.archive_ids)
             return document
         except (TypeError, ValueError) as exc:
             raise PersistenceError("invalid handoff") from exc

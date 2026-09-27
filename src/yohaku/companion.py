@@ -80,6 +80,7 @@ class CompanionController:
     def _ready(self):
         if self._blocked:
             raise PersistenceError("Controller stopped after storage failure or close")
+        self.store._ready()
 
     def _save(self, event):
         try:
@@ -107,12 +108,28 @@ class CompanionController:
         self._ready()
         self._core.require_work()
 
-    def commit_checkpoint(self):
+    def archive_turn(self, turn):
+        """Persist a host-selected completed visible turn; this grants no authority."""
         self._ready()
+        if self.store.archives.commit(turn):
+            self.step("update_revisions", archive_changed=True)
+        return turn.metadata
+
+    def search_archive(self, query="", **filters):
+        self._ready()
+        return self.store.archives.search_archive(query, **filters)
+
+    def read_archive(self, archive_id):
+        self._ready()
+        return self.store.archives.read_archive(archive_id)
+
+    def commit_checkpoint(self, *, archive_ids=()):
+        self._ready()
+        self.store.archives.validate_references(archive_ids)
         checkpoint = self._core.prepare_checkpoint()
         self._save("checkpoint_preparing")
         try:
-            committed = self.store.commit_checkpoint(checkpoint)
+            committed = self.store.commit_checkpoint(checkpoint, archive_ids=archive_ids)
         except Exception:
             self._blocked = True
             raise

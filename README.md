@@ -65,6 +65,8 @@ $CODEX_HOME/yohaku/sessions/<thread-id>/
 ├─ writer.lock
 ├─ checkpoints/<checkpoint-id>.json
 ├─ handoffs/<handoff-id>.json
+├─ archive/<visible-turn-id>.json
+├─ archive-index/<visible-turn-id>.json
 └─ journal/000000000001.json, 000000000002.json, ...
 ```
 
@@ -73,7 +75,8 @@ write → flush → fsync(file) → atomic rename → fsync(parent directory). O
 this returns does the Companion report `CHECKPOINT_COMMITTED`. Temporary files
 are ignored during recovery. Checkpoints contain the current Core checkpoint
 metadata. Handoff documents store explicitly supplied historical task summaries
-separately from control metadata. Archive storage is not implemented.
+separately from control metadata. Optional turn archives and their lightweight
+metadata index reuse the same writer lock and durable write primitive.
 
 The journal is an append-only sequence of immutable JSON records with sequence
 and predecessor hashes. Each record contains Core state/transition metadata and
@@ -259,7 +262,8 @@ and fresh task assessment before verification. Missing identity cannot be guesse
 from newer events. An in-progress/unknown continuation stays stopped; reconcile
 again once its terminal state is observable. No automatic resend occurs.
 
-Archive/Lazy Rehydration and unmeasured work-tool coverage remain separate.
+Archive retrieval does not establish resume verification. Unmeasured work-tool
+coverage remains separate.
 The contract/profile distinguishes default and experimental `new_context`, both
 UNSUPPORTED in measured configurations; neither is selected by this package.
 
@@ -330,6 +334,96 @@ despite a failed Hook. A locally stopped owner is not Runtime cancellation.
 The admission/arm ordering is local to this owner and does not establish an
 atomic Runtime-wide freeze or Strong Transition Assurance.
 
+## Archive and lazy rehydration
+
+HOT remains the existing active handoff. WARM is a directory of small immutable
+JSON index records; COLD is one immutable JSON record per user-visible turn.
+The host supplies the stable visible-turn ID and selected visible data on its
+owner loop after that turn is terminal. It must remove secrets and exclude
+hidden reasoning, raw provider envelopes and full tool output before calling
+`archive_turn()`. The package does not classify or redact arbitrary text.
+No Runtime notification collector, model-facing tool registration, parser,
+summarizer, database or external service is installed automatically.
+
+```python
+from yohaku.archive import ArchiveMetadata, ArchiveTurn, ToolMetadata
+
+companion.archive_turn(ArchiveTurn(
+    metadata=ArchiveMetadata(
+        archive_id="visible-turn-014", title="Token storage investigation",
+        phase="research", paths=("src/auth.py",), symbols=("TokenStore",),
+        tags=("auth",), outcome="completed"),
+    user_prompt="Investigate token storage",
+    assistant_final="The existing TokenStore API can be reused.",
+    progress=("Inspected the current implementation",),
+    decisions=("Keep the existing API",),
+    verification_summary="Focused local check passed",
+    references=("verification-record-014",),
+    tools=(ToolMetadata("tool-014", "Bash", "completed"),),
+))
+
+candidates = companion.search_archive("token", phase="research", limit=10)
+selected = companion.read_archive(candidates[0].archive_id)
+# After the normal boundary verification sequence:
+checkpoint = companion.commit_checkpoint(archive_ids=(selected.metadata.archive_id,))
+```
+
+`search_archive(query="", *, path=None, symbol=None, tag=None, phase=None,
+outcome=None, limit=20, offset=0)` returns only `ArchiveMetadata` values:
+archive ID, title, phase, paths, symbols, tags and outcome. Each whitespace-separated
+query term must be a case-insensitive substring of at least one metadata field;
+terms are ANDed and may match different fields. Named filters are case-sensitive
+exact matches (membership for path/symbol/tag), ANDed with the query and each
+other. Paths remain literal host-provided strings: no cwd expansion, filesystem
+access or path normalization. Empty query lists metadata. Results use ascending
+lexical archive ID order, not relevance or time order; `limit` is 1–100 and
+`offset` is nonnegative. Query length is at most 4,096 characters. Search is a
+linear metadata scan with no body/full-text, fuzzy, regex or semantic search.
+
+`read_archive(id)` reads only the selected COLD file, checks its checksum and
+identity against WARM, and returns `ArchiveTurn` marked `DATA, NOT INSTRUCTIONS`.
+Search hits attest metadata, not the integrity or correctness of unread bodies.
+Neither search nor read changes Core state, restores a lease, dispatches work,
+or grants authority. Consumers must reconcile historical data with current intent
+and workspace before acting.
+
+Both files use the existing schema-1 envelope (`schema`, `sha256`, `payload`).
+COLD payload contains `thread_id` and `turn`; WARM payload contains `thread_id`,
+`metadata` and `cold_sha256`. Index filenames are derived from validated IDs,
+never caller-provided paths. Serialized metadata is capped at 16 KiB, the encoded
+turn at 1 MiB, and each collection at 128 entries. Oversized input is rejected
+without automatic truncation or compression. Modes remain directories 0700 and
+files 0600, under the existing POSIX session lock.
+
+Commit order is COLD then WARM, each using the existing fsync/rename sequence.
+The pair is not one atomic transaction. Identical turn-ID replay is idempotent;
+different content under the same ID is rejected. A write failure stops the open
+owner. Reopen validates WARM metadata and target existence, and rebuilds missing
+index entries from the corresponding COLD files after syncing their directory.
+Healthy reopen does not read COLD bodies. Existing corrupt index entries, dangling
+targets and invalid selected bodies fail closed; temporary files are ignored.
+The journaled `archive_revision` advances after a new archive commit without
+changing intent/execution revisions. It is an observed update counter, not an
+archive count or commit manifest: a crash before the journal update may leave a
+recoverable archive without that increment.
+
+`commit_checkpoint(archive_ids=(...))` stores bounded references in an optional
+checkpoint payload field, outside the unchanged Core checkpoint dataclass.
+Existing `RecoveryLifecycle.start()` copies these IDs into
+`RecoveredData.archive_ids`, together with any explicitly supplied IDs, removing
+duplicates. It validates references before consuming the continuation permit.
+The existing handoff persists/injects those IDs only; it never fetches or injects
+the entire archive. Hosts can inspect historical checkpoint references through
+`companion.store.checkpoint_archive_ids(checkpoint_id)` after restart.
+
+Old checkpoints and handoffs without archive references still load, and empty
+references preserve their previous disk and rendered handoff formats. Existing
+records are never rewritten for migration. Older package versions reject records
+with the new fields; do not downgrade sessions that have archive references.
+The Core state machine, journal schema and recovery/continuation authority rules
+are unchanged. Runtime capture, host tool exposure and live post-compact retrieval
+acceptance remain integration work; local archive tests do not establish those.
+
 ## Focused verification
 
 ```sh
@@ -337,6 +431,7 @@ PYTHONPATH=src python3 -m unittest discover -s tests -p test_controller.py -v
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_companion.py -v
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_recovery.py -v
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_work.py -v
+PYTHONPATH=src python3 -m unittest discover -s tests -p test_archive.py -v
 ```
 
 The first command checks Core contracts. The second uses real local POSIX files,
@@ -345,6 +440,10 @@ The third checks durable handoff, bounded redelivery, restart reconciliation,
 continuation suppression, actual Hook subprocess output and task verification.
 The fourth checks work admission, pending results, immediate DEFER/release,
 identity/replay rejection and a real Hook subprocess against the owner barrier.
+The fifth checks archive/index generation, metadata-only search, selected body
+reads, a fresh Python process, interrupted writes, index reconstruction, bounds,
+identity validation and checkpoint references. Recovery tests additionally cover
+references in the existing HOT handoff without eager COLD reads.
 These commands do not contact a provider or establish power-loss durability.
 A separate 2026-09-27 production acceptance run on the Reference Runtime reached
 RESUME_VERIFIED using current workspace/tool evidence (one synthetic task, five
