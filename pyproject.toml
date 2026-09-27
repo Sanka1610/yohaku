@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "yohaku"
 version = "0.1.0"
-description = "Semantic context lifecycle controller"
+description = "Proactive Context Compaction Manager"
 requires-python = ">=3.14"
 dependencies = []
 
