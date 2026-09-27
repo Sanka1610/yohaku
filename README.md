@@ -1,5 +1,40 @@
-# Yohaku - Semantic Context Lifecycle Manager  
-Proactive context compaction, checkpointing, and lazy recovery for long-running AI agent tasks.
+# Yohaku — Proactive Context Compaction Manager
+
+Yohaku manages when to compact context, verifies semantic and execution boundaries,
+preserves durable recovery state, checks actual compaction completion, and verifies
+current state before continuing a long-running AI agent task.
+
+**Verified Proactive Compaction** is the central design principle: boundary,
+checkpoint, authorization, runtime-specific completion proof, handoff receipt and
+resume verification form one evidence-backed transition within a declared scope.
+It is not a claim that every runtime or execution path has been verified.
+
+Yohaku reuses runtime-native compact, compression, memory and archive mechanisms
+where their contracts suffice. Its primary responsibility is lifecycle management
+and verification; it does not require a replacement compression algorithm.
+
+## Direction and support status
+
+Codex is the Reference implementation; Claude Code and Hermes are Targets;
+DeepSeek Harness and OpenCode are Next Targets; Gemini CLI and Antigravity are
+Future runtimes; Claude Desktop and Cowork are Research / Auxiliary surfaces.
+These labels express implementation and verification priority, not technical merit
+or existing support. Runtime maturity, evidence level, capability verdict and
+public release channel are separate axes; see [Support and release policy](SUPPORT_POLICY.md).
+
+Phases 1–14 are frozen as Codex Reference Implementation history at
+`7c4a2dda3ca2aed363ca8401ccad9ab5a489c16f`. Phase 14 evaluation is complete with an
+overall **PARTIAL** verdict. The bounded scenarios retain their original evidence,
+versions and limitations, including Hook **FAIL_OPEN**. The initial Yohaku maturity
+classification is **experimental**; this documentation change does not declare
+an Alpha release. Other runtime adapters have not been implemented or lab accepted.
+
+The existing package documented below is the Codex reference implementation.
+Its Core still contains Codex-specific completion predicates. Future extraction
+will share safety semantics and keep lifecycle events, work observation, triggers,
+completion proofs, runtime identity, injection, continuation and visible-turn
+extraction in runtime adapters. Other runtimes must not synthesize Codex events
+or be forced to satisfy Codex's event vocabulary.
 
 ## Controller Core
 
