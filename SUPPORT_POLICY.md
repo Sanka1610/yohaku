@@ -1,6 +1,6 @@
 # Yohaku — Support, maturity, evidence and release policy
 
-2026-09-28制定。YohakuのSubtitleは **Proactive Context Compaction Manager**、中核設計原則は **Verified Proactive Compaction** とする。本書は公開利用者向けの方針であり、将来の対応予定と現在確認できた対応を区別する。
+2026-09-28制定。YohakuのSubtitle・対外的な製品カテゴリは **Proactive Context Compaction Manager**、内部の中核概念は **Verified Context Transition** とする。CompactionはContext Transitionの実装方式の一つであり、RuntimeごとのTransition Strategyは方式別の契約・coverageで評価する。本書は公開利用者向けの方針であり、将来の対応予定と現在確認できた対応を区別する。
 
 ## Runtime priorityと対応範囲
 

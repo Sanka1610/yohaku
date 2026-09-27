@@ -4,10 +4,19 @@ Yohaku manages when to compact context, verifies semantic and execution boundari
 preserves durable recovery state, checks actual compaction completion, and verifies
 current state before continuing a long-running AI agent task.
 
-**Verified Proactive Compaction** is the central design principle: boundary,
+The public product category is **Proactive Context Compaction Manager**.
+The internal core concept is **Verified Context Transition**: boundary,
 checkpoint, authorization, runtime-specific completion proof, handoff receipt and
 resume verification form one evidence-backed transition within a declared scope.
 It is not a claim that every runtime or execution path has been verified.
+
+Compaction is one way to implement a Context Transition. Each runtime may have
+its own **Transition Strategies** for native compaction, manual compaction,
+fresh-context rollover or session migration, with distinct triggers, identities,
+completion proofs and continuation paths. These are not interchangeable mechanisms
+or a claim of implemented support. Verified Proactive Compaction describes the
+compaction case. Shared interfaces will be settled after Claude Code / Hermes
+capability probes; existing Codex APIs and implementation names remain unchanged.
 
 Yohaku reuses runtime-native compact, compression, memory and archive mechanisms
 where their contracts suffice. Its primary responsibility is lifecycle management
