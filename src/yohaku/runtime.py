@@ -64,6 +64,8 @@ class HookBridge:
                 response.update(recovery.deliver(payload))
             except TransitionError:
                 pass  # Runtime may fail open; no receipt/verification is inferred.
+        elif hasattr(recovery, "hook_expired"):
+            recovery.hook_expired(payload)
         ready.set()
         return True
 
@@ -89,10 +91,13 @@ class RuntimeHost:
     A restarted host cannot guess missing turn bindings from a new stream.
     """
 
-    def __init__(self, companion, stream=None, *, bridge=None, on_unhandled=None):
+    def __init__(self, companion, stream=None, *, bridge=None, on_unhandled=None,
+                 work_cwd=None):
         self.companion = companion
         self.bridge = bridge
         self.on_unhandled = on_unhandled
+        from .work import WorkPlane
+        self.work = WorkPlane(companion, cwd=work_cwd) if work_cwd is not None else None
         self.messages = queue.Queue()
         self.request = companion.snapshot.request
         self.deadline = None
@@ -111,6 +116,8 @@ class RuntimeHost:
             self.messages.put(None)
 
     def request_compact(self, lease, observe, **kwargs):
+        if self.work:
+            self.work.require_quiescent()
         request = self.companion.request_compact(lease, observe, **kwargs)
         self.request = request
         return request
@@ -126,16 +133,30 @@ class RuntimeHost:
 
     def receive(self, message):
         if message is None:
+            if self.work:
+                self.work.receive(None)
             if self.companion.snapshot.state not in (State.WORKING, State.RESUME_VERIFIED):
                 self.companion.step("fail", "runtime connection closed")
             return
         if not isinstance(message, dict):
             raise TransitionError("invalid Runtime envelope")
+        if self.work:
+            self.work.receive(message)
         handled = self.companion.recovery.receive(message)
         if not handled:
             handled = self.companion.receive(message, request=self.request)
         if not handled and self.on_unhandled is not None:
             self.on_unhandled(message)
+
+    def deliver(self, payload):
+        if self.work and payload.get("hook_event_name") in ("PreToolUse", "PostToolUse"):
+            return self.work.deliver(payload)
+        return self.companion.recovery.deliver(payload)
+
+    def hook_expired(self, payload):
+        if (self.work and payload.get("hook_event_name") in ("PreToolUse", "PostToolUse")
+                and payload.get("session_id") == self.companion.snapshot.thread_id):
+            self.work.observation_lost()
 
     def poll(self, timeout=0.05):
         try:
@@ -149,7 +170,7 @@ class RuntimeHost:
             except queue.Empty:
                 break
         if self.bridge:
-            self.bridge.poll(self.companion.recovery)
+            self.bridge.poll(self)
         self.companion.poll_timeout()
         recovery = self.companion.recovery
         if self.deadline is not None and time.monotonic() >= self.deadline:

@@ -1,4 +1,4 @@
-"""SessionStart command Hook: emit additionalContext from the live owner only."""
+"""Synchronous work admission and SessionStart recovery from the live owner."""
 
 import argparse
 import json
@@ -16,7 +16,9 @@ def main():
             raise ValueError("oversized Hook input")
         payload = json.loads(raw)
         response = {}
-        if payload.get("hook_event_name") == "SessionStart" and payload.get("source") == "compact":
+        event = payload.get("hook_event_name")
+        if (event in ("PreToolUse", "PostToolUse")
+                or (event == "SessionStart" and payload.get("source") == "compact")):
             with socket.socket(socket.AF_UNIX) as client:
                 client.settimeout(5)
                 client.connect(args.socket)

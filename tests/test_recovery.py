@@ -251,5 +251,29 @@ class RecoveryTests(unittest.TestCase):
         self.c.close()
         with self.assertRaises(PersistenceError):CompanionController('thread',self.sent.append)
 
+    def test_work_gate_allows_only_live_delivered_continuation(self):
+        from yohaku.work import WorkPlane
+        self.host.work = WorkPlane(self.c, cwd=self.tmp.name)
+        self.observed(); self.start(); self.bind()
+        payload = {"hook_event_name": "PreToolUse", "session_id": "thread",
+                   "turn_id": "continuation", "cwd": self.tmp.name,
+                   "tool_name": "Bash", "tool_use_id": "before-delivery"}
+        self.assertEqual(self.host.deliver(payload)["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.delivered()
+        payload["tool_use_id"] = "after-delivery"
+        self.assertEqual(self.host.deliver(payload), {})
+        self.c.recovery.stop("test timeout")
+        payload["tool_use_id"] = "after-timeout"
+        self.assertEqual(self.host.deliver(payload)["hookSpecificOutput"]["permissionDecision"], "deny")
+
+    def test_work_observation_eof_preserves_verified_recovery(self):
+        from yohaku.work import WorkPlane
+        self.host.work = WorkPlane(self.c, cwd=self.tmp.name)
+        self.complete()
+        self.c.recovery.verify(observe=lambda:self.current, assess=self.proof)
+        self.host.receive(None)
+        self.assertEqual(self.c.snapshot.state, State.RESUME_VERIFIED)
+        self.assertTrue(self.host.work.observation_uncertain)
+
 
 if __name__ == '__main__':unittest.main()

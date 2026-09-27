@@ -259,9 +259,76 @@ and fresh task assessment before verification. Missing identity cannot be guesse
 from newer events. An in-progress/unknown continuation stays stopped; reconcile
 again once its terminal state is observable. No automatic resend occurs.
 
-Archive/Lazy Rehydration and broad work-tool barrier integration remain separate.
+Archive/Lazy Rehydration and unmeasured work-tool coverage remain separate.
 The contract/profile distinguishes default and experimental `new_context`, both
 UNSUPPORTED in measured configurations; neither is selected by this package.
+
+## Bounded work-plane integration
+
+For the measured `Bash` and `apply_patch` Hook paths, enable admission before the
+first work turn on a newly observed-idle, exclusively owned thread:
+
+```python
+host = RuntimeHost(companion, initialized_stdout, bridge=bridge, work_cwd=workspace)
+```
+
+Register the same `python3 -m yohaku.hook --socket ...` command as both
+`PreToolUse` and `PostToolUse`, with matcher `Bash|apply_patch`, using the trust and
+timeout setup above. These are Hook tool names; a shell call exposed as
+`exec_command` uses the measured `Bash` Hook path. Leave SessionStart/PostCompact
+registered for the existing recovery lifecycle. The owner must keep pumping
+`host.poll()` while a synchronous Hook waits. No configuration is changed by
+the package.
+
+`host.work.quiesce(new_boundary_id)` invokes the existing Core proposal, arm and
+quiescence check on the same owner loop that registers work before returning a
+PreToolUse response. It returns `DEFERRED` immediately if an admitted execution,
+unincorporated result or known observation gap remains. The journal records
+`DEFERRED`, releases the barrier and returns the Core to `WORKING` in that call;
+it never waits for a process to finish. With no known work in this declared scope,
+it returns `WORKSPACE_SNAPSHOT`; workspace capture and verification remain the
+host's responsibility. This does not attest global quiescence or a verified
+integrity window.
+
+An armed barrier rejects new measured work with an explicit Hook deny response.
+Identity requires the owned thread, the observed active turn, exact workspace
+and tool-use ID. Replayed starts cannot grant another permit. Control operations
+use the owner API, not a shell-command exemption. `host.work.cancel()` uses Core
+invalidation before dispatch; revision invalidation and lease expiry also release
+the live gate through Core state. A dispatched/ambiguous transition requires
+reconciliation and cannot be cancelled into ordinary work.
+
+PostToolUse moves an admission to `host.work.pending_results`; it does not prove
+process termination or result incorporation. A Bash tool may have yielded a
+still-running session. After independently confirming terminal execution and
+incorporating all effects, including partial effects of failed tools, the trusted
+host updates its current revision/workspace observer and calls:
+
+```python
+host.work.incorporate(work_key, execution_complete=True, evidence_ref=record_id)
+```
+
+`work_key` is a `WorkKey(turn_id, tool_use_id, tool_name)` from the pending list.
+Turn completion alone does not clear outstanding work. RuntimeHost also checks
+this ledger before compact dispatch. The ledger stores only identities and
+phases in memory, not commands or results. It is not durable or reconstructed on
+restart; a new attachment requires fresh evidence of an idle thread and fully
+incorporated prior work. Known Hook failures, expired bridge requests and stream
+loss make observation uncertain; creating a fresh ledger is not reconciliation.
+
+The existing recovery path can admit work only on its bound live continuation
+turn after confirmed handoff injection, while its cursor is neither stopped nor
+terminal. This narrow continuation permission does not grant ordinary work in
+AMBIGUOUS/RECOVERY_REQUIRED or change the existing resume verifier.
+
+The Reference Runtime profile measures normal deny/controlled ordering for Bash
+and apply_patch, and active-work DEFER for one registered foreground Bash worker.
+Active apply_patch, detached children, general parallel work, MCP/local-function
+tools and external writers have no equivalent acceptance. Hook timeout, nonzero,
+malformed and missing-output paths remain `FAIL_OPEN`; the Runtime may execute
+despite a failed Hook. A locally stopped owner is not Runtime cancellation.
+The admission/arm ordering is local to this owner and does not establish an
+atomic Runtime-wide freeze or Strong Transition Assurance.
 
 ## Focused verification
 
@@ -269,12 +336,15 @@ UNSUPPORTED in measured configurations; neither is selected by this package.
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_controller.py -v
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_companion.py -v
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_recovery.py -v
+PYTHONPATH=src python3 -m unittest discover -s tests -p test_work.py -v
 ```
 
 The first command checks Core contracts. The second uses real local POSIX files,
 close/reopen recovery, injected write failures, and fake runtime notifications.
 The third checks durable handoff, bounded redelivery, restart reconciliation,
 continuation suppression, actual Hook subprocess output and task verification.
+The fourth checks work admission, pending results, immediate DEFER/release,
+identity/replay rejection and a real Hook subprocess against the owner barrier.
 These commands do not contact a provider or establish power-loss durability.
 A separate 2026-09-27 production acceptance run on the Reference Runtime reached
 RESUME_VERIFIED using current workspace/tool evidence (one synthetic task, five
