@@ -47,8 +47,10 @@ Consumed boundaries require a new boundary ID and fresh verification to retry.
 
 Yohaku uses a Plugin + Companion Controller architecture. The production
 Companion now connects the Core to POSIX persistence and ManualCompactBackend.
-The Plugin's production Hook delivery and explicit continuation are later units;
-this adapter stops at `ROLLOVER_OBSERVED` and sends no continuation RPC.
+The Companion also owns same-thread continuation, durable handoff delivery through
+a synchronous SessionStart Hook, correlated receipt, and task-specific resume
+verification. The host supplies an initialized Runtime connection and trusted
+current-state/task observers; there is no general-purpose task success oracle.
 
 Persistence resolves `CODEX_HOME` first and stores data below its `yohaku` child.
 When unset or empty, the resolver uses the platform user's home plus `.codex`:
@@ -62,6 +64,7 @@ Yohaku automatically. Existing storage is not migrated implicitly.
 $CODEX_HOME/yohaku/sessions/<thread-id>/
 ├─ writer.lock
 ├─ checkpoints/<checkpoint-id>.json
+├─ handoffs/<handoff-id>.json
 └─ journal/000000000001.json, 000000000002.json, ...
 ```
 
@@ -69,12 +72,17 @@ $CODEX_HOME/yohaku/sessions/<thread-id>/
 write → flush → fsync(file) → atomic rename → fsync(parent directory). Only after
 this returns does the Companion report `CHECKPOINT_COMMITTED`. Temporary files
 are ignored during recovery. Checkpoints contain the current Core checkpoint
-metadata; task-content/archive payloads are not introduced here.
+metadata. Handoff documents store explicitly supplied historical task summaries
+separately from control metadata. Archive storage is not implemented.
 
 The journal is an append-only sequence of immutable JSON records with sequence
 and predecessor hashes. Each record contains Core state/transition metadata and
-the compact request/turn cursor. It records request intent before any transport
-byte, acceptance separately, correlation, completion, ambiguity, and restart.
+the compact request/turn cursor and optional recovery cursor. It records request intent before any transport
+byte, acceptance separately, correlation, completion, ambiguity, restart, continuation
+intent, HANDOFF_OFFERED, delivery attempts, HANDOFF_RECEIVED and RESUME_VERIFIED.
+The optional recovery field is an additive read extension: old journals remain
+readable without rewriting them. Older package versions reject new records; do
+not downgrade a session with recovery records.
 It does not store raw notifications, provider bodies, Hook output, or transport
 error text. Adapter-supplied evidence references must be non-secret record IDs.
 Active leases and clock deadlines are omitted entirely. Files are created with
@@ -139,8 +147,8 @@ The owner must serialize these operations on one event loop:
    `ROLLOVER_OBSERVED`, including after a store close/reopen with intact mapping.
 6. Do not dispatch work or compact while `AMBIGUOUS`. After restart with no
    pending request, `step("reconcile_restart", ...)` requires current-state
-   evidence before a new verified boundary. No production continuation method
-   is exposed in this stage.
+   evidence before a new verified boundary. After observed rollover, use the
+   production recovery path below; restart never grants another continuation permit.
 
 The basic RPC format is also documented in the official
 [App Server reference](https://learn.chatgpt.com/docs/app-server). The stricter
@@ -159,20 +167,116 @@ Operational Continuity was demonstrated within the Probe's measured scope;
 these local adapter tests do not establish production runtime acceptance.
 Strong Transition Assurance remains unestablished.
 
-Hook integration, explicit continuation, checkpoint task-content/archive storage,
-handoff serialization and bounded redelivery, full evidence/coverage profiles,
-and runtime acceptance remain separate work.
-`recovery_required()` provides the stop state for delivery limits or recovery
-failures; there is no delivery retry scheduler in this package yet.
+## Production recovery and continuation
+
+`RuntimeHost(companion, initialized_stdout, bridge=HookBridge())` reads the JSONL
+stream on a reader thread. Its `poll()` processes events, Hook requests and timers
+on the single owner thread. Use `host.request_compact(...)` to capture the immutable
+request for that stream. The host must close the Runtime process/stream on shutdown
+and close both the Companion and HookBridge. Do not use a second reader on stdout.
+
+After `ROLLOVER_OBSERVED`, call:
+
+```python
+host.continue_task(recovered_data, cwd=workspace, observe=read_current_context,
+                   timeout=60, max_attempts=2)
+```
+
+`RecoveredData` contains logical task identity, completed work, historical goal,
+unresolved items, next-action candidate and workspace pointers. The handoff file
+binds it to the checkpoint, boundary, compact request, generation and revisions.
+It is durable before the continuation permit is journaled, and that permit is
+durable before `turn/start` is sent. The fixed continuation prompt contains no
+historical command or task-specific action. Transport uncertainty consumes the
+permit; no restart or duplicate completion can send another continuation turn.
+The final observation-to-dispatch race still exists.
+
+Register the following command in the run's trusted project Hook configuration,
+using the installed Python/package location and `bridge.path`:
+
+```text
+python3 -m yohaku.hook --socket <bridge.path>
+```
+
+Use `SessionStart` with matcher `startup|resume|clear|compact` and a synchronous
+command timeout exceeding the bridge's five-second timeout (for example eight
+seconds). Also register this command as `PostCompact` with matcher `manual|auto`
+so the required completion notification is observable. Review/trust the exact
+Hook command using the measured Runtime's trust mechanism; the package does not
+modify normal config or bypass trust. `PostCompact` returns `{}`; only
+`SessionStart(source=compact)` requests delivery from the live owner.
+
+The Hook's private Unix socket is temporary, local to the owner process, and
+exposes no network listener. If the Runtime is separately sandboxed, the host
+must make this socket accessible to its Hook process. The background bridge
+thread never changes Core or storage. The owner matches the Runtime
+`turn/started` and `hook/started` envelopes with the Hook's session/source/cwd
+before returning `hookSpecificOutput.additionalContext`. Hook payloads lack a
+native turn ID in this Reference Runtime; this association requires the exclusive
+thread and ordered-stream assumptions. A missing owner or failed Hook never
+counts as receipt, even though the Runtime may fail open.
+
+Delivery attempts use the same handoff ID and have a persisted limit. Repeated
+matching Hook requests can redeliver within that limit; the Controller does not
+create extra continuation turns to force another SessionStart. Exhaustion,
+completion without ACK, or continuation timeout stops in `RECOVERY_REQUIRED`.
+A live Runtime may still be sampling after a Controller timeout: this is a local
+work/dispatch gate, not proof of Runtime cancellation. Exactly-once delivery is
+not promised.
+
+A completed SessionStart output plus an exact `YOH_ACK:<handoff-id>:<generation>`
+marker on a completed assistant item of the bound continuation turn establishes
+`HANDOFF_RECEIVED`. The generation comes from the saved Controller binding, not
+a native context-generation identifier. Duplicate ACKs are no-ops. Successful
+Hook output alone is not proof that a model acted on it; provider-request delivery
+is independently checked in acceptance, and production receipt additionally
+requires the correlated ACK.
+
+After a successful continuation turn, call:
+
+```python
+companion.recovery.verify(observe=read_current_context, assess=assess_task_progress)
+```
+
+The current-state observer returns `CurrentContext`. The task assessor receives
+the immutable handoff and transient actual tool items, including failed commands
+that might have partial effects. It must return `ResumeProof` based on current
+intent, tool reads/outputs and resulting workspace state. Read/action item IDs
+must identify successful tools in the bound turn. The Controller re-observes
+current revisions/workspace around assessment, requires the same logical task,
+checks all continuity criteria, then calls the Core's resume verifier. An ACK,
+an assistant's success statement, unknown assessment, stale state or repeated
+completed work cannot establish `RESUME_VERIFIED`. Tool/provider bodies are never
+journaled. Task observers are trusted adapters, not model-supplied assertions;
+applications must supply an assessor for their task and declared workspace scope.
+
+After restart the durable handoff and ACK are recovery candidates. The state is
+`RECOVERY_REQUIRED`, with no lease or continuation dispatch authority. Obtain a
+fresh trusted Runtime thread observation and pass its normalized thread object
+to `companion.recovery.reconcile_runtime(thread)`. It requires the exact saved
+continuation turn, successful terminal status, current item replay including ACK,
+and fresh task assessment before verification. Missing identity cannot be guessed
+from newer events. An in-progress/unknown continuation stays stopped; reconcile
+again once its terminal state is observable. No automatic resend occurs.
+
+Archive/Lazy Rehydration and broad work-tool barrier integration remain separate.
+The contract/profile distinguishes default and experimental `new_context`, both
+UNSUPPORTED in measured configurations; neither is selected by this package.
 
 ## Focused verification
 
 ```sh
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_controller.py -v
 PYTHONPATH=src python3 -m unittest discover -s tests -p test_companion.py -v
+PYTHONPATH=src python3 -m unittest discover -s tests -p test_recovery.py -v
 ```
 
 The first command checks Core contracts. The second uses real local POSIX files,
 close/reopen recovery, injected write failures, and fake runtime notifications.
-Neither command contacts a provider. Power-loss durability and Runtime E2E are
-not established by these tests.
+The third checks durable handoff, bounded redelivery, restart reconciliation,
+continuation suppression, actual Hook subprocess output and task verification.
+These commands do not contact a provider or establish power-loss durability.
+A separate 2026-09-27 production acceptance run on the Reference Runtime reached
+RESUME_VERIFIED using current workspace/tool evidence (one synthetic task, five
+provider requests). Its internal report records the exact tested source hashes
+and distinguishes later local guards from the live-tested source.

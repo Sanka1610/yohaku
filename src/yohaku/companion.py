@@ -8,6 +8,7 @@ from .controller import Controller, TransitionError
 from .manual import ManualCompactBackend
 from .model import Lease, State, WorkspaceRevision
 from .persistence import PersistenceError, SessionStore
+from .recovery import RecoveryLifecycle
 
 
 @dataclass(frozen=True)
@@ -56,6 +57,7 @@ class CompanionController:
                             snapshot = replace(snapshot, recoverable_checkpoint=candidate)
                 self._core = Controller.restart(snapshot)
             self._backend = ManualCompactBackend(self._core, send, cursor=cursor)
+            self.recovery = RecoveryLifecycle(self, send, self.store.recovery, restarted=not create)
             self._save("created" if create else "restart")
         except Exception:
             self.store.close()
@@ -83,7 +85,9 @@ class CompanionController:
         try:
             if self.snapshot.request is None:
                 self._backend.reset()
-            self.store.append(self.snapshot, self._backend.cursor, event)
+                self.recovery.cursor = None
+            self.store.append(self.snapshot, self._backend.cursor, event,
+                              recovery=self.recovery.cursor)
         except Exception:
             self._blocked = True
             raise

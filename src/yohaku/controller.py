@@ -285,7 +285,8 @@ class Controller:
         self._change(continuation_request_id=request_id)
         return request_id
 
-    def offer_handoff(self, binding: ContinuationBinding, *, recovered_context: str) -> Handoff:
+    def offer_handoff(self, binding: ContinuationBinding, *, recovered_context: str,
+                      handoff_id: str | None = None) -> Handoff:
         """Bind the adapter's explicit same-thread continuation to one handoff."""
         self._require(State.ROLLOVER_OBSERVED, State.RECOVERY_REQUIRED)
         s = self.snapshot
@@ -295,7 +296,7 @@ class Controller:
                 or s.handoff is not None or not binding.turn_id
                 or binding.turn_id == s.binding.compact_turn_id):
             raise TransitionError("handoff needs completed rollover and a new continuation turn")
-        handoff = Handoff(self._id(), s.request, binding.turn_id,
+        handoff = Handoff(handoff_id or self._id(), s.request, binding.turn_id,
                           s.checkpoint.revisions.intent_revision,
                           s.checkpoint.revisions.execution_revision, recovered_context)
         self._change(state=State.HANDOFF_OFFERED, handoff=handoff)
@@ -331,6 +332,21 @@ class Controller:
                             evidence.same_task_continued))):
             raise TransitionError("receipt alone is not current-state resume verification")
         self._change(state=State.RESUME_VERIFIED, barrier_requested=False)
+
+    def reconcile_resume_context(self, *, intent_revision, execution_revision, workspace):
+        """Publish trusted current observations after rollover, without old authority."""
+        self._require(State.ROLLOVER_OBSERVED, State.HANDOFF_RECEIVED, State.RECOVERY_REQUIRED)
+        s = self.snapshot
+        if (type(intent_revision) is not int or type(execution_revision) is not int
+                or intent_revision < s.revisions.intent_revision
+                or execution_revision < s.revisions.execution_revision
+                or workspace.mutation_epoch < s.workspace.mutation_epoch
+                or (workspace != s.workspace and
+                    (workspace.mutation_epoch <= s.workspace.mutation_epoch
+                     or execution_revision <= s.revisions.execution_revision))):
+            raise TransitionError("stale resume context")
+        self._change(revisions=replace(s.revisions, intent_revision=intent_revision,
+                                      execution_revision=execution_revision), workspace=workspace)
 
     def recovery_required(self, reason: str):
         self._require(State.ROLLOVER_OBSERVED, State.HANDOFF_OFFERED,

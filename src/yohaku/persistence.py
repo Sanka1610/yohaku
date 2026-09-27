@@ -107,6 +107,7 @@ class SessionStore:
         self._sequence = 0
         self._previous = None
         self.latest = None
+        self.recovery = None
         if create:
             _mkdir(self.path.parent)
             self.path.mkdir(mode=0o700)  # deliberately exclusive, even after an interrupted create
@@ -181,27 +182,59 @@ class SessionStore:
     def recovery_candidates(self):
         return tuple(self.read_checkpoint(p.stem) for p in sorted(self.checkpoints.glob("*.json")))
 
-    def append(self, snapshot: Snapshot, cursor: dict, event: str):
+    def commit_handoff(self, document):
         self._ready()
-        if snapshot.thread_id != self.thread_id or snapshot.handoff is not None:
-            raise PersistenceError("wrong session or unsupported handoff payload")
+        from .recovery import HandoffDocument
+        if not isinstance(document, HandoffDocument) or document.request.thread_id != self.thread_id:
+            raise PersistenceError("wrong handoff owner")
+        directory = self.path / "handoffs"
+        _mkdir(directory)
+        path = directory / f"{_component(document.handoff_id)}.json"
+        if path.exists():
+            if self.read_handoff(document.handoff_id) != document:
+                raise PersistenceError("handoff ID conflict")
+            _sync_directory(directory)
+        else:
+            self._write(path, encode(document))
+
+    def read_handoff(self, handoff_id):
+        from .recovery import HandoffDocument
+        try:
+            document = decode(HandoffDocument, _read(
+                self.path / "handoffs" / f"{_component(handoff_id)}.json")["payload"])
+            if document.handoff_id != handoff_id or document.request.thread_id != self.thread_id:
+                raise ValueError("handoff identity mismatch")
+            return document
+        except (TypeError, ValueError) as exc:
+            raise PersistenceError("invalid handoff") from exc
+
+    def append(self, snapshot: Snapshot, cursor: dict, event: str, *, recovery=None):
+        self._ready()
+        if snapshot.thread_id != self.thread_id:
+            raise PersistenceError("wrong session")
+        if snapshot.handoff and snapshot.handoff.recovered_context != f"handoff:{snapshot.handoff.handoff_id}":
+            raise PersistenceError("journal handoff must reference a separate durable document")
         _component(event)
         # Deadlines and active authority are intentionally absent from disk.
         saved = replace(snapshot, lease=None, reason=None,
                         revoked_lease_id=snapshot.lease.lease_id if snapshot.lease else snapshot.revoked_lease_id)
         payload = {"sequence": self._sequence + 1, "previous": self._previous,
                    "event": event, "snapshot": encode(saved), "cursor": cursor}
+        if recovery is not None:
+            payload["recovery"] = encode(recovery)
         self._write(self.journal / f"{self._sequence + 1:012d}.json", payload)
         self._sequence += 1
         self._previous = _envelope(payload)["sha256"]
         self.latest = (saved, dict(cursor))
+        self.recovery = payload.get("recovery")
 
     def _load(self):
         for path in sorted(self.journal.glob("*.json")):
             record = _read(path)
             p = record["payload"]
             try:
-                if (set(p) != {"sequence", "previous", "event", "snapshot", "cursor"}
+                if (set(p) not in ({"sequence", "previous", "event", "snapshot", "cursor"},
+                                  {"sequence", "previous", "event", "snapshot", "cursor", "recovery"})
                         or p["sequence"] != self._sequence + 1 or p["previous"] != self._previous
                         or path.name != f"{self._sequence + 1:012d}.json"):
                     raise ValueError("journal gap or order mismatch")
@@ -212,6 +245,7 @@ class SessionStore:
                 self._sequence += 1
                 self._previous = record["sha256"]
                 self.latest = (snapshot, p["cursor"])
+                self.recovery = p.get("recovery")
             except (TypeError, ValueError, KeyError) as exc:
                 raise PersistenceError("invalid journal; refusing fallback to older state") from exc
         if self.latest is None:
