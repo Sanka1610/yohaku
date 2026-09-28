@@ -15,6 +15,11 @@ remains PARTIAL. Claude Code C-CLI has an externally reviewed live PASS for the
 bounded Yohaku manual-completion workflow; its overall profile remains PARTIAL.
 Opt-in C-CLI recovery has separately scoped maintainer local-backend synthetic
 Evidence; external subscription recovery acceptance remains NOT_RUN.
+Codex `0.158.0-alpha.2.1` has one live-accepted, nonfixture Real-task Profile,
+`document-review-report-v1`: it reads only declared documents and creates one
+fixed Markdown report through a verified manual transition. Writing quality is
+not mechanically assessed, and this result does not cover general document or
+coding tasks.
 The recorded Codex acceptance is scoped and overall **PARTIAL**;
 this repository does not declare an Alpha, Beta, or Stable release.
 
@@ -71,6 +76,7 @@ checkpoint, so an emergency observation remains explicitly unverified.
 | Priority | Runtime | Yohaku implementation / evidence status |
 |---|---|---|
 | Reference | Codex | Experimental Python integration; bounded historical lab acceptance, overall PARTIAL |
+| Real-task Profile | Codex `document-review-report-v1` | One fixed live workflow PASS; writing quality NOT_ASSESSED; product coverage remains PARTIAL |
 | Target | Hermes | H-CLI-01 embedded adapter and bounded workflow PASS / profile PARTIAL; explicit receipt, no restart |
 | Target | Claude Code | C-CLI 2.1.280/Linux/print-stream-json: bounded completion live PASS, overall PARTIAL; subscription recovery NOT_RUN; separate maintainer local-live synthetic evidence; SDK/API separate |
 | Next Target | DeepSeek Harness / OpenCode | Research candidates; adapters unimplemented |
@@ -106,6 +112,8 @@ editable installs are development/Probe techniques, not release installation.
 The [installation guide](docs/installation.md) covers builds, exact interpreter
 selection, basic TOML configuration, explicit enable/disable and removal.
 Installing the package does not enable the integration.
+The [document-review profile reference](docs/reference/document-review-report-v1.md)
+defines its exact input/output, tool, observer, assessor and no-retry contract.
 
 For a local developer Core check from a checkout, without provider access:
 
@@ -144,6 +152,9 @@ completion/recovery metadata and existing handoff files. Neither adapter impleme
   ownership, an ordered observation stream, and bounded tool coverage are required.
 - Arbitrary MCP/local-function tools, detached or parallel work, external writers,
   and active `apply_patch` lack equivalent acceptance.
+- `document-review-report-v1` accepts only its two dynamic tools, one manual
+  transition and one create-only report. Existing output, restart, repeated
+  transition, other document workflows and prose-quality scoring are unsupported.
 - Native recovery covers one compaction per attachment. Native recovery restart
   is `UNSUPPORTED`; repeated compaction and power-loss behavior are not accepted.
 - Host-supplied observers, resume assessors, and visible-text selectors are trusted
@@ -175,6 +186,7 @@ release decision. See the [Support and release policy](SUPPORT_POLICY.md).
 - [Hermes H-CLI-01 reference](docs/reference/hermes.md): embedded host wiring, receipt and scope limits.
 - [Claude Code C-CLI reference](docs/reference/claude-cli.md): manual completion, opt-in recovery and evidence limits.
 - [Codex reference](docs/reference/codex.md): existing API, storage, Hook, recovery, and archive contracts.
+- [Document review report v1](docs/reference/document-review-report-v1.md): first fixed Real-task Profile and its acceptance boundary.
 - [Support and release policy](SUPPORT_POLICY.md): maturity, evidence, feedback, and release criteria.
 
 Existing README section links remain available below; detailed content is now in

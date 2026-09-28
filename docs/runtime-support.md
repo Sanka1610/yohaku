@@ -399,10 +399,24 @@ promote Anthropic subscription evidence or Claude Code as a whole to PASS. See t
 
 The [operational CLI](operations.md) has separate no-inference lifecycle profiles
 for Codex 0.158.0-alpha.2.1 and pinned Hermes 0.21.0. Native start/status/stop and
-fresh-session restart are lab-tested; task execution, automatic transition and
-RESUME_VERIFIED are unavailable. Codex 0.155 Reference Evidence is not applied
-to 0.158. Hermes native CLI construction leaves the lazy inference agent and
-transition adapter disabled; H-CLI-01 task coverage is unchanged.
+fresh-session restart are lab-tested. Codex 0.155 Reference Evidence is not
+applied to the 0.158 lifecycle profile. Hermes native CLI construction leaves the
+lazy inference agent and transition adapter disabled; H-CLI-01 task coverage is
+unchanged.
+
+The separate Codex 0.158 `document-review-report-v1` profile has one bounded
+lab/live-runtime/nonfixture PASS. It used a private workspace with two declared
+public-document inputs, one manual compact and one create-only Markdown report.
+It reached `RESUME_VERIFIED`; input/instruction/output hashes matched, total reads
+were two, write start/completion/result incorporation were each one, final
+active/pending were zero, and no command, file-change or MCP item was observed.
+The repeated run was refused as stale output without changing the report.
+
+This Evidence does not apply to the lifecycle-only Codex profile or historical
+Codex 0.155 profile. It does not assess report quality, external-writer exclusion,
+restart, repeated transitions, arbitrary document tasks, coding tasks, another
+Codex version, Hermes or Claude. See the
+[fixed task contract](reference/document-review-report-v1.md).
 
 Historical C-CLI and its maintainer nonce profile appear in profile/status output
 with launch unsupported, overall PARTIAL and their distinct evidence provenance.

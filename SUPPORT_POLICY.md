@@ -49,6 +49,8 @@ Claude Code + Ollama localは、固定version/modelの[maintainer testing profil
 
 Codexの既存受入はCLI `0.155.0-alpha.16.4` / WSL2 Ubuntu / Python `3.14.4`の限定profileである。Phase 14のlive信号を使った合成taskはlab tested / live-runtime、局所・合成テストはlab tested / local-syntheticとして読む。Field Evidenceの取得や現在版での再実行を示すものではない。native auto compactは1 attachmentにつき1回の範囲、native recovery途中のrestartはUNSUPPORTED、反復compactや一般の並列・外部work等は未受入である。
 
+Codex `0.158.0-alpha.2.1`の`document-review-report-v1`は、2026-09-29に別Support Profileとして追加した。専有workspace、明示入力2点、manual compact 1回、create-only Markdown report 1点に限定した非fixture実taskで`RESUME_VERIFIED`へ到達した。固定workflowのEvidence VerdictはPASSだが、文章品質はNOT_ASSESSED、profile maturityはexperimental、製品全体のcoverageはPARTIAL、release channelはundeclaredとする。この結果を一般文書task、coding task、別Runtime、Field Evidenceへ適用しない。
+
 重大な回帰やRuntime仕様変更が判明した場合は、該当version/profileの推奨を停止し、必要ならmaturityを下げる。旧versionの証拠を消さず、新versionは影響確認が済むまで未確認として扱う。
 
 ## Evidence levelと記録単位

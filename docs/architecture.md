@@ -21,12 +21,18 @@ does not yet ship an installable Plugin/Skill bundle or general-purpose launcher
 | Claude CLI adapter | Pinned manual Hook proof; opt-in explicit receipt, fresh read and task assessment | [claude.py](../src/yohaku/claude.py), [claude_adapter.py](../src/yohaku/claude_adapter.py), [claude_recovery.py](../src/yohaku/claude_recovery.py) |
 | Work / recovery | Bounded work admission, active and pending work, handoff receipt, task-specific resume assessment | [work.py](../src/yohaku/work.py), [recovery.py](../src/yohaku/recovery.py) |
 | Archive | Selected visible-turn storage, metadata search, selected-body reads, optional Codex collector | [archive.py](../src/yohaku/archive.py), [runtime_archive.py](../src/yohaku/runtime_archive.py) |
+| Document review task | Exact input/output contract, trusted observer, create-only report tool, mechanical assessor and Codex operational runner | [document_review.py](../src/yohaku/document_review.py), [document_review_runtime.py](../src/yohaku/document_review_runtime.py) |
 
 The host owns the initialized runtime connection and supplies trusted observations.
 All Controller and Companion mutations are serialized by that owner. The Controller
 does not perform external I/O; the Companion persists decisions, and runtime
 components perform and observe runtime operations. Task-specific observers and
 assessors are required integration code, not assertions supplied by the model.
+
+`document-review-report-v1` is the first packaged task-specific implementation.
+It does not turn the host into a general filesystem or document agent. Its two
+dynamic tools, workspace manifest, report path, manual-transition strategy and
+assessor are fixed as one Codex Support Profile.
 
 ## Transition and recovery contracts
 

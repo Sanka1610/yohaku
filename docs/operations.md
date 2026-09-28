@@ -1,11 +1,11 @@
 # Operational Alpha Foundation
 
-The installed `yohaku` command provides **operational lifecycle management**, not
-an Alpha release or a general task runner. It starts a dedicated native host,
-reports its identity, and stops it while keeping state. These profiles accept no
-task input and perform no inference, compaction, handoff or resume verification.
-A missing real-task observer/assessor is reported as `TASK_PROFILE_REQUIRED`.
-There is no flag to bypass this restriction.
+The installed `yohaku` command provides operational lifecycle management and one
+fixed Real-task Profile, not an Alpha release or a general task runner. The
+lifecycle-only profiles accept no task input and report
+`TASK_PROFILE_REQUIRED`. `document-review-report-v1` has a separate `run`
+entry point with a task-specific observer and assessor. There is no flag that
+turns a lifecycle profile into a general task profile.
 
 ## Profiles and evidence
 
@@ -16,6 +16,7 @@ change historical Transition Evidence or imply `RESUME_VERIFIED`.
 
 | Profile | Launcher scope | Transition scope |
 |---|---|---|
+| `codex-document-review-report-v1` | Codex `0.158.0-alpha.2.1`, dedicated App Server, fresh thread, two exact dynamic tools | One declared input set, one manual compact, one create-only Markdown report; bounded live PASS |
 | `codex-operational-0.158` | Codex `0.158.0-alpha.2.1`, dedicated App Server, fresh thread, Companion/store | Disabled; current-version real-task acceptance NOT_RUN |
 | `hermes-operational-h-cli-01` | Hermes `0.21.0`, source `c5594ec4b34097cafbe24deb6dfd9ac4b21d411d`, native CLI construction and store in one process | Disabled; lazy inference agent and H-CLI-01 transition adapter are **not activated** |
 | `codex-reference-0.155` | Historical profile; launcher refuses start | Reference `0.155.0-alpha.16.4`, overall PARTIAL; not evidence for 0.158 |
@@ -33,6 +34,10 @@ Other versions and platforms need separate review. Operational Evidence IDs are
 Timeout evidence includes local tests with an injected host and a separate
 controlled pause of the owned native App Server. The latter confirms that the
 owner retains its lock until native shutdown actually completes.
+
+The Real-task Evidence ID is `DRR-V1-CODEX-0158-LIVE-01`. Its PASS covers one
+public-document review run, not prose quality, arbitrary inputs, another Runtime,
+restart, repeated transitions, field use or release readiness.
 
 ## Install the common wheel
 
@@ -93,9 +98,54 @@ Use another terminal for status/stop. The same commands are available through
 
 Configuration fields are schema, profile, runtime_path, workspace, state_dir,
 single_owner, dedicated_session, enabled and stop_timeout (0.1–60 seconds).
+The document-review profile additionally binds task_inputs, task_output,
+task_instruction and credential_home; other profiles reject those fields.
 Unknown fields and changed binding fields fail closed. Use enable/disable for
 activation changes; configure a new root for a different runtime/profile/workspace.
 Do not reuse an old session by copying or editing its configuration binding.
+
+## Run `document-review-report-v1`
+
+Create a new mode-0700 workspace containing only the declared mode-0600 input
+files. The fixed output must not exist. Configuration and state directories must
+remain outside the task workspace. `--credential-home` identifies an existing
+Codex home containing `auth.json`; Yohaku links that credential into the isolated
+run home and does not copy it into Evidence.
+
+```sh
+/absolute/path/yohaku-venv/bin/yohaku configure \
+  --config /absolute/path/yohaku-config/review.json \
+  --profile codex-document-review-report-v1 \
+  --runtime-path /absolute/path/to/codex \
+  --workspace /absolute/path/review-workspace \
+  --state-dir /absolute/path/yohaku-review-state \
+  --single-owner --dedicated-session \
+  --input /absolute/path/review-workspace/first.md \
+  --input /absolute/path/review-workspace/second.md \
+  --output /absolute/path/review-workspace/review-report.md \
+  --instruction "Review the declared documents for contradictions and risks." \
+  --credential-home /absolute/path/existing-codex-home
+/absolute/path/yohaku-venv/bin/yohaku preflight \
+  --config /absolute/path/yohaku-config/review.json
+/absolute/path/yohaku-venv/bin/yohaku enable \
+  --config /absolute/path/yohaku-config/review.json
+/absolute/path/yohaku-venv/bin/yohaku run \
+  --config /absolute/path/yohaku-config/review.json
+```
+
+The Runtime can call only `read_review_inputs` and `publish_review_report`.
+The first read establishes the boundary. After manual compaction and receipted
+handoff, the Runtime must perform a fresh read and then create the pending report.
+The report receives a provenance comment with input and instruction hashes.
+Mechanical completion and writing quality are separate fields; a successful run
+reports `mechanical_task_completion=PASS`, `core_state=RESUME_VERIFIED` and
+`writing_quality=NOT_ASSESSED`.
+
+The report write uses exclusive creation and is never retried after an uncertain
+result. A second preflight or run with the same output returns
+`STALE_OUTPUT_PRESENT`. Interrupted task runs are inspect-only; configure a new
+workspace and state root after maintainer review rather than deleting state or
+reusing the old output. See the [task contract](reference/document-review-report-v1.md).
 
 Codex uses a fresh per-run home, no credentials, a disabled loopback provider,
 and only initialize/thread-start requests. It never sends turn/start or compact.
@@ -133,7 +183,9 @@ contents or grant any execution authority.
 `stop` requests shutdown over a private Unix socket. Codex receives stdin EOF and
 must exit successfully; Hermes closes its native DB and Yohaku store. The owner
 marks STOPPED only after host cleanup. Ctrl-C/SIGTERM request the same graceful
-shutdown. No task can be active in these lifecycle-only profiles.
+shutdown. No task can be active in the lifecycle-only profiles. The document-review
+`run` command is foreground and exits after verified completion or refusal; it is
+not controlled by the lifecycle `stop` command.
 
 On timeout the owner retains its lock and reports `STOP_INCOMPLETE`. It continues
 to observe shutdown, accepts status/stop, and does not escalate to SIGKILL.
@@ -173,9 +225,10 @@ The commands do not migrate old state or downgrade its schema.
 
 ## Remaining Alpha requirements
 
-This foundation is usable for installation, lifecycle and refusal checks. An
-Alpha transition profile still needs a selected real workflow, trusted boundary
-and current-state observation, an independent assessor, permitted tools and
-negative cases, then artifact-specific Evidence review. Current Codex transition
-acceptance and general Hermes tool coverage remain unestablished. Issue triage,
-release/version record and maturity decisions remain separate release work.
+The first Real-task Profile now has a trusted boundary, current-state observation,
+independent assessor, exact tools, negative cases and current Codex live Evidence.
+This removes the lifecycle-only blocker for that one profile. Alpha still needs a
+reviewed release candidate, published release record and issue workflow, an
+explicit maturity decision, and final Evidence review. Field Evidence, restart,
+repeated transitions, general Hermes tool coverage, general document work and
+coding work remain outside the accepted scope.
