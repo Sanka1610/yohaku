@@ -227,6 +227,42 @@ quality of this local quantized derivative. Existing Spark and Anthropic
 subscription evidence/verdicts, product adapter behavior and release status
 remain unchanged.
 
+## Qwen local maintainer model-comparison profile
+
+The additional 2026-09-29 profile used
+`hf.co/mradermacher/Qwen3.5-4B-abliterated-GGUF:Q4_K_M`, digest
+`4ce045509cfbf9e700a3fa99bcccf93b0b4ad1ff46511294d97598ea7c62c13f`,
+4.21B. Both `/api/tags` and `/api/show` reported `Q4_K_M`; `/api/ps`
+reported quantization `unknown` for the same digest, which is preserved as an
+observation. Ollama client/server `0.34.1`, Claude Code CLI `2.1.280` / Linux /
+`claude -p` / stream-json / synchronous command Hooks, the original Spark runner,
+fixture, prompts, adapter and evidence conditions were unchanged. The bounds
+remained 300 seconds, 4096 output tokens, max turns 6 and 20 inference requests.
+Both runs observed context 131072. Provenance is **maintainer / local-live /
+synthetic**, maturity **experimental**, overall **PARTIAL**. Record:
+`C-CLI-OLLAMA-QWEN-COMPARE-2026-09-29`.
+
+Exactly two attempts ran: `recovery-01` took 189.89 seconds and `recovery-02`
+179.84 seconds, each with 11 local inference requests. All requests returned
+HTTP 500; the saved CLI error was `Jinja Exception: System message must be at
+the beginning.` Both workflow attempts are **FAIL**. No assistant tool calls
+occurred: command/argument fidelity, compaction, completion proof, receipt,
+fresh observation, continuation and resume verification are **NOT_RUN**.
+The adapter was never constructed and fixture counters remained zero.
+
+This is a backend/model-template message-compatibility failure in the fixed
+configuration, not an evaluated failure of model tool semantics. No template,
+message or prompt correction was made. CLI-internal repeated requests are counted
+as requests within each attempt, not extra owner workflow runs. Failed-run times
+are not recovery or generation-speed measurements.
+
+**Qwen is not accepted as the primary maintainer regression profile.** Together
+with the separate MiMo failures, this comparison provides no basis to replace
+Spark as the optional low-resource/stress diagnostic profile. All three remain
+unaccepted as required automated gates. Previous profile verdicts and product
+adapter code remain unchanged; official model benchmarks are not transferred to
+these local derivatives.
+
 ## Installation compatibility
 
 The later installation change lowers the package minimum to Python 3.11 and
