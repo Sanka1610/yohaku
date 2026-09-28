@@ -182,6 +182,51 @@ Agent SDK are outside this testing profile. Neither the Anthropic subscription
 profile's evidence/verdicts nor Claude Code-wide support are upgraded by these
 local records. No release channel is declared.
 
+## MiMo local maintainer model-comparison profile
+
+Reviewed 2026-09-29, independently of the Spark profile above. The actual local
+model was `MiMo-V2.6-Distill-Qwen-9B-Ablitrated:latest` (local spelling retained),
+9.0B, `Q4_K_M`, digest
+`616953773b51de179551c7430e3877ea6af9aedaf533e4cc684465e107c2e990`.
+Ollama client/server remained `0.34.1`; Claude Code CLI remained `2.1.280` on
+Linux with `claude -p`, stream-json and synchronous command Hooks. Evidence is
+**maintainer / local-live / synthetic**, maturity **experimental**, overall
+**PARTIAL**. Record: `C-CLI-OLLAMA-MIMO-COMPARE-2026-09-29`.
+
+The comparison imported the original Spark runner and fixture at the same paths.
+Binary and source hashes matched; only model selection, isolated output paths
+and saved model identity changed. Workflow, fixture prompts, adapter, completion
+policy, 300-second owner deadline, 4096 output cap, max turns 6 and inference
+request bound 20 were unchanged. Both runs observed backend context 131072.
+
+| Fixed-workflow run | Initial command fidelity | Compact / receipt / resume | Inference requests | Elapsed |
+|---|---|---|---|---|
+| Spark `recovery-04` (retained) | PASS, then all recovery calls accepted | PASS / PASS / RESUME_VERIFIED | 7 | 294.11 s |
+| Spark `recovery-05` (retained) | FAIL | NOT_RUN | 1 | 11.66 s |
+| MiMo `recovery-01` | FAIL | NOT_RUN | 1 | 30.12 s |
+| MiMo `recovery-02` | FAIL | NOT_RUN | 2 | 83.85 s |
+
+Exactly two MiMo attempts ran. Both omitted required `tool before` arguments in
+the first Bash command. The owner rejected both before fixture execution or
+adapter construction; counters stayed zero and Core state remained null.
+Both bounded workflow attempts are **FAIL**; completion proof, explicit receipt,
+fresh observation, continuation and resume verification remain **NOT_RUN**.
+The second run also recorded an upstream stream `TimeoutError`, followed by a
+nonstream request within the same CLI run. Its error annotation is not a third
+inference request. That transport failure's cause is unknown and is recorded
+separately from the emitted-command defect; no adapter recovery defect was
+established.
+
+**MiMo is not accepted as the primary maintainer regression profile.** Retain
+Spark unchanged for optional low-resource/stress diagnostics, with its existing
+manual-review requirement. Neither profile is accepted as a required automated
+gate. Failed-run times do not measure recovery speed. Two observations per model
+cannot establish general reliability or quality rankings; host load, seed and
+warm state were not controlled. No official model benchmark is used to infer
+quality of this local quantized derivative. Existing Spark and Anthropic
+subscription evidence/verdicts, product adapter behavior and release status
+remain unchanged.
+
 ## Installation compatibility
 
 The later installation change lowers the package minimum to Python 3.11 and
