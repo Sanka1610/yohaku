@@ -12,6 +12,7 @@ does not yet ship an installable Plugin/Skill bundle or general-purpose launcher
 |---|---|---|
 | Controller and domain model | Serialized transition decisions, revision checks, lease invalidation, completion and resume gates | [controller.py](../src/yohaku/controller.py), [model.py](../src/yohaku/model.py) |
 | Completion policy | Runtime binding, proof and continuation identity predicates; Codex default and bounded Hermes readback | [completion.py](../src/yohaku/completion.py), [codex.py](../src/yohaku/codex.py), [hermes.py](../src/yohaku/hermes.py) |
+| Startup configuration | Explicit TOML opt-in for Codex/Hermes; disabled leaves the host factory uncalled | [config.py](../src/yohaku/config.py) |
 | Companion and persistence | Durable checkpoints, journal, handoffs, local writer lock, orchestration | [companion.py](../src/yohaku/companion.py), [persistence.py](../src/yohaku/persistence.py), [codec.py](../src/yohaku/codec.py) |
 | Runtime host and Hook bridge | Owner-loop event handling, local Hook delivery, transport dispatch | [runtime.py](../src/yohaku/runtime.py), [hook.py](../src/yohaku/hook.py) |
 | Manual / native lifecycle | Codex request/event correlation and the separate native recovery path | [manual.py](../src/yohaku/manual.py), [native.py](../src/yohaku/native.py) |

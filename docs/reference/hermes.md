@@ -4,7 +4,9 @@
 0.21.0, source `c5594ec4b34097cafbe24deb6dfd9ac4b21d411d`. Its supported shape is
 one fresh dedicated session, one owner, sequential foreground tool calls and
 one manual `/compress`. It uses `HermesManualCompletionPolicy` unchanged.
-It does not provide an installer, authentication setup or general CLI launcher.
+Install Yohaku as a normal wheel into the existing Hermes venv using the
+[installation guide](../installation.md). Authentication setup and a general CLI
+launcher remain host responsibilities.
 
 ## Host integration
 
@@ -47,10 +49,12 @@ Connect these operations in the serialized foreground host:
    references match the checkpoint and delivers it through native `chat`.
 
 The host uses private Hermes APIs and the Responses wire representation. Changes
-to either require a new profile review. The package declares Python >=3.14;
-the H-CLI-01 native host uses Python 3.11.16 and executes copied source directly.
-That bounded source execution does not declare package installation support on
-Python 3.11 or acceptance of a differently configured Hermes environment.
+to either require a new profile review. The package declares Python >=3.11.
+The native host uses Python 3.11.16; normal wheel installation in that venv and
+a connected native rehearsal have been checked. Stage 4 used copied source only
+as a Probe technique. That historical live record does not become an
+installed-wheel live acceptance record. Use the explicit startup configuration
+to gate owner construction and Hook registration.
 
 ## Receipt and current task state
 

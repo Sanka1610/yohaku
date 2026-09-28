@@ -101,13 +101,36 @@ Fresh state was read after receipt; A and B executed once each. Completion still
 uses the Stage 3 policy, not a new predicate. Bounded workflow and this explicit
 adapter receipt: PASS; overall CoverageProfile: PARTIAL.
 
-The host used Python 3.11.16 with copied source; local checks used Python 3.14.4.
-This does not change the package's Python >=3.14 installation requirement.
+That Stage 4 run used Python 3.11.16 with copied source and retained the then-current
+Python >=3.14 package requirement; its local checks used Python 3.14.4.
 The explicit receipt is an adapter-defined protocol over native tool calls,
 not a built-in Hermes acknowledgement. General tool coverage, Hook-fault safety,
 races, background/parallel work, restart, late completion, repeated compression
 and live selected-archive retrieval remain unaccepted. See the
 [Hermes integration reference](reference/hermes.md) for required host wiring.
+
+## Installation compatibility
+
+The later installation change lowers the package minimum to Python 3.11 and
+uses one normal wheel in both host environments. No Core, adapter, completion
+policy or saved-data format changed. The package has no runtime dependencies;
+Hermes remains an existing host installation with its own dependencies.
+
+| Check | Evidence |
+|---|---|
+| Clean wheel install | PASS on CPython 3.11.16 and 3.14.4; non-editable, isolated venv, outside the source checkout |
+| Python floor regression | 124 local tests on 3.11.16, including all existing modules because the interpreter floor affects the whole package |
+| Existing interpreter regression | 40 selected tests on 3.14.4 covering configuration, completion, persistence, work/Hook, recovery, archive and Hermes adapter |
+| Codex saved-format compatibility | 16 snapshots and 17 durable files match the retained baseline on both interpreters |
+| Activation | Default disabled; enabled real owner construction; disabled startup creates no Yohaku owner/store/Hooks in the tested host wiring |
+| Hermes actual venv | Same wheel installed under site-packages; existing dependency versions unchanged; pip check PASS |
+| Installed Hermes preparation | Native offline route preflight and synthetic-response H-CLI-01 rehearsal PASS, RESUME_VERIFIED, zero provider requests |
+| New live acceptance | NOT_RUN for the installed wheel; historical Stage 4 live scope retained |
+
+See [installation and startup configuration](installation.md). Wheel distribution
+and startup opt-in are available; a general end-user host launcher and a release
+profile/decision are still required before declaring an Alpha. CPython 3.12/3.13,
+other interpreters and other OS installation matrices remain NOT_RUN.
 
 Dated documentation/source research can identify candidate control points. Before
 implementation, each probe must fix runtime and SDK versions, surface, provider,

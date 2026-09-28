@@ -78,31 +78,31 @@ strategy's acceptance. See [Runtime support and evidence scope](docs/runtime-sup
 
 ## Installation / Quick Start
 
-The current deliverable is a source-installable Python library. It requires
-**Python 3.14 or newer** and has no runtime dependencies. Persistence and the Hook
-bridge use POSIX facilities; the recorded integration environment is WSL2 Ubuntu.
-There is no packaged end-user launcher, installable Yohaku Plugin/Skill bundle,
-or automatic runtime setup.
+The current deliverable is a wheel-installable Python library. It requires
+**Python 3.11 or newer** and has no runtime dependencies. Persistence and the Hook
+bridge use POSIX facilities; installation checks cover CPython 3.11.16 and 3.14.4
+on WSL2 Linux. There is no packaged end-user launcher or automatic runtime setup.
 
-From a checkout of this repository, run a local Core check without installing
-anything or connecting to a provider:
+Install a reviewed wheel into the Python environment that owns the integration:
+
+```sh
+python3.14 -m venv /absolute/path/yohaku-venv
+/absolute/path/yohaku-venv/bin/python -m pip install --no-index --no-deps /absolute/path/yohaku-0.1.0-py3-none-any.whl
+/absolute/path/yohaku-venv/bin/python -m pip check
+```
+
+For Hermes H-CLI-01, use the existing Hermes venv's Python 3.11.16 to install the
+same wheel without changing its other dependencies. Source-copy execution and
+editable installs are development/Probe techniques, not release installation.
+The [installation guide](docs/installation.md) covers builds, exact interpreter
+selection, basic TOML configuration, explicit enable/disable and removal.
+Installing the package does not enable the integration.
+
+For a local developer Core check from a checkout, without provider access:
 
 ```sh
 PYTHONPATH=src python3.14 -m unittest discover -s tests -p test_controller.py -v
 ```
-
-For development installation into an isolated environment:
-
-```sh
-python3.14 -m venv .venv
-.venv/bin/python -m pip install -e .
-.venv/bin/python -c 'from yohaku.controller import Controller; print(Controller("local-demo").snapshot.state.value)'
-```
-
-The last command prints `WORKING`. The build requires `setuptools>=77`; pip may
-download build requirements. These commands install/import the library and test
-local state-machine behavior. They do not compact a live session or verify runtime
-compatibility.
 
 A live integration must supply an initialized, exclusively owned runtime
 connection, serialized event loop, trusted Hook configuration, current-state
@@ -158,6 +158,7 @@ release decision. See the [Support and release policy](SUPPORT_POLICY.md).
 
 ## Documentation links
 
+- [Installation](docs/installation.md): shared wheel, startup configuration and removal.
 - [Architecture](docs/architecture.md): implemented responsibilities and design boundaries.
 - [Runtime support and evidence scope](docs/runtime-support.md): measured profile, provenance, and strategy limits.
 - [Hermes H-CLI-01 reference](docs/reference/hermes.md): embedded host wiring, receipt and scope limits.
