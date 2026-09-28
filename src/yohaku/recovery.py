@@ -343,7 +343,7 @@ class RecoveryLifecycle:
             ident = item.get("id")
             if not isinstance(ident, str) or not ident:
                 return False
-            if item.get("type") in ("commandExecution", "fileChange"):
+            if item.get("type") in ("commandExecution", "fileChange", "dynamicToolCall"):
                 # Failed tools can have partial effects and must remain visible to
                 # the task assessor. They cannot count as successful read/action evidence.
                 self._tools[ident] = dict(item)  # transient; raw output never journaled
@@ -414,7 +414,8 @@ class RecoveryLifecycle:
             self.stop("task assessment unavailable")
             raise TransitionError("task assessment unavailable") from None
         successful = {ident for ident, item in self._tools.items() if item.get("status") == "completed"
-                      and (item.get("type") != "commandExecution" or item.get("exitCode") == 0)}
+                      and (item.get("type") != "commandExecution" or item.get("exitCode") == 0)
+                      and (item.get("type") != "dynamicToolCall" or item.get("success") is True)}
         if (not isinstance(proof, ResumeProof) or proof.current != before or before != after
                 or before.logical_task_id != self.document.recovered.logical_task_id
                 or not proof.evidence_ref or not proof.read_item_ids or not proof.action_item_ids

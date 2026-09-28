@@ -96,9 +96,13 @@ class OperationalConfig:
     enabled: bool = False
     stop_timeout: float = 10.0
     schema: int = 1
+    task_inputs: tuple[str, ...] = ()
+    task_output: str | None = None
+    task_instruction: str | None = None
+    credential_home: str | None = None
 
     def __post_init__(self):
-        profile(self.profile)
+        p = profile(self.profile)
         if type(self.schema) is not int or self.schema != 1:
             raise OperationError('CONFIG_SCHEMA_UNSUPPORTED')
         for name in ('enabled', 'dedicated_session', 'single_owner'):
@@ -114,11 +118,29 @@ class OperationalConfig:
         w, s = Path(self.workspace), Path(self.state_dir)
         if w == s or w in s.parents or s in w.parents:
             raise OperationError('STATE_AND_WORKSPACE_MUST_BE_SEPARATE')
+        task = p.get('task_profile')
+        supplied = bool(self.task_inputs or self.task_output or self.task_instruction or self.credential_home)
+        if task == 'document-review-report-v1':
+            if (not isinstance(self.task_inputs, tuple) or not self.task_inputs
+                    or not isinstance(self.task_output, str)
+                    or not isinstance(self.task_instruction, str)
+                    or not isinstance(self.credential_home, str)):
+                raise OperationError('DOCUMENT_REVIEW_TASK_CONTRACT_REQUIRED')
+            for value in (*self.task_inputs, self.task_output, self.credential_home):
+                if not isinstance(value, str):
+                    raise OperationError('PATH_STRING_REQUIRED')
+                absolute(value)
+        elif supplied:
+            raise OperationError('TASK_CONTRACT_NOT_ALLOWED_FOR_PROFILE')
 
 
 def config_digest(config):
     d = asdict(config)
     d.pop('enabled')
+    # Preserve schema-1 lifecycle bindings created before task profiles existed.
+    if not d['task_inputs'] and d['task_output'] is None and d['task_instruction'] is None and d['credential_home'] is None:
+        for key in ('task_inputs', 'task_output', 'task_instruction', 'credential_home'):
+            d.pop(key)
     return hashlib.sha256(json.dumps(d, sort_keys=True).encode()).hexdigest()
 
 
@@ -146,7 +168,10 @@ def configure(path, config):
 def load(path):
     p = absolute(path)
     try:
-        c = OperationalConfig(**read_json(p))
+        value = read_json(p)
+        if isinstance(value.get('task_inputs'), list):
+            value['task_inputs'] = tuple(value['task_inputs'])
+        c = OperationalConfig(**value)
     except (TypeError, ValueError):
         raise OperationError('INVALID_CONFIG_OR_PROFILE') from None
     root = private(c.state_dir, directory=True)
@@ -172,13 +197,31 @@ def owner_lock(config):
         os.close(fd)
 
 
+@contextmanager
+def task_workspace_lock(config):
+    if profile(config.profile).get('task_profile') != 'document-review-report-v1':
+        yield
+        return
+    root = private(config.workspace, directory=True)
+    fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise OperationError('TASK_WORKSPACE_BUSY') from None
+        yield
+    finally:
+        os.close(fd)
+
+
 def last_run(config):
     p = Path(config.state_dir) / 'last-run.json'
     if not p.exists():
         return None
     d = read_json(p)
     if (d.get('schema') != 1 or d.get('config_digest') != config_digest(config)
-            or d.get('state') not in {'STARTING', 'RUNNING', 'STOPPING', 'STOP_INCOMPLETE', 'STOPPED', 'FAILED'}
+            or d.get('state') not in {'STARTING', 'RUNNING', 'STOPPING', 'STOP_INCOMPLETE',
+                                      'STOPPED', 'FAILED', 'AMBIGUOUS'}
             or not isinstance(d.get('run_id'), str)):
         raise OperationError('INVALID_LIFECYCLE_RECORD')
     return d
@@ -186,11 +229,17 @@ def last_run(config):
 
 def recovery(config, state=None):
     state = last_run(config) if state is None else state
+    task = profile(config.profile).get('task_profile')
     stopped = state is None or state.get('state') == 'STOPPED'
-    return dict(fresh_start_allowed=stopped, resume_supported=False,
-                reason='FRESH_SESSION_ONLY; ' + MISSING_TASK if stopped else
+    fresh = state is None if task else stopped
+    task_reason = ('TASK_RESTART_UNSUPPORTED; completed or uncertain writes are never retried'
+                   if task else MISSING_TASK)
+    return dict(fresh_start_allowed=fresh, resume_supported=False,
+                reason=('FRESH_TASK_ONLY' if task and state is None else
+                        'TASK_COMPLETE_NO_RERUN; ' + task_reason if task and state and state.get('state') == 'STOPPED' else
+                        'FRESH_SESSION_ONLY; ' + task_reason) if stopped else
                 'RECOVERY_REQUIRED: prior owner did not prove a clean stop; preserve state, inspect runtime',
-                transition_reason=MISSING_TASK,
+                transition_reason=None if task else MISSING_TASK,
                 saved_data_retained=True)
 
 
@@ -223,6 +272,19 @@ def preflight(config):
         errors.append('WORKSPACE_MISSING')
     if not p['launch_supported']:
         errors.append('OPERATIONAL_PROFILE_UNSUPPORTED')
+    task_contract = None
+    if p.get('task_profile') == 'document-review-report-v1':
+        try:
+            from .document_review import DocumentReviewContract
+            task_contract = DocumentReviewContract.create(
+                workspace=config.workspace, inputs=config.task_inputs,
+                output=config.task_output, instruction=config.task_instruction)
+            home = absolute(config.credential_home)
+            auth = home / 'auth.json'
+            if not auth.is_file():
+                errors.append('CODEX_AUTH_MISSING')
+        except OperationError as exc:
+            errors.append(str(exc))
     try:
         if p['runtime'] == 'hermes':
             root = Path(config.runtime_path)
@@ -250,11 +312,24 @@ def preflight(config):
                 errors.append('RECOVERY_REQUIRED')
     except OperationError as exc:
         errors.append(str(exc))
+    is_task = p.get('task_profile') == 'document-review-report-v1'
+    task_enabled = task_contract is not None and not errors
+    transition_reason = (None if task_enabled else
+                         '; '.join(errors) if is_task and errors else MISSING_TASK)
     return dict(verdict='PASS' if not errors else 'FAIL', profile=p, package=package_identity(), observed_runtime=actual,
                 expected_runtime=p.get('source_commit', p['runtime_version']), errors=errors,
-                enabled=config.enabled, inference_enabled=False, work_observation_available=False,
-                transition_available=False, transition_reason=MISSING_TASK,
-                evidence_scope='preflight only; no native startup or transition acceptance',
+                enabled=config.enabled, inference_enabled=task_enabled,
+                work_observation_available=task_enabled, transition_available=task_enabled,
+                transition_reason=transition_reason,
+                task_contract=(dict(profile=p.get('task_profile'),
+                    logical_task_id=task_contract.logical_task_id,
+                    instruction_sha256=task_contract.instruction_sha256,
+                    inputs=[asdict(item) for item in task_contract.initial_inputs],
+                    output=str(Path(task_contract.output).relative_to(task_contract.workspace)))
+                    if task_contract else None),
+                evidence_scope=('task contract and runtime preflight only; no transition acceptance'
+                                if p.get('task_profile') else
+                                'preflight only; no native startup or transition acceptance'),
                 assumptions={'single_owner_acknowledged': config.single_owner,
                              'dedicated_session_acknowledged': config.dedicated_session,
                              'external_clients_excluded_by_lock': False})
@@ -262,9 +337,11 @@ def preflight(config):
 
 def set_enabled(path, enabled):
     config = load(path)
-    with owner_lock(config):
+    with owner_lock(config), task_workspace_lock(config):
         config = load(path)
-        if not recovery(config)['fresh_start_allowed']:
+        state = last_run(config)
+        if (not recovery(config, state)['fresh_start_allowed']
+                and not (enabled is False and state and state.get('state') == 'STOPPED')):
             raise OperationError('RECOVERY_REQUIRED_BEFORE_ENABLE_OR_DISABLE')
         write_json(path, asdict(replace(config, enabled=enabled)))
     return dict(enabled=enabled, saved_data_retained=True)
@@ -312,9 +389,10 @@ def status(config):
         current = dict(current, state='RECOVERY_REQUIRED')
     elif not busy:
         current = dict(current, runtime_running=False, owner_attached=False)
+    task = profile(config.profile).get('task_profile')
     return dict(profile=profile(config.profile), package=package_identity(), enabled=config.enabled, owner_live=live is not None,
                 owner_lock_busy=busy, operational=current, recovery=recovery(config),
-                transition_available=False, transition_reason=MISSING_TASK)
+                transition_available=bool(task), transition_reason=None if task else MISSING_TASK)
 
 
 def stop(config):
@@ -345,6 +423,8 @@ def stop(config):
 
 def start(path):
     config = load(path)
+    if profile(config.profile).get('task_profile'):
+        raise OperationError('USE_RUN_FOR_TASK_PROFILE')
     if not config.enabled:
         raise OperationError('DISABLED')
     check = preflight(config)
@@ -357,6 +437,25 @@ def start(path):
         if not recovery(config)['fresh_start_allowed']:
             raise OperationError('RECOVERY_REQUIRED')
         return _serve(config, check)
+
+
+def run(path):
+    config = load(path)
+    if profile(config.profile).get('task_profile') != 'document-review-report-v1':
+        raise OperationError('RUN_REQUIRES_DOCUMENT_REVIEW_PROFILE')
+    if not config.enabled:
+        raise OperationError('DISABLED')
+    check = preflight(config)
+    if check['errors']:
+        raise OperationError('; '.join(check['errors']))
+    with owner_lock(config), task_workspace_lock(config):
+        config = load(path)
+        if not config.enabled:
+            raise OperationError('DISABLED')
+        if not recovery(config)['fresh_start_allowed']:
+            raise OperationError('RECOVERY_REQUIRED')
+        from .document_review_runtime import run_document_review
+        return run_document_review(config, check)
 
 
 def _serve(config, check):
