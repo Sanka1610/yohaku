@@ -129,6 +129,59 @@ races, background/parallel work, restart, late completion, repeated compression
 and live selected-archive retrieval remain unaccepted. See the
 [Hermes integration reference](reference/hermes.md) for required host wiring.
 
+## Claude Code Ollama local maintainer testing profile
+
+Reviewed 2026-09-29. This is a separate **maintainer / local-live / synthetic**
+control-plane testing profile. Its maturity remains **experimental**, evidence
+level is **lab tested**, and overall verdict is **PARTIAL**.
+
+| Dimension | Fixed scope |
+|---|---|
+| Profile ID | `C-CLI-OLLAMA-LOCAL/2.1.280/0.34.1/spark-x2.5-4b-uncensored/e1646156c204` |
+| Runtime / OS / surface | Claude Code CLI `2.1.280` / Linux / `claude -p` / stream-json / synchronous command Hooks |
+| Backend | Ollama local client and server `0.34.1`, loopback upstream |
+| Model | `spark-x2.5-4b-uncensored:latest`, 4.1B, `Q4_K_M` |
+| Model digest | `e1646156c20479fe89690bad3f6a38062f4888cc33e03fcbb7a4944556be417f` |
+| Source | Product `e50455e7adef26b6609731ac3b6d45724ca64bd1`; adapter implementation `8ffc81b17876e94418a6d618f3c9c9284816cb41` |
+| Bounds | 300-second owner deadline; 4096 output tokens per inference request including compact; max turns 6; inference request ceiling 20 |
+| Ownership / tools | Fresh exclusive session, single writer, sequential foreground Bash fixture commands, one manual compact and one recovery input in the same CLI process |
+| Backend context | Observed 131072; model metadata maximum is a separate value |
+| Evidence record | `C-CLI-OLLAMA-LOCAL-REPEAT-2026-09-29`; private workspace retains profile, coverage, source snapshots and hashed records |
+| Regression use | Conditional manual maintainer testing with evidence review; not accepted as a required automated pass/fail gate |
+
+The earlier `recovery-04` reached **RESUME_VERIFIED** in 294.11 seconds using
+7 local inference requests. Delivery, explicit handoff/checkpoint receipt,
+fresh observation, token-bound continuation and task-specific assessment each
+had separate evidence. Counters were before=1, after=1, stale=0. Its bounded
+workflow **PASS** is retained.
+
+Exactly one additional attempt, `recovery-05`, used matching runtime binaries,
+model digest, runner and adapter source, prompts and bounds. It stopped in
+11.66 seconds after 1 inference request: the model's first structured Bash call
+omitted the required `before` argument. The owner rejected it with
+`UNEXPECTED_COMMAND` / `CLIENT_REJECTED`; all fixture counters remained zero.
+The adapter had not yet been constructed, so its state was null, and compact,
+receipt and recovery stages were **NOT_RUN**. This attempt's workflow and the
+successful-reproduction check are **FAIL**. The observed defect is in the emitted
+command; a Runtime protocol or adapter recovery defect was not established.
+
+Both attempts configured 4096 output tokens. The earlier compact response reported
+4026 output tokens; the repeat never requested compact. The shorter failed run
+is not a performance improvement. The earlier total time was only 5.89 seconds
+below the nominal owner deadline; stage timings were not recorded. IPC and process
+cleanup have separate grace periods. Sampling seed, host load and cache state
+were not controlled. One success and one failure do not establish reliability.
+
+Completion still accepts either order of SessionStart(compact) and PostCompact.
+Missing, stale, duplicate or inconsistent completion proof must stop recovery;
+a terminal success or later action alone cannot establish receipt or resume.
+Historical local normal-deny evidence and offline negative fixtures retain their
+own scope. The new pre-adapter rejection does not prove Hook-fault enforcement.
+Hook-fault safety, background/subagent work, restart, general task semantics and
+Agent SDK are outside this testing profile. Neither the Anthropic subscription
+profile's evidence/verdicts nor Claude Code-wide support are upgraded by these
+local records. No release channel is declared.
+
 ## Installation compatibility
 
 The later installation change lowers the package minimum to Python 3.11 and
