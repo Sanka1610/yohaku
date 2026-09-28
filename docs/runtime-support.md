@@ -77,15 +77,26 @@ OpenCode are Next Targets; Gemini CLI and Antigravity are Future candidates.
 Claude Desktop and Cowork are Research / Auxiliary surfaces.
 
 Claude Code C-CLI has a bounded adapter for 2.1.280/Linux/`claude -p`/stream-json
-with command Hooks. Local fixtures verify manual completion and negative cases;
-Yohaku-mediated live acceptance remains NOT_RUN. An external live-runtime synthetic
-Probe inspection report records startup, foreground tool Hooks/deny, manual compact,
-externally prompted continuation and nonduplication. The original event JSON was
-not available for replay. Its final TIME_LIMIT issue and overall PARTIAL verdict
-are preserved. This adapter stops at ROLLOVER_OBSERVED; autonomous continuation,
-Yohaku receipt, current-state reconciliation, RESUME_VERIFIED, Hook-fault fail-closed
-and background/subagent coverage remain unproven. Agent SDK/API is a separate,
-unimplemented profile. See the [C-CLI reference](reference/claude-cli.md).
+with synchronous command Hooks. A returned external live-runtime synthetic
+acceptance was reviewed against the original bundle source hashes and the unchanged
+completion policy: Yohaku ManualRequest through ROLLOVER_OBSERVED is **PASS**,
+overall **PARTIAL**, issues `[]`. The observed order was PreCompact,
+SessionStart(compact), PostCompact; either order of the last two remains valid.
+The sanitized submission supports correlation review, not independent readback of
+the tester's private checkpoint/lease or authentication of the external run.
+The older Probe report and its TIME_LIMIT remain a separate historical record.
+
+`ClaudeCLIAdapter` still stops at ROLLOVER_OBSERVED. The opt-in
+`ClaudeCLIRecoveryAdapter` adds one controller-owned recovery input, explicit
+handoff/checkpoint receipt, fresh current-state observation, a single remaining
+fixture action and task-specific resume verification. Local fixtures and a fake
+CLI using real local command-Hook IPC reach RESUME_VERIFIED and reject missing,
+stale, duplicate or inconsistent evidence. This recovery route keeps the CLI
+process alive across compaction, unlike the earlier completion-only acceptance;
+its new external live acceptance remains **NOT_RUN**. A successful later action
+alone is neither receipt nor resume proof. Overall C-CLI remains **PARTIAL**.
+See the [C-CLI reference](reference/claude-cli.md) for the exact trust and coverage
+boundaries. Agent SDK/API remains a separate unimplemented profile.
 
 Hermes H-CLI-01 measured an instrumented native CLI host on Ubuntu-Hermes, version
 0.21.0 at `c5594ec4b34097cafbe24deb6dfd9ac4b21d411d`, using the existing

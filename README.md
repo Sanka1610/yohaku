@@ -7,12 +7,14 @@ tasks. It is designed to manage when context is compacted, preserve recovery
 state, check runtime completion, and verify the current task state before work
 continues. The existing implementation is a Python library with a bounded Codex
 reference integration, an embedded Hermes H-CLI-01 adapter and a bounded Claude
-Code C-CLI completion adapter.
+Code C-CLI adapter with opt-in recovery.
 
 **Current status: experimental.** Hermes has a bounded native CLI adapter with
 explicit tool receipt and current-state resume verification. Its overall profile
-remains PARTIAL. Claude Code C-CLI has a locally tested manual-completion adapter;
-Yohaku-mediated live acceptance is NOT_RUN and its external Probe remains PARTIAL.
+remains PARTIAL. Claude Code C-CLI has an externally reviewed live PASS for the
+bounded Yohaku manual-completion workflow; its overall profile remains PARTIAL.
+Opt-in C-CLI recovery reaches RESUME_VERIFIED in local fixtures only; its live
+acceptance is NOT_RUN.
 The recorded Codex acceptance is scoped and overall **PARTIAL**;
 this repository does not declare an Alpha, Beta, or Stable release.
 
@@ -41,7 +43,8 @@ migration are other design categories, not available Yohaku adapters. The Core
 delegates completion predicates to a runtime-specific policy, with the existing
 Codex rules as the default. The Hermes predicate uses host history and storage
 readback rather than Codex events. The Claude CLI predicate uses a closed,
-correlated manual Hook collection and does not permit handoff continuation.
+correlated manual Hook collection. Its opt-in recovery adapter adds explicit
+handoff receipt, fresh task observation and an independent task-specific assessment.
 
 ## How it works
 
@@ -69,7 +72,7 @@ checkpoint, so an emergency observation remains explicitly unverified.
 |---|---|---|
 | Reference | Codex | Experimental Python integration; bounded historical lab acceptance, overall PARTIAL |
 | Target | Hermes | H-CLI-01 embedded adapter and bounded workflow PASS / profile PARTIAL; explicit receipt, no restart |
-| Target | Claude Code | C-CLI 2.1.280/Linux/print-stream-json completion adapter, local tests; external Probe PARTIAL, adapter live NOT_RUN; SDK/API separate and unimplemented |
+| Target | Claude Code | C-CLI 2.1.280/Linux/print-stream-json: bounded completion live PASS, overall PARTIAL; opt-in recovery local PASS/live NOT_RUN; SDK/API separate |
 | Next Target | DeepSeek Harness / OpenCode | Research candidates; adapters unimplemented |
 | Future | Gemini CLI / Antigravity | Research candidates; adapters unimplemented |
 | Research / Auxiliary | Claude Desktop / Cowork | Auxiliary research surfaces; no compact-control adapter |
@@ -126,7 +129,7 @@ backend construction, recovery transport, and `CODEX_HOME` store remain Codex
 specific. Runtime-specific completion predicates can connect to the in-memory
 Core. The Hermes adapter stores separate observation metadata and reuses existing
 checkpoint/handoff files. The C-CLI adapter reuses checkpoints and stores its own
-completion metadata. Neither adapter implements Core restart. See
+completion/recovery metadata and existing handoff files. Neither adapter implements Core restart. See
 [Architecture](docs/architecture.md) for the boundary and compatibility limits.
 
 ## Known Limitations
@@ -166,7 +169,7 @@ release decision. See the [Support and release policy](SUPPORT_POLICY.md).
 - [Architecture](docs/architecture.md): implemented responsibilities and design boundaries.
 - [Runtime support and evidence scope](docs/runtime-support.md): measured profile, provenance, and strategy limits.
 - [Hermes H-CLI-01 reference](docs/reference/hermes.md): embedded host wiring, receipt and scope limits.
-- [Claude Code C-CLI reference](docs/reference/claude-cli.md): manual completion, correlation and evidence limits.
+- [Claude Code C-CLI reference](docs/reference/claude-cli.md): manual completion, opt-in recovery and evidence limits.
 - [Codex reference](docs/reference/codex.md): existing API, storage, Hook, recovery, and archive contracts.
 - [Support and release policy](SUPPORT_POLICY.md): maturity, evidence, feedback, and release criteria.
 
