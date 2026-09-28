@@ -348,8 +348,9 @@ Hermes remains an existing host installation with its own dependencies.
 | New live acceptance | NOT_RUN for the installed wheel; historical Stage 4 live scope retained |
 
 See [installation and startup configuration](installation.md). Wheel distribution
-and startup opt-in are available; a general end-user host launcher and a release
-profile/decision are still required before declaring an Alpha. CPython 3.12/3.13,
+and startup opt-in are available. The operational host below is limited to
+lifecycle checks; a real-task profile and a release decision are still required
+before declaring an Alpha. CPython 3.12/3.13,
 other interpreters and other OS installation matrices remain NOT_RUN.
 
 Dated documentation/source research can identify candidate control points. Before
@@ -393,3 +394,16 @@ or result evidence. Tool success does not establish semantic result incorporatio
 the fresh-read token and task assessment remain independent. This profile does not
 promote Anthropic subscription evidence or Claude Code as a whole to PASS. See the
 [nonce receipt contract](reference/claude-cli.md#opt-in-host-bound-nonce-receipt).
+
+## Operational Alpha Foundation
+
+The [operational CLI](operations.md) has separate no-inference lifecycle profiles
+for Codex 0.158.0-alpha.2.1 and pinned Hermes 0.21.0. Native start/status/stop and
+fresh-session restart are lab-tested; task execution, automatic transition and
+RESUME_VERIFIED are unavailable. Codex 0.155 Reference Evidence is not applied
+to 0.158. Hermes native CLI construction leaves the lazy inference agent and
+transition adapter disabled; H-CLI-01 task coverage is unchanged.
+
+Historical C-CLI and its maintainer nonce profile appear in profile/status output
+with launch unsupported, overall PARTIAL and their distinct evidence provenance.
+No runtime maturity or release channel is promoted by this foundation.

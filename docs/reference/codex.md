@@ -13,7 +13,8 @@ compatibility with current or other Codex versions.
 ## Controller Core
 
 The production package lives in `src/yohaku`, separately from the capability
-probe scripts. It requires Python 3.14 and has no runtime dependencies.
+probe scripts. It requires Python >=3.11 and has no runtime dependencies; the historical
+Reference Runtime acceptance below used Python 3.14.4.
 
 `yohaku.controller.Controller` owns a serialized, single-writer transition for
 one exclusively controlled thread. `snapshot` exposes immutable domain values

@@ -1,7 +1,9 @@
 # Installation and startup configuration
 
-Yohaku is an embedded Python library. Install the same normal wheel into the
-Python environment that owns each integration. The minimum version is **Python
+Yohaku provides an embedded Python library and a limited operational CLI.
+For end-user configure/start/status/stop, follow [Operational Alpha Foundation](operations.md).
+The embedded-host setup below remains available for existing integrations.
+Install the same normal wheel into the Python environment that owns each integration. The minimum version is **Python
 3.11**; installation and regression checks cover CPython 3.11.16 and 3.14.4 on
 WSL2 Linux. CPython 3.12/3.13, other operating systems and other interpreters are
 not covered by that installation record. Persistence and the Hook bridge require
@@ -114,7 +116,9 @@ disabling does not establish completion. Hermes owner restart remains unsupporte
 
 The setting is read only when the embedding application calls `load_config`.
 No normal Codex/Hermes configuration is automatically edited. Installing the
-package alone never enables it. A general end-user launcher/Plugin is not supplied.
+package alone never enables it. The separate [operational CLI](operations.md)
+supplies lifecycle-only host startup.
+It uses its own JSON configuration; this embedded TOML helper remains unchanged.
 
 ## Remove the package
 

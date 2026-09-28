@@ -13,8 +13,8 @@ Code C-CLI adapter with opt-in recovery.
 explicit tool receipt and current-state resume verification. Its overall profile
 remains PARTIAL. Claude Code C-CLI has an externally reviewed live PASS for the
 bounded Yohaku manual-completion workflow; its overall profile remains PARTIAL.
-Opt-in C-CLI recovery reaches RESUME_VERIFIED in local fixtures only; its live
-acceptance is NOT_RUN.
+Opt-in C-CLI recovery has separately scoped maintainer local-backend synthetic
+Evidence; external subscription recovery acceptance remains NOT_RUN.
 The recorded Codex acceptance is scoped and overall **PARTIAL**;
 this repository does not declare an Alpha, Beta, or Stable release.
 
@@ -72,7 +72,7 @@ checkpoint, so an emergency observation remains explicitly unverified.
 |---|---|---|
 | Reference | Codex | Experimental Python integration; bounded historical lab acceptance, overall PARTIAL |
 | Target | Hermes | H-CLI-01 embedded adapter and bounded workflow PASS / profile PARTIAL; explicit receipt, no restart |
-| Target | Claude Code | C-CLI 2.1.280/Linux/print-stream-json: bounded completion live PASS, overall PARTIAL; opt-in recovery local PASS/live NOT_RUN; SDK/API separate |
+| Target | Claude Code | C-CLI 2.1.280/Linux/print-stream-json: bounded completion live PASS, overall PARTIAL; subscription recovery NOT_RUN; separate maintainer local-live synthetic evidence; SDK/API separate |
 | Next Target | DeepSeek Harness / OpenCode | Research candidates; adapters unimplemented |
 | Future | Gemini CLI / Antigravity | Research candidates; adapters unimplemented |
 | Research / Auxiliary | Claude Desktop / Cowork | Auxiliary research surfaces; no compact-control adapter |
@@ -87,7 +87,10 @@ strategy's acceptance. See [Runtime support and evidence scope](docs/runtime-sup
 The current deliverable is a wheel-installable Python library. It requires
 **Python 3.11 or newer** and has no runtime dependencies. Persistence and the Hook
 bridge use POSIX facilities; installation checks cover CPython 3.11.16 and 3.14.4
-on WSL2 Linux. There is no packaged end-user launcher or automatic runtime setup.
+on WSL2 Linux. The packaged [Operational Alpha Foundation CLI](docs/operations.md)
+provides dedicated no-inference host startup, status, stop and retained-state
+inspection. Task execution and transitions require a real-task profile and are
+refused by this launcher. Installing it does not declare an Alpha release.
 
 Install a reviewed wheel into the Python environment that owns the integration:
 
@@ -114,8 +117,9 @@ A live integration must supply an initialized, exclusively owned runtime
 connection, serialized event loop, trusted Hook configuration, current-state
 observers, and a task-specific resume assessor. Read the
 [Codex integration reference](docs/reference/codex.md) before constructing a host.
-The library does not configure authentication, launch the runtime, or decide
-whether an arbitrary task has succeeded.
+The embedded adapters do not configure authentication or decide whether an
+arbitrary task has succeeded. The operational CLI launches only its explicitly
+listed lifecycle profiles.
 
 ## Architecture
 
