@@ -9,5 +9,8 @@ description = "Proactive Context Compaction Manager"
 requires-python = ">=3.11"
 dependencies = []
 
+[project.scripts]
+yohaku = "yohaku.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
