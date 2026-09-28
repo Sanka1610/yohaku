@@ -294,6 +294,41 @@ Abliterated profile. Failed-run elapsed times are not completed recovery speed.
 Product code, previous profile verdicts and subscription evidence are unchanged.
 Record: `C-CLI-OLLAMA-QWEN35-4B-2026-09-29`.
 
+## qwen3.5:9b local maintainer comparison profile
+
+The separate 2026-09-29 profile used `qwen3.5:9b`, digest
+`6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7`,
+Q4_K_M (metadata parameter size 9.7B), on Ollama client/server 0.34.1.
+Claude Code CLI 2.1.280/Linux/`claude -p`/stream-json/command Hooks, the original
+Spark runner, fixture, prompts, adapter and acceptance conditions were unchanged.
+Bounds remained 300 seconds, 4096 output tokens, max turns 6 and 20 inference
+requests. Both runs observed context 32768, matching `qwen3.5:4b`; earlier
+profiles observed 131072. Host load, cache, seed and memory placement were not
+controlled. Provenance is maintainer/local-live/synthetic, maturity experimental,
+overall **PARTIAL**. Record: `C-CLI-OLLAMA-QWEN35-9B-2026-09-29`.
+
+Exactly two attempts ran. The first took 113.89 seconds and four inference
+requests: completion and handoff submission passed, but the model's explicit
+receipt had an incorrect `session_id` (39 characters instead of the expected 36).
+The owner rejected it and stopped in RECOVERY_REQUIRED, with counters 1/0/0.
+Its workflow is FAIL; fresh observation through resume verification are NOT_RUN.
+Raw collector evidence is retained, with attempted receipt failure classified
+separately from the absence of an accepted receipt.
+
+The second took 128.37 seconds and seven inference requests and reached
+**RESUME_VERIFIED**. Independent receipt, fresh observation, controller-driven
+continuation and task-specific assessment passed, with counters 1/1/0 and no
+issues. This is a **PASS for this bounded synthetic run only**. Both saved
+completion proofs passed the unchanged policy; either order of the two
+post-compact hooks remains valid. Compact responses reported 1269 and 1001
+output tokens respectively, below the unchanged 4096 bound.
+
+One success out of two does not establish repeatability. This profile is a
+conditional manual recovery regression candidate, not an accepted primary
+profile or required automated gate. Spark remains an unchanged optional
+low-resource/stress diagnostic. No product code or previous profile verdicts
+changed; the local success does not extend Anthropic subscription coverage.
+
 ## Installation compatibility
 
 The later installation change lowers the package minimum to Python 3.11 and
