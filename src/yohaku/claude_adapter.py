@@ -17,6 +17,8 @@ from .recovery import CurrentContext
 
 
 class ClaudeCLIAdapter:
+    _policy_type = ClaudeManualCompletionPolicy
+
     def __init__(self, store, *, profile, startup, exclusive_fresh_session):
         if (profile != ClaudeCLIProfile() or exclusive_fresh_session is not True
                 or not isinstance(startup, ClaudeHookObservation)
@@ -32,7 +34,7 @@ class ClaudeCLIAdapter:
             raise TransitionError("C-CLI needs the pinned, fresh exclusive session and store")
         store._ready()
         self.store, self.profile, self.startup = store, profile, startup
-        self.core = Controller(store.thread_id, completion_policy=ClaudeManualCompletionPolicy())
+        self.core = Controller(store.thread_id, completion_policy=self._policy_type())
         self.records = store.path / "claude-cli-events"
         self.records.mkdir(mode=0o700, exist_ok=False)
         _sync_directory(store.path)
@@ -77,6 +79,7 @@ class ClaudeCLIAdapter:
                 raise TransitionError("checkpoint observation changed")
             self.core.checkpoint_committed(cp.checkpoint_id, commit_evidence=cp.commit_evidence)
             self._record("checkpoint_committed", checkpoint_id=cp.checkpoint_id)
+            self.current = current
             return cp
         except BaseException:
             self.stopped = True
