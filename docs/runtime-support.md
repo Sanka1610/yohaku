@@ -263,6 +263,37 @@ unaccepted as required automated gates. Previous profile verdicts and product
 adapter code remain unchanged; official model benchmarks are not transferred to
 these local derivatives.
 
+## qwen3.5:4b local maintainer retry profile
+
+The separate 2026-09-29 retry used `qwen3.5:4b`, digest
+`2a654d98e6fba55d452b7043684e9b57a947e393bbffa62485a7aac05ee4eefd`,
+Q4_K_M (metadata parameter size 4.7B), on Ollama client/server 0.34.1.
+Claude Code 2.1.280/Linux/`claude -p`/stream-json/command Hooks, original runner,
+fixture, prompts, adapter and explicit bounds were unchanged: 300 seconds,
+4096 output tokens, max turns 6, inference request ceiling 20. Effective context
+was observed at 32768, unlike 131072 in the earlier profiles; no context override
+was added and the cause of that difference was not established. This is not a
+strict weights-only causal comparison. Provenance is maintainer/local-live/synthetic,
+maturity experimental, overall PARTIAL.
+
+Both attempts reached manual completion and handoff submission: 33.19 and 30.20
+seconds, four local inference requests each. The saved completion proofs passed
+replay through the unchanged policy, including either order of the two post-compact
+hooks. Explicit receipts failed independently: the first run's receipt call omitted one
+character from `session_id` (36 to 35 characters), the second from `handoff_hash`
+(64 to 63). Command syntax was valid, but receipt argument fidelity was **FAIL**.
+The owner rejected both and ended in RECOVERY_REQUIRED with counters 1/0/0.
+Fresh observation, continuation and RESUME_VERIFIED remain **NOT_RUN**.
+
+Both bounded workflows are **FAIL**. This profile is not accepted as the primary
+recovery regression profile or required automated gate; it can support conditional
+manual completion/rejected-receipt diagnostics. Raw collector `explicit_receipt`
+flags remain unchanged; separate reviews record attempted-but-rejected receipts
+as FAIL. No HTTP 500 occurred in these two runs, which does not revise the earlier
+Abliterated profile. Failed-run elapsed times are not completed recovery speed.
+Product code, previous profile verdicts and subscription evidence are unchanged.
+Record: `C-CLI-OLLAMA-QWEN35-4B-2026-09-29`.
+
 ## Installation compatibility
 
 The later installation change lowers the package minimum to Python 3.11 and
