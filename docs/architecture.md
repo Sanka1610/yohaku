@@ -1,6 +1,7 @@
 # Architecture
 
-Yohaku implements a Codex reference integration and a bounded Hermes CLI adapter
+Yohaku implements a Codex reference integration, a bounded Hermes CLI adapter
+and a bounded Claude CLI completion adapter
 as a Python library.
 The architecture is Plugin + Companion Controller in design; the repository
 contains the Controller, Companion, Hook bridge and runtime integration code, but
@@ -17,6 +18,7 @@ does not yet ship an installable Plugin/Skill bundle or general-purpose launcher
 | Runtime host and Hook bridge | Owner-loop event handling, local Hook delivery, transport dispatch | [runtime.py](../src/yohaku/runtime.py), [hook.py](../src/yohaku/hook.py) |
 | Manual / native lifecycle | Codex request/event correlation and the separate native recovery path | [manual.py](../src/yohaku/manual.py), [native.py](../src/yohaku/native.py) |
 | Hermes CLI adapter | Pinned foreground ledger, manual compression readback, explicit receipt and continuation | [hermes_adapter.py](../src/yohaku/hermes_adapter.py) |
+| Claude CLI adapter | Pinned C-CLI manual Hook proof, single dispatch and stop at completion | [claude.py](../src/yohaku/claude.py), [claude_adapter.py](../src/yohaku/claude_adapter.py) |
 | Work / recovery | Bounded work admission, active and pending work, handoff receipt, task-specific resume assessment | [work.py](../src/yohaku/work.py), [recovery.py](../src/yohaku/recovery.py) |
 | Archive | Selected visible-turn storage, metadata search, selected-body reads, optional Codex collector | [archive.py](../src/yohaku/archive.py), [runtime_archive.py](../src/yohaku/runtime_archive.py) |
 
@@ -84,12 +86,18 @@ The pinned runtime is Hermes 0.21.0 at source commit
 cannot establish completion. Host instrumentation remains responsible for the
 truth of observations; matching hashes are not authentication.
 
-Hermes proof objects can be supplied to the in-memory Core without inventing
+`ClaudeManualCompletionPolicy` requires a closed manual Hook window on one fresh
+exclusive C-CLI attachment. It correlates PreCompact, PostCompact and
+SessionStart(compact) to the session and locally owned request/generation.
+It permits neither handoff nor resume verification. See the
+[C-CLI reference](reference/claude-cli.md) for host responsibilities and limits.
+
+Hermes and Claude proof objects can be supplied to the in-memory Core without inventing
 Codex turn/item events. The `Snapshot` binding/completions annotations still
 describe the Codex schema-1 storage contract. `SessionStore` rejects records that
 cannot round-trip through that contract before writing; `Controller.restart`
-accepts only the existing Codex binding and evidence types. No schema migration,
-new namespace, or runtime registry is provided. `CompanionController` continues
+accepts only the existing Codex binding and evidence types. No cross-runtime
+snapshot schema, migration or restart registry is provided. `CompanionController` continues
 to construct the Codex backend and recovery lifecycle.
 
 Completion does not establish handoff receipt or resume verification.

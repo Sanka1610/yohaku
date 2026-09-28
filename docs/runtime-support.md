@@ -74,9 +74,18 @@ test conditions; they are not general failure-recovery guarantees.
 
 Claude Code and Hermes are Targets. DeepSeek Harness and
 OpenCode are Next Targets; Gemini CLI and Antigravity are Future candidates.
-Claude Desktop and Cowork are Research / Auxiliary surfaces. Non-Codex adapters
-beyond the bounded Hermes profile remain unimplemented. Claude Code's reviewed
-documentation/source contracts are design inputs; its live acceptance remains NOT_RUN.
+Claude Desktop and Cowork are Research / Auxiliary surfaces.
+
+Claude Code C-CLI has a bounded adapter for 2.1.280/Linux/`claude -p`/stream-json
+with command Hooks. Local fixtures verify manual completion and negative cases;
+Yohaku-mediated live acceptance remains NOT_RUN. An external live-runtime synthetic
+Probe inspection report records startup, foreground tool Hooks/deny, manual compact,
+externally prompted continuation and nonduplication. The original event JSON was
+not available for replay. Its final TIME_LIMIT issue and overall PARTIAL verdict
+are preserved. This adapter stops at ROLLOVER_OBSERVED; autonomous continuation,
+Yohaku receipt, current-state reconciliation, RESUME_VERIFIED, Hook-fault fail-closed
+and background/subagent coverage remain unproven. Agent SDK/API is a separate,
+unimplemented profile. See the [C-CLI reference](reference/claude-cli.md).
 
 Hermes H-CLI-01 measured an instrumented native CLI host on Ubuntu-Hermes, version
 0.21.0 at `c5594ec4b34097cafbe24deb6dfd9ac4b21d411d`, using the existing

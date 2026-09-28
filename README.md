@@ -6,11 +6,13 @@ Yohaku is an experimental context-transition controller for long-running AI agen
 tasks. It is designed to manage when context is compacted, preserve recovery
 state, check runtime completion, and verify the current task state before work
 continues. The existing implementation is a Python library with a bounded Codex
-reference integration and an embedded Hermes H-CLI-01 adapter.
+reference integration, an embedded Hermes H-CLI-01 adapter and a bounded Claude
+Code C-CLI completion adapter.
 
 **Current status: experimental.** Hermes has a bounded native CLI adapter with
 explicit tool receipt and current-state resume verification. Its overall profile
-remains PARTIAL. The Claude Code adapter is not implemented.
+remains PARTIAL. Claude Code C-CLI has a locally tested manual-completion adapter;
+Yohaku-mediated live acceptance is NOT_RUN and its external Probe remains PARTIAL.
 The recorded Codex acceptance is scoped and overall **PARTIAL**;
 this repository does not declare an Alpha, Beta, or Stable release.
 
@@ -38,7 +40,8 @@ Compaction is one implementation strategy. Fresh-context rollover and session
 migration are other design categories, not available Yohaku adapters. The Core
 delegates completion predicates to a runtime-specific policy, with the existing
 Codex rules as the default. The Hermes predicate uses host history and storage
-readback rather than Codex events.
+readback rather than Codex events. The Claude CLI predicate uses a closed,
+correlated manual Hook collection and does not permit handoff continuation.
 
 ## How it works
 
@@ -66,7 +69,7 @@ checkpoint, so an emergency observation remains explicitly unverified.
 |---|---|---|
 | Reference | Codex | Experimental Python integration; bounded historical lab acceptance, overall PARTIAL |
 | Target | Hermes | H-CLI-01 embedded adapter and bounded workflow PASS / profile PARTIAL; explicit receipt, no restart |
-| Target | Claude Code | Documentation/source contracts reviewed; adapter unimplemented, live acceptance NOT_RUN |
+| Target | Claude Code | C-CLI 2.1.280/Linux/print-stream-json completion adapter, local tests; external Probe PARTIAL, adapter live NOT_RUN; SDK/API separate and unimplemented |
 | Next Target | DeepSeek Harness / OpenCode | Research candidates; adapters unimplemented |
 | Future | Gemini CLI / Antigravity | Research candidates; adapters unimplemented |
 | Research / Auxiliary | Claude Desktop / Cowork | Auxiliary research surfaces; no compact-control adapter |
@@ -122,7 +125,8 @@ The current code is not a fully runtime-neutral integration. The Companion,
 backend construction, recovery transport, and `CODEX_HOME` store remain Codex
 specific. Runtime-specific completion predicates can connect to the in-memory
 Core. The Hermes adapter stores separate observation metadata and reuses existing
-checkpoint/handoff files; Hermes Core restart is not implemented. See
+checkpoint/handoff files. The C-CLI adapter reuses checkpoints and stores its own
+completion metadata. Neither adapter implements Core restart. See
 [Architecture](docs/architecture.md) for the boundary and compatibility limits.
 
 ## Known Limitations
@@ -137,7 +141,7 @@ checkpoint/handoff files; Hermes Core restart is not implemented. See
   is `UNSUPPORTED`; repeated compaction and power-loss behavior are not accepted.
 - Host-supplied observers, resume assessors, and visible-text selectors are trusted
   integration code. There is no general task-success oracle or automatic redactor.
-- Windows-native persistence and profiles beyond the bounded Codex/Hermes
+- Windows-native persistence and profiles beyond the bounded Codex/Hermes/C-CLI
   integrations are not implemented. Strong Transition Assurance remains unestablished.
 
 The [profile details](docs/runtime-support.md) distinguish recorded evidence from
@@ -162,6 +166,7 @@ release decision. See the [Support and release policy](SUPPORT_POLICY.md).
 - [Architecture](docs/architecture.md): implemented responsibilities and design boundaries.
 - [Runtime support and evidence scope](docs/runtime-support.md): measured profile, provenance, and strategy limits.
 - [Hermes H-CLI-01 reference](docs/reference/hermes.md): embedded host wiring, receipt and scope limits.
+- [Claude Code C-CLI reference](docs/reference/claude-cli.md): manual completion, correlation and evidence limits.
 - [Codex reference](docs/reference/codex.md): existing API, storage, Hook, recovery, and archive contracts.
 - [Support and release policy](SUPPORT_POLICY.md): maturity, evidence, feedback, and release criteria.
 
