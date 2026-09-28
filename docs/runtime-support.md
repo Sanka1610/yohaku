@@ -358,3 +358,38 @@ permissions, tools, ownership, storage, cost bounds, strategy, and stop conditio
 Actual completion, receipt, current-state reconciliation, and negative cases must
 be observed for that profile. Candidate APIs and runtime-native primitives alone
 do not establish Yohaku support.
+
+
+### C-CLI host-bound nonce receipt maintainer profile
+
+A separate opt-in `ClaudeCLINonceRecoveryAdapter` profile uses a single 128-bit
+challenge response while the trusted host retains and checks all handoff,
+checkpoint, request, session, attachment, generation and continuation identities.
+The original full-identity echo adapter and all earlier verdicts remain unchanged.
+Native admission, matching handler/PostToolUse result, fresh observation and an
+independent task assessor remain mandatory. A no-argument or automatic ACK is not
+accepted. This is restricted to one exclusive owner and one pending handoff.
+
+On Claude Code CLI 2.1.280 / Linux / `claude -p` / stream-json / command Hooks,
+Ollama 0.34.1 and `qwen3.5:9b` Q4_K_M (digest
+`6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7`), one
+maintainer/local-live/synthetic run at context 32768 reached **RESUME_VERIFIED**
+in **100.01 seconds / 7 inference requests**. Actual nonce arguments, the submitted
+handoff prompt, durable receipt/read/action records and task effects were reviewed
+independently. Counters were before=1, after=1, stale=0; issues were empty. The
+fixed bounded workflow is **PASS**, overall **PARTIAL**. Repeated-run reliability
+and primary regression-gate adoption remain unestablished.
+
+An earlier attempt after backend startup used context 4096, ended AMBIGUOUS after
+PreCompact only (28.61 seconds / 6 requests), and never reached receipt. It is
+retained but excluded from the same-condition comparison. The corrected run used
+a fresh session and checked context before compact; no old owner/request resumed.
+The 300-second owner bound, 4096 output cap, 6 turns, 20-request ceiling and original
+fixture were preserved. Only receipt arguments changed in the recovery prompt.
+No speed or reliability improvement is inferred from this single comparable run.
+
+Local tests reject missing, stale, duplicate, foreign-owner and mismatched identity
+or result evidence. Tool success does not establish semantic result incorporation;
+the fresh-read token and task assessment remain independent. This profile does not
+promote Anthropic subscription evidence or Claude Code as a whole to PASS. See the
+[nonce receipt contract](reference/claude-cli.md#opt-in-host-bound-nonce-receipt).

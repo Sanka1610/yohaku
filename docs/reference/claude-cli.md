@@ -5,8 +5,8 @@
 It covers one fresh exclusive session and one manual `/compact` request.
 Its endpoint is `ROLLOVER_OBSERVED`. The separate opt-in
 `ClaudeCLIRecoveryAdapter` adds one bounded post-compact recovery path on the same
-process, currently verified with local fixtures only. Agent SDK/API is a separate,
-unimplemented profile.
+process, with acceptance scoped separately by backend and receipt protocol.
+Agent SDK/API is a separate, unimplemented profile.
 
 ## Evidence scope
 
@@ -27,9 +27,9 @@ consistency can be checked; private checkpoint/lease fields were not exported an
 are not independently read back. This later result does not overwrite the older Probe.
 
 The opt-in recovery implementation has local synthetic tests, including a fake CLI
-that runs actual local Hook and fixture subprocesses. Its new live acceptance is
-**NOT_RUN**. Neither local RESUME_VERIFIED nor the completion-only live result
-establishes live recovery or Claude-wide support.
+that runs actual local Hook and fixture subprocesses. Its external subscription
+recovery live acceptance is **NOT_RUN**. Separately recorded maintainer local-backend
+runs do not establish subscription recovery or Claude-wide support.
 
 ## Host integration
 
@@ -163,7 +163,8 @@ that successful effects cannot conceal missing receipt or a failed assessment.
 
 The new command-Hook harness requires Bash `tool_response.stdout` to contain the
 exact fixture JSON. This tool-specific shape is a strict candidate contract for
-the pinned runtime and remains live-unverified; absence or mismatch stops the run.
+the pinned runtime; live acceptance is limited to separately recorded maintainer
+profiles. Absence or mismatch stops the run.
 Metadata validation verifies schema and correlation, not runtime authenticity.
 
 ## Opt-in host-bound nonce receipt
@@ -233,8 +234,8 @@ rejects Claude bindings, and `SessionStore.append` rejects such snapshots.
 The opt-in path also uses existing handoff files. Neither metadata records nor
 historical checkpoints grant restart authority.
 
-External live evidence currently stops at manual completion. The opt-in recovery
-chain, including controller-driven continuation and RESUME_VERIFIED, remains local
-fixture evidence until its separate bounded live acceptance returns. Hook-fault
+External subscription live evidence currently stops at manual completion. The
+maintainer local-backend recovery results, including controller-driven continuation
+and RESUME_VERIFIED, do not establish that separate external acceptance. Hook-fault
 fail-closed, background/subagent coverage, repeated or automatic compaction, restart
 and SDK/API are outside this adapter's accepted coverage.

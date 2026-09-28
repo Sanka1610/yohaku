@@ -323,4 +323,3 @@ class ClaudeCLINonceRecoveryAdapter(ClaudeCLIRecoveryAdapter):
         self._record("receipt_nonce_ack", tool_id=self.active["tool_id"],
                      nonce_hash=digest(fields["nonce"]), protocol="host-nonce-v1")
         return super().acknowledge(dict(self._receipt_identity))
-
