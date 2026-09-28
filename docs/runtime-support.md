@@ -1,9 +1,9 @@
 # Runtime support and evidence scope
 
 This page summarizes the preserved Codex reference records and the bounded
-Hermes H-CLI-01 Probe as of 2026-09-28. The Core extraction's regression tests
-are local; they do not constitute a new runtime run. The implementation is experimental; no public release channel
-is declared. [Support policy](../SUPPORT_POLICY.md) defines the independent axes
+Hermes H-CLI-01 Probe and connected adapter run as of 2026-09-28.
+Local regression tests and the single adapter live run have separate evidence.
+The implementation is experimental; no public release channel is declared. [Support policy](../SUPPORT_POLICY.md) defines the independent axes
 of priority, maturity, evidence level, verdict, and release channel.
 
 ## Recorded Codex reference profile
@@ -33,7 +33,7 @@ bundle; publication of reviewed, shareable evidence remains release preparation.
 | Codex manual compaction | `ManualCompactBackend`; correlated compaction item completion, successful PostCompact, and successful compact turn completion | RPC ACK alone is insufficient; one outstanding request and exclusive ownership required |
 | Codex native automatic compaction recovery | Opt-in observer; correlated compaction item completion and PostCompact, followed by same-turn receipt and resume verification | One compaction per attachment; emergency delta unverified; native recovery restart UNSUPPORTED |
 | Codex experimental `new_context` | Not selected by the package; UNSUPPORTED in the measured configurations | No fresh-context support inferred from the manual path |
-| Hermes manual in-place compression | H-CLI-01 host-history update plus independent DB readback; in-memory completion predicate implemented | One fresh exclusive session, one manual request; full host/storage/continuation adapter unimplemented |
+| Hermes manual in-place compression | H-CLI-01 adapter uses host-history update plus independent DB readback, explicit tool receipt and Core resume gates | One fresh exclusive session and one manual request; embedded instrumentation required, no restart |
 
 Native recovery does not prove the proactive boundary/checkpoint/lease sequence
 was completed before native compaction. Manual and native results remain separate.
@@ -74,24 +74,40 @@ test conditions; they are not general failure-recovery guarantees.
 
 Claude Code and Hermes are Targets. DeepSeek Harness and
 OpenCode are Next Targets; Gemini CLI and Antigravity are Future candidates.
-Claude Desktop and Cowork are Research / Auxiliary surfaces. Complete non-Codex
-Yohaku adapters remain unimplemented. Claude Code's reviewed documentation/source
-contracts are design inputs; its live acceptance remains NOT_RUN.
+Claude Desktop and Cowork are Research / Auxiliary surfaces. Non-Codex adapters
+beyond the bounded Hermes profile remain unimplemented. Claude Code's reviewed
+documentation/source contracts are design inputs; its live acceptance remains NOT_RUN.
 
 Hermes H-CLI-01 measured an instrumented native CLI host on Ubuntu-Hermes, version
 0.21.0 at `c5594ec4b34097cafbe24deb6dfd9ac4b21d411d`, using the existing
 `openai-codex` route with `gpt-5.6-luna` and low effort for main and compression.
-The single live synthetic-task run used eight provider requests and one manual
+The Stage 2 live synthetic-task Probe used eight provider requests and one manual
 compression. Bounded workflow: PASS; profile overall: PARTIAL. Host/DB reflection,
 fresh task-state read and nonduplicated controller-driven continuation were
-observed. Explicit handoff receipt remains PARTIAL; barrier, race and restart
+observed. Explicit handoff receipt was PARTIAL in that Probe; barrier, race and restart
 capabilities were not accepted. This is not interactive terminal acceptance or
 Strong Transition Assurance.
 
 The completion predicate was checked locally against saved Probe metadata and
-synthetic negatives. Those checks do not upgrade live coverage, nor do they
-establish a connected Yohaku checkpoint/lease/receipt/resume adapter. Historical
-Probe source associations and verdicts are preserved.
+synthetic negatives. Historical Probe source associations and verdicts are preserved.
+
+The Stage 4 adapter then completed one new bounded live synthetic-task run with
+nine provider requests (4 before, 1 compression, 4 continuation), one manual
+compression and Core `RESUME_VERIFIED`. Existing durable checkpoint and handoff
+files were connected. The runtime issued an explicit assistant tool receipt
+containing handoff/checkpoint/request/session/generation identity and checkpoint
+checksum; independent post-run DB readback confirmed its arguments and result.
+Fresh state was read after receipt; A and B executed once each. Completion still
+uses the Stage 3 policy, not a new predicate. Bounded workflow and this explicit
+adapter receipt: PASS; overall CoverageProfile: PARTIAL.
+
+The host used Python 3.11.16 with copied source; local checks used Python 3.14.4.
+This does not change the package's Python >=3.14 installation requirement.
+The explicit receipt is an adapter-defined protocol over native tool calls,
+not a built-in Hermes acknowledgement. General tool coverage, Hook-fault safety,
+races, background/parallel work, restart, late completion, repeated compression
+and live selected-archive retrieval remain unaccepted. See the
+[Hermes integration reference](reference/hermes.md) for required host wiring.
 
 Dated documentation/source research can identify candidate control points. Before
 implementation, each probe must fix runtime and SDK versions, surface, provider,

@@ -6,10 +6,11 @@ Yohaku is an experimental context-transition controller for long-running AI agen
 tasks. It is designed to manage when context is compacted, preserve recovery
 state, check runtime completion, and verify the current task state before work
 continues. The existing implementation is a Python library with a bounded Codex
-reference integration.
+reference integration and an embedded Hermes H-CLI-01 adapter.
 
-**Current status: experimental.** Complete Claude Code and Hermes adapters are not
-implemented. Hermes has a bounded host Probe and an in-memory completion predicate.
+**Current status: experimental.** Hermes has a bounded native CLI adapter with
+explicit tool receipt and current-state resume verification. Its overall profile
+remains PARTIAL. The Claude Code adapter is not implemented.
 The recorded Codex acceptance is scoped and overall **PARTIAL**;
 this repository does not declare an Alpha, Beta, or Stable release.
 
@@ -64,7 +65,7 @@ checkpoint, so an emergency observation remains explicitly unverified.
 | Priority | Runtime | Yohaku implementation / evidence status |
 |---|---|---|
 | Reference | Codex | Experimental Python integration; bounded historical lab acceptance, overall PARTIAL |
-| Target | Hermes | H-CLI-01 bounded workflow PASS / profile PARTIAL; completion predicate only, full adapter unimplemented |
+| Target | Hermes | H-CLI-01 embedded adapter and bounded workflow PASS / profile PARTIAL; explicit receipt, no restart |
 | Target | Claude Code | Documentation/source contracts reviewed; adapter unimplemented, live acceptance NOT_RUN |
 | Next Target | DeepSeek Harness / OpenCode | Research candidates; adapters unimplemented |
 | Future | Gemini CLI / Antigravity | Research candidates; adapters unimplemented |
@@ -120,7 +121,8 @@ selected visible turns and retrieves only requested historical data.
 The current code is not a fully runtime-neutral integration. The Companion,
 backend construction, recovery transport, and `CODEX_HOME` store remain Codex
 specific. Runtime-specific completion predicates can connect to the in-memory
-Core; non-Codex proof persistence and restart are not implemented. See
+Core. The Hermes adapter stores separate observation metadata and reuses existing
+checkpoint/handoff files; Hermes Core restart is not implemented. See
 [Architecture](docs/architecture.md) for the boundary and compatibility limits.
 
 ## Known Limitations
@@ -135,8 +137,8 @@ Core; non-Codex proof persistence and restart are not implemented. See
   is `UNSUPPORTED`; repeated compaction and power-loss behavior are not accepted.
 - Host-supplied observers, resume assessors, and visible-text selectors are trusted
   integration code. There is no general task-success oracle or automatic redactor.
-- Windows-native persistence and non-Codex adapters are not implemented. Strong
-  Transition Assurance remains unestablished.
+- Windows-native persistence and profiles beyond the bounded Codex/Hermes
+  integrations are not implemented. Strong Transition Assurance remains unestablished.
 
 The [profile details](docs/runtime-support.md) distinguish recorded evidence from
 unmeasured configurations and later implementation changes.
@@ -158,6 +160,7 @@ release decision. See the [Support and release policy](SUPPORT_POLICY.md).
 
 - [Architecture](docs/architecture.md): implemented responsibilities and design boundaries.
 - [Runtime support and evidence scope](docs/runtime-support.md): measured profile, provenance, and strategy limits.
+- [Hermes H-CLI-01 reference](docs/reference/hermes.md): embedded host wiring, receipt and scope limits.
 - [Codex reference](docs/reference/codex.md): existing API, storage, Hook, recovery, and archive contracts.
 - [Support and release policy](SUPPORT_POLICY.md): maturity, evidence, feedback, and release criteria.
 

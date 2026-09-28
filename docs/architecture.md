@@ -1,6 +1,7 @@
 # Architecture
 
-Yohaku currently implements a Codex reference integration as a Python library.
+Yohaku implements a Codex reference integration and a bounded Hermes CLI adapter
+as a Python library.
 The architecture is Plugin + Companion Controller in design; the repository
 contains the Controller, Companion, Hook bridge and runtime integration code, but
 does not yet ship an installable Plugin/Skill bundle or general-purpose launcher.
@@ -14,6 +15,7 @@ does not yet ship an installable Plugin/Skill bundle or general-purpose launcher
 | Companion and persistence | Durable checkpoints, journal, handoffs, local writer lock, orchestration | [companion.py](../src/yohaku/companion.py), [persistence.py](../src/yohaku/persistence.py), [codec.py](../src/yohaku/codec.py) |
 | Runtime host and Hook bridge | Owner-loop event handling, local Hook delivery, transport dispatch | [runtime.py](../src/yohaku/runtime.py), [hook.py](../src/yohaku/hook.py) |
 | Manual / native lifecycle | Codex request/event correlation and the separate native recovery path | [manual.py](../src/yohaku/manual.py), [native.py](../src/yohaku/native.py) |
+| Hermes CLI adapter | Pinned foreground ledger, manual compression readback, explicit receipt and continuation | [hermes_adapter.py](../src/yohaku/hermes_adapter.py) |
 | Work / recovery | Bounded work admission, active and pending work, handoff receipt, task-specific resume assessment | [work.py](../src/yohaku/work.py), [recovery.py](../src/yohaku/recovery.py) |
 | Archive | Selected visible-turn storage, metadata search, selected-body reads, optional Codex collector | [archive.py](../src/yohaku/archive.py), [runtime_archive.py](../src/yohaku/runtime_archive.py) |
 
@@ -73,9 +75,8 @@ automatic completion requires two and the separate recovery path.
 
 `HermesManualCompletionPolicy` accepts metadata from the H-CLI-01 strategy:
 manual in-place compression, host-history update, independent SessionDB readback,
-then fresh current-state observation and controller-driven continuation. Only
-the completion predicate is implemented here. It requires one request and one
-readback, ordered and correlated to a fresh exclusive session at generation 1,
+then fresh current-state observation and controller-driven continuation.
+The predicate requires one request and one readback, ordered and correlated to a fresh exclusive session at generation 1,
 with changed host history, matching host/DB projections and archived old rows.
 The pinned runtime is Hermes 0.21.0 at source commit
 `c5594ec4b34097cafbe24deb6dfd9ac4b21d411d`. Engine return or compressor count alone
@@ -90,11 +91,15 @@ accepts only the existing Codex binding and evidence types. No schema migration,
 new namespace, or runtime registry is provided. `CompanionController` continues
 to construct the Codex backend and recovery lifecycle.
 
-Completion does not establish handoff receipt or resume verification. Hermes
-host I/O, durable orchestration, fresh-read/continuation scheduling, explicit
-receipt and restart remain adapter work. The Core's receipt and resume gates
-are unchanged. Work ledgers, tool taxonomies, Hook delivery and visible-turn
-collectors remain runtime specific; their meanings and coverage are not unified.
+Completion does not establish handoff receipt or resume verification.
+`HermesCLIAdapter` connects the native host, foreground ledger, independent DB
+readback, existing checkpoint/handoff files and an explicit tool receipt to
+those Core gates. It schedules one continuation, reconciles a fresh task read
+and checks a task-specific resume proof. Its metadata records are separate from
+the Codex snapshot journal; Hermes restart remains unsupported. The Core's receipt
+and resume gates are unchanged. See the [Hermes reference](reference/hermes.md).
+Work ledgers, tool taxonomies, Hook delivery and visible-turn collectors remain
+runtime specific; their meanings and coverage are not unified.
 
 Transition Strategy describes a runtime/surface/backend contract. The completion
 policy boundary is not a general transport interface or full multi-runtime support.
