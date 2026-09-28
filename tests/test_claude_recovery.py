@@ -16,6 +16,8 @@ from yohaku.recovery import CurrentContext, RecoveredData, ResumeProof
 
 
 class ClaudeRecoveryTests(unittest.TestCase):
+    adapter_type = ClaudeCLIRecoveryAdapter
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -24,7 +26,7 @@ class ClaudeRecoveryTests(unittest.TestCase):
         self.addCleanup(env.stop)
         self.store = SessionStore('session', create=True)
         self.addCleanup(self.store.close)
-        self.a = ClaudeCLIRecoveryAdapter(self.store, profile=ClaudeCLIProfile(),
+        self.a = self.adapter_type(self.store, profile=ClaudeCLIProfile(),
             startup=ClaudeHookObservation('attachment', '', 0, 1, 'session', 'SessionStart', 'startup', 'fixture:1', True),
             exclusive_fresh_session=True)
         self.current = CurrentContext('task', 0, 1, WorkspaceRevision(1, 'before', ('fixture',)))

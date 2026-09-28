@@ -166,6 +166,42 @@ exact fixture JSON. This tool-specific shape is a strict candidate contract for
 the pinned runtime and remains live-unverified; absence or mismatch stops the run.
 Metadata validation verifies schema and correlation, not runtime authenticity.
 
+## Opt-in host-bound nonce receipt
+
+`ClaudeCLINonceRecoveryAdapter` keeps the recovery gates above and changes only
+receipt argument transport. It is restricted to the same fresh, exclusively owned
+process, one pending handoff, one recovery input and generation 1. The original
+`ClaudeCLIRecoveryAdapter` retains its full-identity echo contract.
+
+The nonce adapter snapshots the complete receipt identity and continuation binding
+on the trusted host. The `instructions` callback receives only `{"nonce": value}`,
+where `value` is a fresh 128-bit, 22-character challenge. Include that exact value
+in the model-visible receipt command. The native call must pass this dictionary to
+`acknowledge`; a no-argument ACK or a helper loading the nonce from storage is not
+accepted. Do not expose an automatic ACK endpoint.
+
+The adapter checks the captured native session/tool event binding, complete host
+identity and exact one-time nonce. It consumes the nonce once and records its hash
+separately from the host-owned identity. Receipt still requires the matching
+successful PostToolUse with the actual handler result. Wrong identity, owner,
+nonce, generation, stale sequence, duplicate or missing evidence stops recovery.
+The embedding host must stop the owner at its deadline; there is no automatic
+reissue, correction or retry. A submitted handoff or successful later action cannot
+stand in for this evidence.
+
+The nonce response demonstrates an explicit acknowledgment correlated to this
+handoff. Tool success does not establish semantic incorporation of its result.
+The separate fresh-read token echo demonstrates use of that specific observation;
+current-state checks and independent task assessment still determine resume.
+Neither receipt mode claims general semantic understanding.
+
+This mode does not generalize to parallel owners or multiple pending handoffs.
+Local generation and dispatch identity still depend on the trusted serialized
+collector; they are not native CLI turn/generation IDs. The nonce is not an
+identity-authentication boundary against a malicious host or forged same-session
+Hook traffic. Prior full-identity Evidence and verdicts are not reinterpreted.
+See [runtime support](../runtime-support.md) for the separately measured profile.
+
 ## Normal denial and Hook faults
 
 `classify_hook_result` classifies the collector's own response/exit observation.

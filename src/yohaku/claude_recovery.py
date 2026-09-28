@@ -10,6 +10,7 @@ from dataclasses import asdict, dataclass
 from hashlib import sha256
 import json
 from pathlib import Path
+from secrets import compare_digest, token_urlsafe
 from uuid import uuid4
 
 from .claude import ClaudeManualCompletionPolicy, _identity, _sequence
@@ -87,7 +88,8 @@ class ClaudeCLIRecoveryAdapter(ClaudeCLIAdapter):
 
     def _event(self, binding, session_id, seq, evidence_ref):
         self._ready()
-        if (self.continuation is None or binding != self.continuation
+        if (self.continuation is None or not isinstance(binding, ClaudeContinuationBinding)
+                or type(binding.generation) is not int or binding != self.continuation
                 or session_id != self.store.thread_id or not _sequence(seq)
                 or seq <= self.last_seq or not _identity(evidence_ref)):
             self._stop("uncorrelated or stale recovery event")
@@ -278,3 +280,47 @@ class ClaudeCLIRecoveryAdapter(ClaudeCLIAdapter):
             self.stopped = True
             self.core.fail("C-CLI resume assessment failed")
             raise
+
+
+class ClaudeCLINonceRecoveryAdapter(ClaudeCLIRecoveryAdapter):
+    """Opt-in receipt challenge for one exclusively owned, pending handoff.
+
+    The model echoes only a 128-bit, single-use challenge from the recovery input.
+    Full identity remains host-owned. Native admission, matching PostToolUse,
+    fresh observation and task assessment remain separate mandatory evidence.
+    This is not an authentication boundary against an untrusted host/collector.
+    """
+
+    def begin_recovery(self, recovered, *, cwd, instructions, send):
+        def challenge(fields):
+            self._receipt_identity = dict(fields)
+            self._receipt_binding = self.continuation
+            self._receipt_nonce = token_urlsafe(16)
+            self._receipt_consumed = False
+            self._record("receipt_challenge", protocol="host-nonce-v1",
+                         binding=asdict(self._receipt_binding), receipt=fields,
+                         nonce_hash=digest(self._receipt_nonce))
+            return instructions({"nonce": self._receipt_nonce})
+
+        return super().begin_recovery(recovered, cwd=cwd, instructions=challenge, send=send)
+
+    def acknowledge(self, fields):
+        """Explicit model challenge echo; never load an ACK from hidden storage.
+
+        A successful handler alone is not a receipt. The inherited post_tool must
+        still match the admitted native tool ID and exact successful JSON result.
+        """
+        self._handler("receipt")
+        if (getattr(self, "_receipt_consumed", True)
+                or self.continuation != self._receipt_binding
+                or self.receipt_fields() != self._receipt_identity
+                or not isinstance(fields, dict) or set(fields) != {"nonce"}
+                or not isinstance(fields["nonce"], str)
+                or not fields["nonce"].isascii()
+                or not compare_digest(fields["nonce"], self._receipt_nonce)):
+            self._stop("missing, foreign or stale handoff challenge")
+        self._receipt_consumed = True
+        self._record("receipt_nonce_ack", tool_id=self.active["tool_id"],
+                     nonce_hash=digest(fields["nonce"]), protocol="host-nonce-v1")
+        return super().acknowledge(dict(self._receipt_identity))
+
