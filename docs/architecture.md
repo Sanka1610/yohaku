@@ -312,6 +312,7 @@ Support Profile、Evidence、Verdictを変更しない。
 `README.en.md`とする。詳細docsの英語版は、Alpha公開に必要な主要文書から段階的に
 作成する。現在は、本書、[Runtime Mapping](runtime-mapping.md)、
 [Transition Strategies](transition-strategies.md)、[Evidence Model](evidence-model.md)、
+[Operations](operations.md)、[Storage and Recovery](storage-and-recovery.md)、
 [Runtime文書の構成規則](runtimes/README.md)、[Codex Runtime](runtimes/codex.md)、
 [Hermes Runtime](runtimes/hermes.md)、
 [Claude Code CLI Runtime](runtimes/claude-code-cli.md)、
@@ -345,8 +346,10 @@ associationを保つため原文を維持する。一律翻訳せず、公開用
   profile、primitive、Evidence scope、制限を説明する
 - [document-review profile](task-profiles/document-review-report-v1.md)は現在のbounded
   Task Profileを定義する
-- [Operations](operations.md)と[Installation](installation.md)は、architecture acceptance
-  ではなくlauncher behaviorとsetupを説明する
+- [Operations](operations.md)は利用者が実行するcommandと拒否条件を所有する
+- [Storage and Recovery](storage-and-recovery.md)はdurable data、restart時に復元しないstate、
+  recovery判定を所有する
+- [Installation](installation.md)はwheelとhost environmentのsetupを説明する
 
 実装済みbehaviorの正本はsource codeである。公開supportとEvidence claimは、support
 文書が識別するfixed profileとrecordの範囲でのみ正本となる。historical designと

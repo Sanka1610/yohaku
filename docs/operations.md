@@ -1,74 +1,26 @@
-# Operational Alpha Foundation
+# Operations
 
-The installed `yohaku` command provides operational lifecycle management and one
-fixed Real-task Profile, not an Alpha release or a general task runner. The
-lifecycle-only profiles accept no task input and report
-`TASK_PROFILE_REQUIRED`. `document-review-report-v1` has a separate `run`
-entry point with a task-specific observer and assessor. There is no flag that
-turns a lifecycle profile into a general task profile.
+本書は、Yohakuをinstallした利用者・運用者が、どのcommandをどの順序で実行し、
+どの条件で拒否されるかを定める公開正本である。保存対象とrecovery判定は
+[Storage and Recovery](storage-and-recovery.md)、Runtime固有のprimitiveとcompletion
+proof / receiptは[Codex](runtimes/codex.md)、[Hermes](runtimes/hermes.md)、
+[Claude Code CLI](runtimes/claude-code-cli.md)を参照する。Task固有のinput / output、
+Trusted Observer、Task Assessorは[Task Profile](task-profiles/document-review-report-v1.md)、
+EvidenceとVerdictは[Evidence Model](evidence-model.md)が正本である。
 
-## Profiles and evidence
+Operational support、transition support、Task Profile supportは別のclaimである。
+`start`が成功してもtransitionを利用できるとは限らず、transitionがacceptedでも任意taskの
+完了を判定できるとは限らない。`profiles`と`status`はこの差を別fieldで表示する。
 
-Run `yohaku profiles`. Every entry reports runtime/version/surface, maturity,
-evidence level, verdict, evidence scope, and Known Limitations. Runtime maturity
-is `experimental`; release channel is `undeclared`. A lifecycle `PASS` does not
-change historical Transition Evidence or imply `RESUME_VERIFIED`.
+## Install後の基本flow
 
-| Profile | Launcher scope | Transition scope |
-|---|---|---|
-| `codex-document-review-report-v1` | Codex `0.158.0-alpha.2.1`, dedicated App Server, fresh thread, two exact dynamic tools | One declared input set, one manual compact, one create-only Markdown report; bounded live PASS |
-| `codex-operational-0.158` | Codex `0.158.0-alpha.2.1`, dedicated App Server, fresh thread, Companion/store | Disabled; current-version real-task acceptance NOT_RUN |
-| `hermes-operational-h-cli-01` | Hermes `0.21.0`, source `c5594ec4b34097cafbe24deb6dfd9ac4b21d411d`, native CLI construction and store in one process | Disabled; lazy inference agent and H-CLI-01 transition adapter are **not activated** |
-| `codex-reference-0.155` | Historical profile; launcher refuses start | Reference `0.155.0-alpha.16.4`, overall PARTIAL; not evidence for 0.158 |
-| `hermes-h-cli-01` | Historical embedded adapter; launcher refuses start | One fixture tool, one manual compression; bounded PASS / overall PARTIAL |
-| `claude-c-cli` | Listed, no operational launcher | Bounded external manual-completion PASS; subscription recovery live NOT_RUN |
-| `claude-c-cli-local-nonce` | Listed, no operational launcher | Maintainer Ollama/qwen3.5:9b nonce recovery: bounded synthetic PASS / overall PARTIAL |
-
-No Claude entry declares Claude-wide Alpha support. Existing full-identity and
-nonce receipt adapters retain their separate contracts.
-
-The operational checks cover CPython 3.14.4 with Codex and CPython 3.11.16 in the
-existing Hermes venv, on WSL2 Linux. Preflight requires these exact CPython/runtime versions on WSL2 Linux.
-Other versions and platforms need separate review. Operational Evidence IDs are
-`S5-OP-CODEX-0158` and `S5-OP-HERMES`; they describe native lifecycle with no inference.
-Timeout evidence includes local tests with an injected host and a separate
-controlled pause of the owned native App Server. The latter confirms that the
-owner retains its lock until native shutdown actually completes.
-
-The Real-task Evidence ID is `DRR-V1-CODEX-0158-LIVE-01`. Its PASS covers one
-public-document review run, not prose quality, arbitrary inputs, another Runtime,
-restart, repeated transitions, field use or release readiness.
-
-## Install the common wheel
-
-Use the [installation guide](installation.md) to obtain/build a reviewed wheel.
-Record its SHA-256 and source commit. The development package version `0.1.0`
-alone does not identify a candidate. Do not use editable installs or copy Yohaku
-source into the native host.
-
-For Codex:
+Reviewed wheelを[Installation](installation.md)に従ってinstallした後は、次の順で進める。
+例ではCodexのlifecycle-only profileを使う。`yohaku`は、installしたvenv内のabsolute pathへ
+置き換える。
 
 ```sh
-python3.14 -m venv /absolute/path/yohaku-venv
-/absolute/path/yohaku-venv/bin/python -m pip install --no-index --no-deps /absolute/path/yohaku-0.1.0-py3-none-any.whl
-/absolute/path/yohaku-venv/bin/python -m pip check
 /absolute/path/yohaku-venv/bin/yohaku profiles
-```
 
-For Hermes, use `/absolute/hermes-root/venv/bin/python` and install the **same**
-wheel without upgrading native dependencies. Its CLI executable will be
-`/absolute/hermes-root/venv/bin/yohaku`. All Hermes commands must run in that venv
-and on the host where the pinned source exists; this is not a remote bridge.
-
-## Configure and start
-
-Use a new private configuration directory and a separate new state directory.
-The task workspace must already exist. Paths must be absolute and contain no
-symlink components; resolve an executable symlink before configuring.
-Configuration is JSON, separate from the older embedded-library TOML helper.
-
-```sh
-install -d -m 700 /absolute/path/yohaku-config
 /absolute/path/yohaku-venv/bin/yohaku configure \
   --config /absolute/path/yohaku-config/codex.json \
   --profile codex-operational-0.158 \
@@ -76,160 +28,254 @@ install -d -m 700 /absolute/path/yohaku-config
   --workspace /absolute/path/project \
   --state-dir /absolute/path/yohaku-codex-state \
   --single-owner --dedicated-session
-/absolute/path/yohaku-venv/bin/yohaku preflight --config /absolute/path/yohaku-config/codex.json
-/absolute/path/yohaku-venv/bin/yohaku enable --config /absolute/path/yohaku-config/codex.json
-/absolute/path/yohaku-venv/bin/yohaku start --config /absolute/path/yohaku-config/codex.json
-```
 
-For Hermes, use its `venv/bin/yohaku`, profile `hermes-operational-h-cli-01`, and
-`--runtime-path /absolute/hermes-root` (source directory, not its shell launcher).
-Choose a distinct config and state directory. No existing native profile is adopted.
-
-`configure` creates a disabled configuration and binds it to the new state root.
-`enable` allows the next start; it does not start a process or enable transitions.
-Preflight can pass while disabled; `start` still refuses until explicitly enabled.
-`--single-owner` and `--dedicated-session` acknowledge operating assumptions;
-they do not discover other clients or prove global workspace exclusivity.
-A local lock prevents cooperating launchers from sharing one state root.
-
-The foreground `start` command prints a JSON startup record and remains running.
-Use another terminal for status/stop. The same commands are available through
-`/absolute/venv/bin/python -I -m yohaku`.
-
-Configuration fields are schema, profile, runtime_path, workspace, state_dir,
-single_owner, dedicated_session, enabled and stop_timeout (0.1–60 seconds).
-The document-review profile additionally binds task_inputs, task_output,
-task_instruction and credential_home; other profiles reject those fields.
-Unknown fields and changed binding fields fail closed. Use enable/disable for
-activation changes; configure a new root for a different runtime/profile/workspace.
-Do not reuse an old session by copying or editing its configuration binding.
-
-## Run `document-review-report-v1`
-
-Create a new mode-0700 workspace containing only the declared mode-0600 input
-files. The fixed output must not exist. Configuration and state directories must
-remain outside the task workspace. `--credential-home` identifies an existing
-Codex home containing `auth.json`; Yohaku links that credential into the isolated
-run home and does not copy it into Evidence.
-
-```sh
-/absolute/path/yohaku-venv/bin/yohaku configure \
-  --config /absolute/path/yohaku-config/review.json \
-  --profile codex-document-review-report-v1 \
-  --runtime-path /absolute/path/to/codex \
-  --workspace /absolute/path/review-workspace \
-  --state-dir /absolute/path/yohaku-review-state \
-  --single-owner --dedicated-session \
-  --input /absolute/path/review-workspace/first.md \
-  --input /absolute/path/review-workspace/second.md \
-  --output /absolute/path/review-workspace/review-report.md \
-  --instruction "Review the declared documents for contradictions and risks." \
-  --credential-home /absolute/path/existing-codex-home
 /absolute/path/yohaku-venv/bin/yohaku preflight \
-  --config /absolute/path/yohaku-config/review.json
+  --config /absolute/path/yohaku-config/codex.json
 /absolute/path/yohaku-venv/bin/yohaku enable \
-  --config /absolute/path/yohaku-config/review.json
-/absolute/path/yohaku-venv/bin/yohaku run \
-  --config /absolute/path/yohaku-config/review.json
+  --config /absolute/path/yohaku-config/codex.json
+/absolute/path/yohaku-venv/bin/yohaku start \
+  --config /absolute/path/yohaku-config/codex.json
 ```
 
-The Runtime can call only `read_review_inputs` and `publish_review_report`.
-The first read establishes the boundary. After manual compaction and receipted
-handoff, the Runtime must perform a fresh read and then create the pending report.
-The report receives a provenance comment with input and instruction hashes.
-Mechanical completion and writing quality are separate fields; a successful run
-reports `mechanical_task_completion=PASS`, `core_state=RESUME_VERIFIED` and
-`writing_quality=NOT_ASSESSED`.
-
-The report write uses exclusive creation and is never retried after an uncertain
-result. A second preflight or run with the same output returns
-`STALE_OUTPUT_PRESENT`. Interrupted task runs are inspect-only; configure a new
-workspace and state root after maintainer review rather than deleting state or
-reusing the old output. See the [task contract](task-profiles/document-review-report-v1.md).
-
-The lifecycle-only `codex-operational-0.158` profile uses a fresh per-run home,
-no credentials, a disabled loopback provider, and only initialize/thread-start
-requests. It never sends turn/start or compact. Its Companion is attached, but
-task hooks, work observations and recovery dispatch are unavailable. Project-local
-config/hooks are untrusted and disabled. A nonempty
-`/etc/codex` is rejected because system configuration has not been reviewed for
-this isolated profile. App Server startup follows the [official protocol](https://learn.chatgpt.com/docs/app-server);
-Yohaku's restrictions and acceptance are specific to this lifecycle-only profile.
-
-Hermes constructs the pinned native `HermesCLI`, opens its native DB and a
-Yohaku SessionStore in the same process, and leaves its lazy inference agent
-uninitialized. Native chat/compress/agent activation are rejected. A process-local
-audit guard rejects Internet sockets and child processes, including during native
-cleanup. It is a lifecycle-only connection, not the measured H-CLI-01 task/tool
-workflow. Status exposes `native_host_constructed`, `inference_agent_initialized`,
-`companion_attached`, `transition_adapter_attached` and `work_observation_available`
-separately. The launcher does not register task Hooks or claim their coverage.
-
-## Status, stop, disable and recovery
+`start`はforeground ownerである。起動後もそのterminalを占有するため、別terminalから
+`status`と`stop`を実行する。
 
 ```sh
-yohaku status --config /absolute/path/yohaku-config/codex.json
-yohaku stop --config /absolute/path/yohaku-config/codex.json
-yohaku disable --config /absolute/path/yohaku-config/codex.json
-yohaku recover --inspect --config /absolute/path/yohaku-config/codex.json
+/absolute/path/yohaku-venv/bin/yohaku status \
+  --config /absolute/path/yohaku-config/codex.json
+/absolute/path/yohaku-venv/bin/yohaku stop \
+  --config /absolute/path/yohaku-config/codex.json
+/absolute/path/yohaku-venv/bin/yohaku disable \
+  --config /absolute/path/yohaku-config/codex.json
+/absolute/path/yohaku-venv/bin/yohaku recover --inspect \
+  --config /absolute/path/yohaku-config/codex.json
 ```
 
-Replace `yohaku` with the absolute executable used above. Output is always JSON;
-`--json` is also accepted. Status includes installed package identity, Python,
-expected and observed runtime identity, historical evidence, live owner reachability,
-last operation, recovery decision and refusal reasons. It is not a proof of task
-completion. Inspection does not automatically validate all historical checkpoint
-contents or grant any execution authority.
+Task Profile `document-review-report-v1`は`start`ではなく`run`を使う。Task input、固定output、
+credential home、allowed work、repeat拒否はTask Profile canonicalに従う。Lifecycle-only
+profileへtask設定を渡すと拒否され、Task Profileを`start`すると`USE_RUN_FOR_TASK_PROFILE`で
+拒否される。
 
-`stop` requests shutdown over a private Unix socket. Codex receives stdin EOF and
-must exit successfully; Hermes closes its native DB and Yohaku store. The owner
-marks STOPPED only after host cleanup. Ctrl-C/SIGTERM request the same graceful
-shutdown. No task can be active in the lifecycle-only profiles. The document-review
-`run` command is foreground and exits after verified completion or refusal; it is
-not controlled by the lifecycle `stop` command.
+## `profiles`
 
-On timeout the owner retains its lock and reports `STOP_INCOMPLETE`. It continues
-to observe shutdown, accepts status/stop, and does not escalate to SIGKILL.
-Do not uninstall while it is still running. An unreachable owner is not assumed
-dead. A crashed owner or incomplete startup keeps restart blocked even if a PID
-is absent; deleting lock files or changing STOPPED metadata is not recovery.
-Preserve the run directory and inspect the runtime before maintainer review.
+`yohaku profiles`は、固定したprofileごとにRuntime / version / surface、maturity、
+Evidence level、Verdict、accepted scope、Known Limitations、launcherの有無をJSONで返す。
+Profile選択時はRuntime名だけでなく、version、surface、OS、owner条件、Task Profileまで確認する。
 
-After a confirmed clean stop, enable/start can create a **new** dedicated session
-under the same root. It never resumes or overwrites the old session. `recover`
-without `--inspect` is rejected. Codex's embedded library has narrower historical
-reconciliation APIs, but the launcher supplies no real-task assessor for them.
-Hermes owner restart remains unsupported. Old leases and dispatch permits are not
-restored. `transition` always rejects with `TASK_PROFILE_REQUIRED`.
+| Profile | Operational launcher | 利用できる範囲 |
+|---|---|---|
+| `codex-operational-0.158` | あり | Codex `0.158.0-alpha.2.1`のno-inference lifecycle。Fresh dedicated App Serverのstart / status / stop |
+| `hermes-operational-h-cli-01` | あり | Hermes `0.21.0`のno-inference lifecycle。Pinned source、native DB、Yohaku storeのstart / status / stop |
+| `codex-document-review-report-v1` | `run`のみ | 固定したCodex Task Profile。One manual compactとcreate-only reportのbounded workflow |
+| `codex-reference-0.155` | なし | Historical Reference。Operational startには使えない |
+| `hermes-h-cli-01` | なし | Fixed connected adapter profile。Operational startには使えない |
+| `claude-c-cli` / `claude-c-cli-local-nonce` | なし | Bounded adapter / Evidence profile。正式なoperational launcherではない |
 
-## Data retention and uninstall
+`launch_supported=false`のprofileは、過去のEvidenceやadapterが存在しても
+`OPERATIONAL_PROFILE_UNSUPPORTED`で拒否される。Lifecycle `PASS`をtransition `PASS`、
+Task Profile `PASS`、Runtime family全体のsupportへ読み替えない。
 
-The private state root contains a configuration binding, owner lock, last-run
-metadata and separate `runs/<run-id>/` directories. Native homes, databases and
-Yohaku session storage live inside each run. Operational metadata is separate
-from existing checkpoint, handoff, archive and journal formats. Each start leaves
-all older run directories intact; the launcher does not create verified
-checkpoints without the required task observations.
+## `configure`
 
-After `stop`, confirm `owner_lock_busy=false` and `operational.state=STOPPED`,
-then `disable`. Uninstall using the same interpreter:
+`configure`はdisabled状態のJSON configと、新しいprivate state rootを作る。既存のconfig、
+state root、Runtime homeは採用しない。次の条件を満たす必要がある。
+
+- `--config`、`--runtime-path`、`--workspace`、`--state-dir`はabsolute pathであり、
+  `..`とsymlink componentを含まない。
+- Config directory、config file、state rootはcurrent UIDが所有し、group / otherから
+  accessできない。
+- Task workspaceとstate rootは同一pathでも親子関係でもない。
+- `--stop-timeout`は0.1秒以上60秒以下である。
+- `--single-owner`と`--dedicated-session`を明示する。
+- 別Runtime、別profile、別workspaceへ切り替える場合は、新しいconfigとstate rootを作る。
+  Config fileのbinding fieldを直接編集したり、configを別pathへcopyしたりしない。
+
+`configure`はRuntimeを起動せず、transitionも許可しない。Unknown field、schema不一致、
+configとstate rootのbinding不一致はfail closedで拒否される。
+
+## `single-owner`と`dedicated-session`
+
+`--single-owner`と`--dedicated-session`は、運用者がprofileの前提を受け入れたことを記録する
+flagであり、環境全体を自動検査する機能ではない。Yohakuのowner lockが防ぐのは、同じ
+state rootを使う協調launcherの二重ownerだけである。別Runtime client、detached process、
+background work、非協調external writer、別state rootのownerは排除しない。
+
+したがって、同じRuntime sessionやtask workspaceを別clientから操作しない。専用sessionは
+freshに作り、既存sessionへのattachや、別ownerが作ったsessionのadoptを行わない。
+
+## `preflight`
+
+`preflight`はprocessを起動せず、設定と固定profileの前提を検査する。主な検査対象は次の
+とおりである。
+
+- WSL2 Linuxと、profileに固定したCPython version
+- Runtime version。Hermesではpinned source commit、clean source tree、Hermes venvも確認
+- Operational launcherの有無
+- `single_owner` / `dedicated_session`のacknowledgement
+- Workspaceとconfig / state binding
+- 既存ownerとrestart可否
+- Task Profileの場合はtask contract、credential、Trusted Observer / Assessorを構成できるか
+
+Codexのversion出力が一致しない場合は`RUNTIME_VERSION_MISMATCH`、Hermes source commitが
+一致しない場合は`SOURCE_VERSION_MISMATCH`、未測定platform / Pythonはそれぞれ
+`OPERATIONAL_PLATFORM_NOT_MEASURED` / `OPERATIONAL_PYTHON_NOT_MEASURED`となる。
+いずれも`start`前に拒否される。Preflight `PASS`はnative startup、task execution、
+transition acceptanceを示さない。
+
+Lifecycle-only profileにはTrusted ObserverとTask Assessorがない。この場合、preflight自体は
+通り得るが、`transition_available=false`と`TASK_PROFILE_REQUIRED`を返す。`transition`、
+task turn、compact、resumeを送る経路は拒否される。
+
+## `enable`
+
+`enable`は、次回の`start`または`run`を許可する。Runtime processを開始せず、既存ownerへ
+接続せず、transition authorityを発行しない。Live owner、clean stopが確認できない
+stale owner、restart不可能なprior runがある場合は、`RECOVERY_REQUIRED_BEFORE_ENABLE_OR_DISABLE`
+または`OWNER_BUSY`で拒否される。
+
+## `start`とforeground owner
+
+`start`はlifecycle-only profile専用である。Configがenabledで、preflightが`PASS`し、
+fresh startが許可される場合だけ、foreground ownerが新しいrun directoryとfresh dedicated
+sessionを作る。Startup recordをJSONで出力した後も、owner lock、control socket、Runtime
+connectionを保持して待機する。
+
+Codex ownerはisolated `CODEX_HOME`でdedicated App Serverとfresh threadを作り、inference
+credential、task turn、compactを使わない。Hermes ownerはpinned sourceとnative venv内で
+`HermesCLI`とnative DBを構築するが、lazy inference agent、chat、compress、task toolを
+有効にしない。
+
+`Ctrl-C`または`SIGTERM`はgraceful stop要求として扱う。Foreground processを強制終了すると、
+clean stopが記録されず、次回startはrecovery判定で拒否される可能性がある。
+
+## `status`
+
+`status`は常にJSONを返す。`--json`も受理するが、出力形式は変わらない。主な表示は次の
+とおりである。
+
+| Field | 意味 |
+|---|---|
+| `enabled` | Configが次回start / runを許可しているか |
+| `owner_live` | Owner lockだけでなく、private control socketから現在のowner応答を確認できたか |
+| `owner_lock_busy` | 同じstate rootをownerが保持しているか |
+| `profile` / `package` | 固定profile、installed package version、Python、installed RECORD hash |
+| `observed_runtime` / profile内のexpected identity | 起動時に照合したRuntime versionまたはsource commit |
+| `operational.state` | `NEVER_STARTED`、`STARTING`、`RUNNING`、`STOPPING`、`STOP_INCOMPLETE`、`STOPPED`、`FAILED`、`AMBIGUOUS`、`OWNER_UNREACHABLE`、`RECOVERY_REQUIRED`のいずれか |
+| `recovery.fresh_start_allowed` | Prior runをresumeせず、新しいdedicated sessionを開始できるか |
+| `recovery.resume_supported` | Prior runのtask / sessionを再開できるか。現在のoperational CLIでは常に`false` |
+| `recovery.reason` | Fresh start可能、不可能、またはmanual inspectionが必要な理由 |
+| `recovery.saved_data_retained` | Recovery判断によって保存dataを削除していないこと |
+| `transition_available` / `transition_reason` | Task integrationの有無。Lifecycle statusやcompletion proofではない |
+
+`fresh_start_allowed=true`と`resume_supported=true`は同じ意味ではない。Confirmed clean stop後の
+lifecycle-only profileは、新しいsessionを開始できるだけで、停止前sessionをresumeしない。
+Task Profile runは、正常終了後も`TASK_COMPLETE_NO_RERUN`となり、同じstate rootで再実行しない。
+
+Owner lockがbusyなのにsocketへ到達できない場合、`OWNER_UNREACHABLE`と表示する。Lockが空いて
+いてもprior stateが`STOPPED`以外なら`RECOVERY_REQUIRED`である。PID不在やsocket欠落だけを
+clean stopの証拠にしない。
+
+## `stop`
+
+`stop`はprivate Unix socketを通じて、同じ`run_id`を持つforeground ownerへgraceful shutdownを
+一回要求する。Codexではstdin EOF後のApp Server正常終了、Hermesではnative DBとYohaku storeの
+closeを確認してから`STOPPED`と記録し、owner lockを解放する。Lifecycle `stop`はforeground
+`run`で実行するTask Profileを制御しない。
+
+Stop timeoutではSIGKILLへescalateしない。OwnerはlockとRuntime観測を保持し、
+`STOP_INCOMPLETE`を記録する。`stop` commandは`STOP_TIMEOUT; owner retained; inspect runtime`
+を返す。ここで二回目のownerを起動したり、lock fileを削除したり、`STOPPED`へ書き換えたり、
+uninstallしたりしない。既存ownerへ`status` / `stop`を行い、native shutdownの完了を待つ。
+
+## `disable`
+
+`disable`は将来の`start` / `run`を止めるconfig変更であり、実行中ownerのemergency stopではない。
+Ownerを開始済みなら先に`stop`を完了し、`owner_lock_busy=false`と
+`operational.state=STOPPED`を確認する。一度も開始していないconfigは直接disableできる。
+Live owner、stale owner、`STOP_INCOMPLETE`、uncertain task runがある場合は拒否される。
+
+Disableはconfig binding、run metadata、checkpoint、journal、handoff、archive、adapter metadata、
+Runtime-native DB / transcriptを削除しない。保存dataの扱いは
+[Storage and Recovery](storage-and-recovery.md)を参照する。
+
+## `recover --inspect`
+
+Operational CLIが公開するrecovery commandはread-only inspectionだけである。
+
+```sh
+yohaku recover --inspect --config /absolute/path/config.json
+```
+
+このcommandは`status`とrecovery decisionを返すが、Runtimeへ接続せず、continuationを送らず、
+leaseやauthorityを復元しない。保存済みcheckpoint / handoff / archiveの全内容を検証する
+commandでもない。`recover`を`--inspect`なしで実行すると
+`UNSUPPORTED_RECOVERY`で拒否される。
+
+`RECOVERY_REQUIRED`、`AMBIGUOUS`、stale owner、interrupted Task Profile runから、利用者が
+blind retryしてはならない。Runtime side effectまたはtransitionが完了した可能性を否定できず、
+同じoperationを再送すると重複し得るためである。State root、Runtime-native storage、log / Evidenceを
+保持し、matching Runtime canonicalに従ってmaintainer reviewする。対応するrecovery contractが
+ないprofileでは、新しいownerや新しいoutputで結果を推定せず、unsupportedのまま扱う。
+
+## 拒否と対応
+
+| 条件 | 表示またはreason | 運用者の対応 |
+|---|---|---|
+| Runtime / source version不一致 | `RUNTIME_VERSION_MISMATCH` / `SOURCE_VERSION_MISMATCH` | Profileを変更せず、fixed versionと実体を照合する |
+| Operational launcherがないprofile | `OPERATIONAL_PROFILE_UNSUPPORTED` | Adapterやhistorical Evidenceをlauncherとして使わない |
+| Observer / Assessor不足 | `TASK_PROFILE_REQUIRED` | 対応するTask Profileを選ぶ。Lifecycle profileからtask supportを推定しない |
+| 二重owner | `OWNER_BUSY` | 既存ownerを`status`で確認し、第二ownerを起動しない |
+| Stale owner / unclean exit | `OWNER_UNREACHABLE`または`RECOVERY_REQUIRED` | PIDだけで死亡判定せず、保存dataとRuntimeをinspectする |
+| Stop timeout | `STOP_INCOMPLETE` / `STOP_TIMEOUT` | Lockを保持したownerの観測を継続し、killやfresh startを行わない |
+| Clean stop済みlifecycle profile | `fresh_start_allowed=true`、`resume_supported=false` | 同じroot内にfresh dedicated sessionを新設できる |
+| Task Profile完了または中断 | `TASK_COMPLETE_NO_RERUN`または`TASK_RESTART_UNSUPPORTED` | Completed / uncertain side effectを再実行せず、Task Profile contractに従う |
+| Dispatch / completion不明 | `AMBIGUOUS` | Correlated late Evidenceを照合するまで通常作業とretryを止める |
+
+## Runtime間の運用差
+
+### Codex
+
+`codex-operational-0.158`はformal operational launcherを持つ。Isolated home、dedicated App
+Server、fresh thread、no-inferenceでlifecycleだけを実行する。Historical Codex `0.155`の
+transition / restart Evidenceは、このprofileへ継承しない。
+
+`codex-document-review-report-v1`は別の`run` entry pointを持つが、acceptedなのは固定Task
+Profileだけである。Input / output、Assessor、no-rerun条件はTask Profile canonicalを参照する。
+
+### Hermes
+
+`hermes-operational-h-cli-01`はformal operational launcherを持つ。Hermes native venv内で
+同じwheelを使い、`--runtime-path`にはshell launcherではなくpinned source rootを指定する。
+Native DBとYohaku storeを一つのforeground processで開くが、inference agentとH-CLI-01
+transition adapterは有効にしない。Interrupted ownerへのattach / restartは未対応である。
+
+### Claude Code CLI
+
+Claude Code CLIには、Codex / Hermesと同等のformal operational launcherがない。
+`claude-c-cli`と`claude-c-cli-local-nonce`はbounded adapter / Evidence profileであり、
+`configure`後に`start`できるoperational supportではない。Maintainer runnerやaccepted
+completion / recovery Evidenceをformal lifecycle supportへ昇格させない。
+
+Runtime固有のcompletion proof、receipt、late / duplicate event、restart / reconnectの条件は
+各Runtime canonicalが所有する。本書では共通化しない。
+
+## Disable / uninstallと保存data
+
+Uninstall前にownerをclean stopし、lockが解放されたことを確認する。同じinterpreterから
+packageを削除する。
 
 ```sh
 /absolute/path/to/venv/bin/python -m pip uninstall yohaku
 ```
 
-Keep the configuration and entire state root, including native DB files and their
-sidecars. Package uninstall does not remove these user-managed directories.
-Reinstall a reviewed wheel before running inspect again. Retention tests compare
-checkpoint/handoff/archive bytes; they do not establish task or crash recovery.
-The commands do not migrate old state or downgrade its schema.
+Uninstallはuser-managed config、state root、各run directory、Yohaku checkpoint / journal /
+handoff / archive、Runtime-native DB / transcriptを削除しない。再接続する場合は、同じ保存契約を
+読めるreviewed wheelをinstallしてからinspectする。Uninstallやreinstallをrecovery、schema
+migration、clean stopの代用にしない。
 
-## Remaining Alpha requirements
+## 現在の公開範囲
 
-The first Real-task Profile now has a trusted boundary, current-state observation,
-independent assessor, exact tools, negative cases and current Codex live Evidence.
-This removes the lifecycle-only blocker for that one profile. Alpha still needs a
-reviewed release candidate, published release record and issue workflow, an
-explicit maturity decision, and final Evidence review. Field Evidence, restart,
-repeated transitions, general Hermes tool coverage, general document work and
-coding work remain outside the accepted scope.
+全profileのmaturityは`experimental`、release channelは`undeclared`である。現在の文書は、
+Runtime family全体、Strong Transition Assurance、general exactly-once、field acceptance、
+power-loss recoveryを宣言しない。個別profileのaccepted scopeとKnown Limitationsは
+[Runtime support summary](runtime-support.md)で確認する。
