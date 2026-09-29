@@ -19,6 +19,8 @@ Yohakuをinstallして、現在公開されている範囲を試す場合に読�
 - [Quick Start](quick-start.md): no-inference lifecycleと固定real-task profileの最短手順
 - [Operations](operations.md): profile確認、preflight、start、status、stop、recovery inspectionと拒否条件
 - [Storage and Recovery](storage-and-recovery.md): checkpoint、journal、handoff、archive、no blind retry、restart時の扱い
+- [Update and Rollback](update-and-rollback.md): Candidate Aのpackage更新、方向別state互換性、existing experimental stateの保持
+- [Troubleshooting / Issue reporting](issue-reporting.md): safe metadata、no-rerun、privacy / security報告と受付状態
 
 ## Runtime Support
 
@@ -57,6 +59,13 @@ Evidence Modelは「何を、どのprovenanceとscopeで証拠として扱い、
 - [Runtime Adapter Contract](development/adapter-contract.md): Core / adapter境界、identity、completion、receipt、failure contract
 - [Testing and Evidence](development/testing-and-evidence.md): test level、Environment Contract、negative case、Evidence bundle、sanitization、review
 - [Runtime文書の構成規則](runtimes/README.md): Runtime canonicalの章順、責務、記述規則
+
+## Release review
+
+Release準備とreviewの文書です。Templateの存在は公開済みreleaseやAlpha承認を意味しません。
+
+- [Release records / notes](releases/README.md): canonical recordと利用者向けnotesのtemplate、Candidate A checklist
+- [Candidate A Evidence / source review](release/candidate-a.md): scope declaration、Minimal Evidence index、source-drift review、static validation
 
 ## Historical / Compatibility
 
