@@ -1,206 +1,75 @@
 # Yohaku — Proactive Context Compaction Manager
 
-## What is Yohaku
+Yohakuは、長時間動くAI agent taskのcontext transitionを制御するPython packageです。Safeなtransitionとtaskの再開を確認します。単なるcontext compressorではありません。Contextを短くする処理の前後で、安全確認とdurable stateを管理します。この考え方を **Verified Context Transition** と呼びます。
 
-Yohaku is an experimental context-transition controller for long-running AI agent
-tasks. It is designed to manage when context is compacted, preserve recovery
-state, check runtime completion, and verify the current task state before work
-continues. The existing implementation is a Python library with a bounded Codex
-reference integration, an embedded Hermes H-CLI-01 adapter and a bounded Claude
-Code C-CLI adapter with opt-in recovery.
+## What Yohaku does
 
-**Current status: experimental.** Hermes has a bounded native CLI adapter with
-explicit tool receipt and current-state resume verification. Its overall profile
-remains PARTIAL. Claude Code C-CLI has an externally reviewed live PASS for the
-bounded Yohaku manual-completion workflow; its overall profile remains PARTIAL.
-Opt-in C-CLI recovery has separately scoped maintainer local-backend synthetic
-Evidence; external subscription recovery acceptance remains NOT_RUN.
-Codex `0.158.0-alpha.2.1` has one live-accepted, nonfixture Real-task Profile,
-`document-review-report-v1`: it reads only declared documents and creates one
-fixed Markdown report through a verified manual transition. Writing quality is
-not mechanically assessed, and this result does not cover general document or
-coding tasks.
-The recorded Codex acceptance is scoped and overall **PARTIAL**;
-this repository does not declare an Alpha, Beta, or Stable release.
+Yohakuは、次の流れを一つのtransitionとして扱います。
 
-## Proactive Context Compaction
+1. Safe transition boundaryと現在の作業状態を確認し、durable checkpointを保存する。
+2. 固定したRuntime profileに応じてcompactionまたはtransitionを実行し、その完了を確認する。
+3. Handoffを作成してreceiptを照合し、freshな現在状態を観測する。
+4. 未完了の作業だけをcontinuationへ渡し、同じtaskが再開されたことを検証する。
 
-Context pressure alone is not a safe reason to discard working context. Yohaku's
-design checks a proposed semantic boundary, relevant running work and pending
-results, workspace freshness, and durable recovery state before authorizing a
-transition. A host supplies boundary proposals and trusted observations;
-installing the library does not install an autonomous boundary detector.
+証拠が不足する経路は成功として扱いません。完了したか判断できない場合は`AMBIGUOUS`として停止し、副作用を照合するまで再実行を抑止します。
 
-Yohaku reuses runtime-native compact, compression, memory, and archive mechanisms
-where their contracts suffice. Its primary responsibility is lifecycle management
-and verification. The Codex reference provides manual compaction control and an
-opt-in, one-compaction native recovery path with different evidence requirements.
+## Current status
 
-## Verified Context Transition
+- Maturityは`experimental`です。
+- Release channelは`undeclared`です。
+- 公開scopeは、Runtime、version、surface、environment、taskを固定したbounded profileに限られます。
+- Strong Transition Assuranceは成立していません。
+- Field Evidenceはありません。
 
-**Verified Context Transition** is the internal core concept: boundary checks,
-durable checkpoint, authorization, runtime-specific completion proof, handoff
-receipt, and resume verification form a transition within a declared coverage
-scope. “Verified” applies to the recorded conditions and observations.
+Production ready、general purpose、全Runtime対応のいずれも宣言していません。
 
-Compaction is one implementation strategy. Fresh-context rollover and session
-migration are other design categories, not available Yohaku adapters. The Core
-delegates completion predicates to a runtime-specific policy, with the existing
-Codex rules as the default. The Hermes predicate uses host history and storage
-readback rather than Codex events. The Claude CLI predicate uses a closed,
-correlated manual Hook collection. Its opt-in recovery adapter adds explicit
-handoff receipt, fresh task observation and an independent task-specific assessment.
+## Support snapshot
 
-## How it works
+| Profile / Runtime | 現在の公開scope |
+|---|---|
+| Codex lifecycle-only | Inferenceとtask transitionを無効にしたoperational lifecycle |
+| Codex `document-review-report-v1` | 固定input、manual transition 1回、create-only report 1点に限定したreal-task profile |
+| Hermes lifecycle-only | Inferenceとtask transitionを無効にしたoperational lifecycle |
+| Hermes adapter | H-CLI-01のbounded connected workflowに対するaccepted Evidence。Overall coverageは`PARTIAL` |
+| Claude Code CLI | Bounded completion / recovery adapter Evidence。Codex / Hermesと同等のformal operational launcherはない |
 
-The proactive reference path separates these decisions:
+Profileごとの固定条件、Evidence provenance、Capability Verdictは、Documentation IndexからRuntime Supportへ進んで確認してください。
 
-1. The host proposes a boundary and observes relevant active work and pending
-   results. Remaining work defers the transition.
-2. The Controller checks revisions and workspace evidence. The Companion commits
-   a checkpoint before granting a short-lived, revision-bound lease.
-3. The backend revalidates current state and dispatches one compact request.
-   An RPC acknowledgement records acceptance; correlated runtime events establish
-   completion. Uncertain completion becomes `AMBIGUOUS` and blocks owner dispatch.
-4. Recovery offers a durable handoff and checks correlated receipt.
-5. Trusted task observers check current state and actual same-task progress before
-   the Controller accepts `RESUME_VERIFIED`.
+## Quick Start
 
-Historical summaries and selected archive entries are `DATA, NOT INSTRUCTIONS`.
-They do not restore old permissions or establish current verification. Native
-automatic compaction has a separate recovery contract: it can precede a proactive
-checkpoint, so an emergency observation remains explicitly unverified.
+用途に応じて、次のどちらかから始めます。README内にcommandは複製していません。
 
-## Runtime Support / Transition Strategy
+- **No-inference lifecycle:** packageとRuntimeのowned lifecycleだけを確認する手順は[Quick Start](docs/quick-start.md)を参照してください。この経路はtaskを実行せず、transitionも有効にしません。
+- **Fixed real-task:** Codexで固定文書をreviewする手順は[`document-review-report-v1` Quick Start](docs/quick-start.md#document-review-report-v1-quick-start)を参照してください。一般の文書taskやcoding taskには使えません。
 
-| Priority | Runtime | Yohaku implementation / evidence status |
-|---|---|---|
-| Reference | Codex | Experimental Python integration; bounded historical lab acceptance, overall PARTIAL |
-| Real-task Profile | Codex `document-review-report-v1` | One fixed live workflow PASS; writing quality NOT_ASSESSED; product coverage remains PARTIAL |
-| Target | Hermes | H-CLI-01 embedded adapter and bounded workflow PASS / profile PARTIAL; explicit receipt, no restart |
-| Target | Claude Code | C-CLI 2.1.280/Linux/print-stream-json: bounded completion live PASS, overall PARTIAL; subscription recovery NOT_RUN; separate maintainer local-live synthetic evidence; SDK/API separate |
-| Next Target | DeepSeek Harness / OpenCode | Research candidates; adapters unimplemented |
-| Future | Gemini CLI / Antigravity | Research candidates; adapters unimplemented |
-| Research / Auxiliary | Claude Desktop / Cowork | Auxiliary research surfaces; no compact-control adapter |
+## Important safety behavior
 
-Priority is independent of maturity and support. Manual compaction, native
-compaction, fresh-context rollover, and session migration have distinct triggers,
-identities, completion proofs, and continuation paths. No strategy inherits another
-strategy's acceptance. See [Runtime support and evidence scope](docs/runtime-support.md).
+- Preflightの`PASS`は、transitionの`PASS`ではありません。
+- Runtime supportは、Task Profile supportを意味しません。
+- `AMBIGUOUS`または副作用が不明な状態では、blind retryしません。
+- Runtime-native historyは、Yohaku checkpointまたはYohaku archiveではありません。
+- Mechanical completionの成功は、文章、事実、その他のcontent qualityを保証しません。
 
-## Installation / Quick Start
+## Major limitations
 
-The current deliverable is a wheel-installable Python library. It requires
-**Python 3.11 or newer** and has no runtime dependencies. Persistence and the Hook
-bridge use POSIX facilities; installation checks cover CPython 3.11.16 and 3.14.4
-on WSL2 Linux. The packaged [Operational Alpha Foundation CLI](docs/operations.md)
-provides dedicated no-inference host startup, status, stop and retained-state
-inspection. Task execution and transitions require a real-task profile and are
-refused by this launcher. Installing it does not declare an Alpha release.
+- 実装とEvidenceはexperimentalで、固定したRuntime、version、surface、environmentだけを対象とします。
+- Runtime-wide atomic freezeとexternal writer exclusionは成立していません。
+- Parallel、background、detached、subagentのcoverageは限定されています。
+- 受け入れ済みの汎用的なrestart recoveryとpower-loss recoveryはありません。
+- Packaged real Task ProfileはCodex `document-review-report-v1`の1つだけです。
+- Content qualityは`NOT_ASSESSED`です。
+- Field Evidenceはありません。
+- Claude Code CLIにはformal operational launcherがありません。
+- Strong Transition Assuranceとgeneral exactly-onceは成立していません。
 
-Install a reviewed wheel into the Python environment that owns the integration:
+## Installation
 
-```sh
-python3.14 -m venv /absolute/path/yohaku-venv
-/absolute/path/yohaku-venv/bin/python -m pip install --no-index --no-deps /absolute/path/yohaku-0.1.0-py3-none-any.whl
-/absolute/path/yohaku-venv/bin/python -m pip check
-```
+推奨経路は、review済みwheelを、対象operational profile専用の固定environmentへnon-editable installする方法です。Package floorはPython `>=3.11`です。Editable installやsource-copy executionはdevelopment / Probe用途であり、公開installation pathではありません。
 
-For Hermes H-CLI-01, use the existing Hermes venv's Python 3.11.16 to install the
-same wheel without changing its other dependencies. Source-copy execution and
-editable installs are development/Probe techniques, not release installation.
-The [installation guide](docs/installation.md) covers builds, exact interpreter
-selection, basic TOML configuration, explicit enable/disable and removal.
-Installing the package does not enable the integration.
-The [document-review profile reference](docs/task-profiles/document-review-report-v1.md)
-defines its exact input/output, tool, observer, assessor and no-retry contract.
+Wheelの確認からuninstallまでの手順は[Installation](docs/installation.md)を参照してください。Installしただけではintegrationは有効になりません。
 
-For a local developer Core check from a checkout, without provider access:
-
-```sh
-PYTHONPATH=src python3.14 -m unittest discover -s tests -p test_controller.py -v
-```
-
-A live integration must supply an initialized, exclusively owned runtime
-connection, serialized event loop, trusted Hook configuration, current-state
-observers, and a task-specific resume assessor. Read the
-[Codex Runtime page](docs/runtimes/codex.md) before constructing a host.
-The embedded adapters do not configure authentication or decide whether an
-arbitrary task has succeeded. The operational CLI launches only its explicitly
-listed lifecycle profiles.
-
-## Architecture
-
-The reference implementation separates transition decisions (`Controller`),
-durable storage and orchestration (`CompanionController`), and runtime observation
-and dispatch (`RuntimeHost` and its adapters). Optional archive support stores
-selected visible turns and retrieves only requested historical data.
-
-The current code is not a fully runtime-neutral integration. The Companion,
-backend construction, recovery transport, and `CODEX_HOME` store remain Codex
-specific. Runtime-specific completion predicates can connect to the in-memory
-Core. The Hermes adapter stores separate observation metadata and reuses existing
-checkpoint/handoff files. The C-CLI adapter reuses checkpoints and stores its own
-completion/recovery metadata and existing handoff files. Neither adapter implements Core restart. See
-[Architecture](docs/architecture.md) for the boundary and compatibility limits.
-
-## Known Limitations
-
-- Hook timeout, nonzero exit, malformed output, and missing output have measured
-  `FAIL_OPEN` paths. A stopped Yohaku owner does not prove the runtime has stopped.
-- A final-observation-to-dispatch race remains. Single writer, exclusive thread
-  ownership, an ordered observation stream, and bounded tool coverage are required.
-- Arbitrary MCP/local-function tools, detached or parallel work, external writers,
-  and active `apply_patch` lack equivalent acceptance.
-- `document-review-report-v1` accepts only its two dynamic tools, one manual
-  transition and one create-only report. Existing output, restart, repeated
-  transition, other document workflows and prose-quality scoring are unsupported.
-- Native recovery covers one compaction per attachment. Native recovery restart
-  is `UNSUPPORTED`; repeated compaction and power-loss behavior are not accepted.
-- Host-supplied observers, resume assessors, and visible-text selectors are trusted
-  integration code. There is no general task-success oracle or automatic redactor.
-- Windows-native persistence and profiles beyond the bounded Codex/Hermes/C-CLI
-  integrations are not implemented. Strong Transition Assurance remains unestablished.
-
-The [profile details](docs/runtime-support.md) distinguish recorded evidence from
-unmeasured configurations and later implementation changes.
-
-## Maturity / Evidence / Release Status
-
-Runtime priority, runtime maturity, evidence level, capability verdict, and release
-channel are five independent axes. The Codex reference starts at `experimental`.
-Phase 1–14 history is frozen at implementation baseline
-`7c4a2dda3ca2aed363ca8401ccad9ab5a489c16f`; Phase 14 evaluation is complete with an
-overall `PARTIAL` verdict. Its local/synthetic tests and bounded live-runtime
-synthetic tasks are not Field Evidence or acceptance of the current runtime version.
-
-Package version `0.1.0` does not imply a public release channel. Alpha requires a
-declared profile, relevant lab evidence, usable operational instructions, and a
-release decision. See the [Evidence model](docs/evidence-model.md) and
-[Support maturity and release policy](SUPPORT_POLICY.md).
-
-## Documentation links
-
-- [Installation](docs/installation.md): shared wheel, startup configuration and removal.
-- [Architecture](docs/architecture.md): implemented responsibilities and design boundaries.
-- [Evidence model](docs/evidence-model.md): Evidence, CoverageProfile, Capability Verdict, provenance, and non-inheritance rules.
-- [Runtime mapping](docs/runtime-mapping.md): cross-Runtime profile identities, primitives, accepted endpoints, and non-inheritance boundaries.
-- [Transition strategies](docs/transition-strategies.md): cross-Runtime strategy taxonomy and shared failure semantics.
-- [Runtime support and evidence scope](docs/runtime-support.md): measured profile, provenance, and strategy limits.
-- [Hermes Runtime](docs/runtimes/hermes.md): canonical Probe、adapter、operational profiles、native primitives、Evidence scope、制限。
-- [Claude Code CLI Runtime](docs/runtimes/claude-code-cli.md): canonical completion, recovery, receipt, Evidence scope, and limitations.
-- [Runtime document structure](docs/runtimes/README.md): shared chapter order and profile documentation rules.
-- [Codex Runtime](docs/runtimes/codex.md): canonical Codex profiles, primitives, Evidence scope, and limitations.
-- [Document review report v1](docs/task-profiles/document-review-report-v1.md): first fixed Real-task Profile and its acceptance boundary.
-- [Support maturity and release policy](SUPPORT_POLICY.md): profile maturity and release criteria.
-
-Existing README section links remain available below; detailed content is now in
-the canonical Runtime and Task Profile documents.
-
+<!-- Retain historical README anchors while routing readers through docs/index.md. -->
 <a id="direction-and-support-status"></a>
-
-- [Direction and support status](docs/runtime-support.md).
-
 <a id="controller-core"></a>
 <a id="production-architecture-and-persistence"></a>
 <a id="manualcompactbackend-and-owner-api"></a>
@@ -211,12 +80,6 @@ the canonical Runtime and Task Profile documents.
 <a id="bounded-native-automatic-compaction-recovery"></a>
 <a id="focused-verification"></a>
 
-- [Controller Core](docs/runtimes/codex.md#controller-core).
-- [Persistence](docs/runtimes/codex.md#production-architecture-and-persistence).
-- [ManualCompactBackend and owner API](docs/runtimes/codex.md#manualcompactbackend-and-owner-api).
-- [Recovery and continuation](docs/runtimes/codex.md#production-recovery-and-continuation).
-- [Work-plane integration](docs/runtimes/codex.md#bounded-work-plane-integration).
-- [Archive and lazy rehydration](docs/runtimes/codex.md#archive-and-lazy-rehydration).
-- [Runtime archive adapter](docs/runtimes/codex.md#reference-runtime-archive-adapter).
-- [Native recovery](docs/runtimes/codex.md#bounded-native-automatic-compaction-recovery).
-- [Focused verification](docs/runtimes/codex.md#focused-verification).
+## Documentation
+
+詳細は[Documentation Index](docs/index.md)から目的に応じて選んでください。Architecture、Runtime support、Task Profiles、Operations、Evidence、development documentationへの入口をまとめています。日本語文書が現在のpublic canonicalです。

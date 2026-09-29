@@ -219,17 +219,5 @@ Runtime-native storageを保持し、[Storage and Recovery](storage-and-recovery
 
 ## 次に読む文書
 
-### 運用する利用者
-
-- [Operations](operations.md): command、status field、stop / disable / recoveryの拒否条件
-- [Runtime Support](runtime-support.md): current profileのEvidenceとKnown Limitations
-- [Codex Runtime canonical](runtimes/codex.md): current / historical profileの差とcompletion contract
-- [Task Profile canonical](task-profiles/document-review-report-v1.md): `document-review-report-v1`の完全なcontract
-- [Storage and Recovery](storage-and-recovery.md): 保存data、no blind retry、retentionの未定義範囲
-
-### 実装・Evidenceをreviewする開発者
-
-- [Architecture](architecture.md): componentとtrust boundary
-- [Evidence Model](evidence-model.md): Evidence、CoverageProfile、Capability Verdict
-- [Runtime Adapter Contract](development/adapter-contract.md): Runtime固有adapterの責務
-- [Testing and Evidence](development/testing-and-evidence.md): test level、Evidence bundle、sanitization
+[Documentation Index](index.md)から、Operations、Runtime Support、Task Profile、Storage and Recovery、
+またはdevelopment documentationへ進んでください。

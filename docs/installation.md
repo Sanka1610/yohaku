@@ -378,19 +378,5 @@ Evidenceのauthorityと公開境界は[Evidence Model](evidence-model.md)、bund
 
 ## Documentation navigation
 
-### 初見利用者
-
-- [Quick Start](quick-start.md): lifecycle-onlyと`document-review-report-v1`の実行例
-- [Operations](operations.md): commandの状態遷移、拒否条件、status field
-- [Runtime Support](runtime-support.md): profileごとのEvidence、Verdict、非継承範囲
-- [Codex Runtime canonical](runtimes/codex.md)、[Hermes Runtime canonical](runtimes/hermes.md)、
-  [Claude Code CLI Runtime canonical](runtimes/claude-code-cli.md): Runtime固有のversion、primitive、制限
-- [Task Profile canonical](task-profiles/document-review-report-v1.md): input / output、allowed work、rerun禁止
-- [Storage and Recovery](storage-and-recovery.md): durable record、recovery outcome、retentionの未定義範囲
-
-### 開発者・Evidence reviewer
-
-- [Architecture](architecture.md): component、control flow、trust boundary
-- [Evidence Model](evidence-model.md): Evidence、CoverageProfile、Capability Verdict
-- [Runtime Adapter Contract](development/adapter-contract.md): Core / adapter境界、identity、completion contract
-- [Testing and Evidence](development/testing-and-evidence.md): Environment Contract、negative case、sanitization、review
+[Documentation Index](index.md)から、Quick Start、Operations、Runtime Support、Task Profile、
+Storage and Recovery、またはdevelopment documentationへ進んでください。
