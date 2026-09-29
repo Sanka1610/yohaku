@@ -71,13 +71,13 @@ PROFILES = {
                      'Not subscription acceptance, a primary regression gate or Claude-wide Alpha support']),
 }
 
-_CANDIDATE_A = {'codex-operational-0.158', 'codex-document-review-report-v1'}
+CANDIDATE_A = frozenset({'codex-operational-0.158', 'codex-document-review-report-v1'})
 
 
 def profile(name):
     if name not in PROFILES:
         raise ValueError('UNKNOWN_PROFILE')
     details = deepcopy(PROFILES[name])
-    if name in _CANDIDATE_A:
+    if name in CANDIDATE_A:
         details['task_profile_registered'] = details.pop('transition_available')
     return dict(id=name, **details)

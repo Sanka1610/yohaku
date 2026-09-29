@@ -19,7 +19,7 @@ import tempfile
 import time
 from uuid import uuid4
 
-from .profiles import MISSING_TASK, profile
+from .profiles import CANDIDATE_A, MISSING_TASK, profile
 
 
 class OperationError(RuntimeError):
@@ -355,10 +355,7 @@ def _preflight(config):
     report = dict(verdict='PASS' if not errors else 'FAIL', profile=p, package=package_identity(), observed_runtime=actual,
                 expected_runtime=p.get('source_commit', p['runtime_version']), errors=errors,
                 enabled=config.enabled, inference_enabled=task_enabled,
-                work_observation_available=task_enabled,
-                task_profile_registered=is_task, transition_ready=transition_ready,
-                transition_available=transition_ready,
-                transition_reason=transition_reason,
+                work_observation_available=task_enabled, transition_reason=transition_reason,
                 task_contract=(dict(profile=p.get('task_profile'),
                     logical_task_id=task_contract.logical_task_id,
                     instruction_sha256=task_contract.instruction_sha256,
@@ -371,6 +368,11 @@ def _preflight(config):
                 assumptions={'single_owner_acknowledged': config.single_owner,
                              'dedicated_session_acknowledged': config.dedicated_session,
                              'external_clients_excluded_by_lock': False})
+    if config.profile in CANDIDATE_A:
+        report.update(task_profile_registered=is_task, transition_ready=transition_ready,
+                      transition_available=transition_ready)
+    else:
+        report['transition_available'] = task_enabled
     return report, credential
 
 
@@ -432,13 +434,20 @@ def status(config):
         current = dict(current, state='RECOVERY_REQUIRED')
     elif not busy:
         current = dict(current, runtime_running=False, owner_attached=False)
-    check, _ = _preflight(config)
-    return dict(profile=profile(config.profile), package=package_identity(), enabled=config.enabled, owner_live=live is not None,
-                owner_lock_busy=busy, operational=current, recovery=recovery(config),
-                task_profile_registered=check['task_profile_registered'],
-                transition_ready=check['transition_ready'],
-                transition_available=check['transition_ready'],
-                transition_reason=check['transition_reason'])
+    result = dict(profile=profile(config.profile), package=package_identity(), enabled=config.enabled,
+                  owner_live=live is not None, owner_lock_busy=busy, operational=current,
+                  recovery=recovery(config))
+    if config.profile in CANDIDATE_A:
+        check, _ = _preflight(config)
+        result.update(task_profile_registered=check['task_profile_registered'],
+                      transition_ready=check['transition_ready'],
+                      transition_available=check['transition_ready'],
+                      transition_reason=check['transition_reason'])
+    else:
+        task = profile(config.profile).get('task_profile')
+        result.update(transition_available=bool(task),
+                      transition_reason=None if task else MISSING_TASK)
+    return result
 
 
 def stop(config):
@@ -517,12 +526,13 @@ def _serve(config, check):
     run.mkdir(mode=0o700)
     state = dict(schema=1, config_digest=config_digest(config), run_id=run_id, state='STARTING',
                  owner_pid=os.getpid(), runtime_running=False, owner_attached=False,
-                 task_profile_registered=False, transition_ready=False,
                  transition_available=False, transition_reason=MISSING_TASK,
                  profile=profile(config.profile), package=package_identity(),
                  observed_runtime=check['observed_runtime'], run_dir=str(run), inference_requests=0,
                  owner_kind='operational-only', work_observation_available=False,
                  transition_adapter_attached=False)
+    if config.profile in CANDIDATE_A:
+        state.update(task_profile_registered=False, transition_ready=False)
 
     def save():
         write_json(run / 'operation.json', state)

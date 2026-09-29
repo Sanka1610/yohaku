@@ -367,6 +367,15 @@ class CredentialAndStatusTests(unittest.TestCase):
         excluded = op.profile('hermes-operational-h-cli-01')
         self.assertIn('transition_available', excluded)
         self.assertNotIn('task_profile_registered', excluded)
+        path = self.base / 'excluded.json'
+        config = op.OperationalConfig(
+            'codex-reference-0.155', str(Path('/usr/bin/false').resolve()),
+            str(self.workspace), str(self.base / 'excluded-state'), True, True)
+        op.configure(path, config)
+        status = op.status(op.load(path))
+        self.assertFalse(status['transition_available'])
+        self.assertNotIn('task_profile_registered', status)
+        self.assertNotIn('transition_ready', status)
 
     def test_completed_recovery_required_and_ambiguous_are_not_transition_ready(self):
         config = self.configure(enabled=True)
