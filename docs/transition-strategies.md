@@ -8,7 +8,8 @@ Yohakuでは、Agentがtaskを継続するcontextを切り替える処理を **C
 本書は、Transition Strategyのtaxonomyと、各方式に共通するsemanticsを所有する。
 [Architecture](architecture.md)はcomponent責務とtrust boundaryを所有する。
 [Runtime Mapping](runtime-mapping.md)はfixed profileの事実、native primitive、実装状態、
-Evidence provenance、Verdictを所有する。
+Known Limitationsを所有する。[Evidence Model](evidence-model.md)はEvidence provenance、
+CoverageProfile、Capability Verdict、非継承規則を所有する。
 
 Strategy contractはRuntime Support Profileの代わりにならない。固定したRuntime、
 version、surface、backend、owner構成が、trigger、completion proof、handoff、receipt、
@@ -252,9 +253,10 @@ Strategyはlate-eventやretry behaviorをさらに狭く定義できる。ただ
 「実行されなかった」とみなしたり、unobserved external side effectを安全にretry可能
 と扱ったりはできない。
 
-## Evidenceの分離
+## Strategy境界へのEvidence規則の適用
 
-Strategy Evidenceはpolymorphicではなく、次の境界を自動継承しない。
+[Evidence Model](evidence-model.md)で定める非継承規則を、Transition Strategyには次の
+ように適用する。
 
 - Manual In-place CompactionとNative Automatic Compaction
 - in-place compaction、Fresh-context Rollover、Session Migration
@@ -288,6 +290,6 @@ orderの選択肢をRuntime reference pageへ委ねる。後続整理では、�
 - delivery / injectionとcontinuationのprimitive
 - task-enabled profileのTrusted Observer / Task Assessor境界
 
-将来の`evidence-model.md`では、各observationの記録、attribution、retention、
-CoverageProfileへの集約、Verdictへの反映方法を定義する。その際も、本書のStrategy
-分離とprofile分離を維持する。
+各observationの記録、attribution、retention、CoverageProfileへの集約、Verdictへの
+反映方法は[Evidence Model](evidence-model.md)に従い、本書のStrategy分離とprofile分離を
+維持する。

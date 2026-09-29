@@ -12,8 +12,8 @@ delivery、current-state observation、continuation、Known Limitationsなど、
 残す。
 
 文書に記載しただけではsupportは成立しない。実装の存在、retained Evidence、Verdict
-は別の事実であり、各claimはnamed profileの範囲に限定する。Evidence Verdictは
-[Support Policy](../SUPPORT_POLICY.md)の定義を維持する。本書ではcellの状態を表すため、
+は別の事実であり、各claimはnamed profileの範囲に限定する。Capability Verdictは
+[Evidence Model](evidence-model.md)の定義を維持する。本書ではcellの状態を表すため、
 次の語も使う。`UNIMPLEMENTED`と`UNKNOWN`は新しいVerdictではない。
 
 - **UNIMPLEMENTED**: 記載したroleまたはpathの実装が存在しない
@@ -383,10 +383,10 @@ event semanticsが同じとは限らない。`C-OP`と`H-OP`はtask transition�
 3. 一つのRuntime固有eventを他Runtime用に捏造しない。共有Core stateには、異なる
    Completion PolicyとEvidence shapeを通って到達する。
 
-## Evidenceとsupportの非継承
+## Profile固有の非継承例
 
-EvidenceとVerdictは、Strategy、Runtime、version、surface、backend / model、OS、owner
-model、Task Profileの境界を越えて自動継承しない。
+[Evidence Model](evidence-model.md)の非継承規則を、本書のfixed profileへ適用すると
+次の例になる。
 
 - Codex manual-compaction `PASS`からnative automatic compaction `PASS`、fresh-context
   rollover、session migrationを推定しない。
@@ -426,8 +426,8 @@ Assessorを共有しない。
 
 ## 文書境界と後続資料
 
-本書では、native eventやEvidence itemをすべて列挙しない。将来の`evidence-model.md`
-で、Evidence authority、provenance、freshness、retention、CoverageProfile composition、
+本書では、native eventやEvidence itemをすべて列挙しない。[Evidence Model](evidence-model.md)
+がEvidence authority、provenance、freshness、retention、CoverageProfile composition、
 Verdict derivationを定義する。Runtime固有pageは、exact event sequence、version /
 configuration、timeout値、field名、profileごとのoperational diagnosticを保持する。
 Installation、operation command、storage layoutは、それぞれの専用文書が所有する。

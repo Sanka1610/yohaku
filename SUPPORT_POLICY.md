@@ -1,6 +1,6 @@
-# Yohaku — Support, maturity, evidence and release policy
+# Yohaku — Support maturity and release policy
 
-2026-09-28制定。YohakuのSubtitle・対外的な製品カテゴリは **Proactive Context Compaction Manager**、内部の中核概念は **Verified Context Transition** とする。CompactionはContext Transitionの実装方式の一つであり、RuntimeごとのTransition Strategyは方式別の契約・coverageで評価する。本書は公開利用者向けの方針であり、将来の対応予定と現在確認できた対応を区別する。
+2026-09-28制定。YohakuのSubtitle・対外的な製品カテゴリは **Proactive Context Compaction Manager**、内部の中核概念は **Verified Context Transition** とする。CompactionはContext Transitionの実装方式の一つであり、RuntimeごとのTransition Strategyは方式別の契約・coverageで評価する。本書はRuntime / Support Profile maturityとrelease policyを所有し、将来の対応予定と現在確認できた対応を区別する。Evidence、CoverageProfile、Capability Verdict、provenanceは[Evidence Model](docs/evidence-model.md)が定義する。
 
 ## Runtime priorityと対応範囲
 
@@ -18,17 +18,15 @@ Priorityは技術的優劣、実装済み機能数、成熟度を表さない。
 
 Support Profileには利用可能な経路、無効化した経路、Known Limitations、CoverageProfile参照、Evidence、maturity、最終review日を記載する。調査だけの候補は「未実装」と明示し、対応済み一覧へ混在させない。Runtime全体のmaturityを単一表示する場合も、その根拠となるprofileを必ずリンクする。
 
-## 五つの独立した軸
+## Policyが参照する独立した軸
 
 | 軸 | 答える問い | 値の例 |
 |---|---|---|
 | Runtime priority | どこから実装・検証するか | Reference / Target / Next Target / Future / Research / Auxiliary |
 | Runtime maturity | Yohakuのそのprofileをどの程度継続利用できるか | experimental / alpha / beta / stable |
-| Evidence level | 主張をどの方法で確認したか | documentation / theoretical、source verified、lab tested、field tested |
-| Evidence Verdict | 個別capabilityが記録条件で要求を満たしたか | PASS / PARTIAL / FAIL / UNSUPPORTED / NOT_RUN |
 | Release channel | その製品版をどの範囲・方針で配布するか | Alpha / Beta / Stable |
 
-Priorityからmaturityを決めず、Evidence levelからVerdictを決めず、Verdictの集計だけで公開を決めない。Stable製品版にexperimental adapterを同梱する場合も、opt-inと個別表示を必須にしてStableの保証対象へ含めない。
+Priorityからmaturityを決めず、Capability Verdictの集計だけでmaturityや公開可否を決めない。Evidence level、Capability Verdict、CoverageProfileもこれらと独立しており、区別は[Evidence Model](docs/evidence-model.md)を参照する。Stable製品版にexperimental adapterを同梱する場合も、opt-inと個別表示を必須にしてStableの保証対象へ含めない。
 
 ## Runtime maturity
 
@@ -49,54 +47,21 @@ Claude Code + Ollama localは、固定version/modelの[maintainer testing profil
 
 Codexの既存受入はCLI `0.155.0-alpha.16.4` / WSL2 Ubuntu / Python `3.14.4`の限定profileである。Phase 14のlive信号を使った合成taskはlab tested / live-runtime、局所・合成テストはlab tested / local-syntheticとして読む。Field Evidenceの取得や現在版での再実行を示すものではない。native auto compactは1 attachmentにつき1回の範囲、native recovery途中のrestartはUNSUPPORTED、反復compactや一般の並列・外部work等は未受入である。
 
-Codex `0.158.0-alpha.2.1`の`document-review-report-v1`は、2026-09-29に別Support Profileとして追加した。専有workspace、明示入力2点、manual compact 1回、create-only Markdown report 1点に限定した非fixture実taskで`RESUME_VERIFIED`へ到達した。固定workflowのEvidence VerdictはPASSだが、文章品質はNOT_ASSESSED、profile maturityはexperimental、製品全体のcoverageはPARTIAL、release channelはundeclaredとする。この結果を一般文書task、coding task、別Runtime、Field Evidenceへ適用しない。
+Codex `0.158.0-alpha.2.1`の`document-review-report-v1`は、2026-09-29に別Support Profileとして追加した。専有workspace、明示入力2点、manual compact 1回、create-only Markdown report 1点に限定した非fixture実taskで`RESUME_VERIFIED`へ到達した。固定workflowのCapability VerdictはPASSだが、文章品質はNOT_ASSESSED、profile maturityはexperimental、製品全体のcoverageはPARTIAL、release channelはundeclaredとする。この結果を一般文書task、coding task、別Runtime、Field Evidenceへ適用しない。
 
 重大な回帰やRuntime仕様変更が判明した場合は、該当version/profileの推奨を停止し、必要ならmaturityを下げる。旧versionの証拠を消さず、新versionは影響確認が済むまで未確認として扱う。
 
-## Evidence levelと記録単位
+## Evidence / Coverage / Verdictとの関係
 
-| Evidence level | 根拠 | その証拠だけでは示せないこと |
-|---|---|---|
-| documentation / theoretical | 公式文書、公開仕様、設計上の成立見込み。文書の記載と推論を分ける | 実装の存在、対象配布版での動作、Yohakuとの接続 |
-| source verified | 特定commit / file / symbolで処理を確認 | 稼働binaryの挙動、provider・Hook・OS込みの成功 |
-| lab tested | 条件を固定して試験し、結果・原資料を保存 | 日常利用全般の安定性、試験外の構成や作業 |
-| field tested | 実際の利用者・実taskで観測し、条件と結果を記録 | 全capabilityの適合、別環境での再現、強制停止の完全保証 |
+Maturityとrelease判断ではreview済みEvidenceとCoverageProfileを参照するが、Evidence
+level、Capability Verdict、外部tester recordの取扱いを本書で再定義しない。定義、
+privacy、sanitization、runの追記原則は[Evidence Model](docs/evidence-model.md)に従う。
 
-四段階は証拠の種類を示す。単一の最高levelで過去の証拠を置換せず、複数のEvidence Recordを併存させる。失敗したfield runもfield testedであり、成功を意味しない。
-
-lab testedでは少なくとも`local/synthetic`と`live-runtime`を区別し、liveでもsynthetic task、制御した通知欠落・遅延・replayを併記する。providerを利用しただけではfield testedにならない。Field Evidenceも自然な障害観測と人工的な障害注入を分ける。
-
-Evidence Recordには次を残す。これは文書上の契約であり、既存journalやCoverageProfileのschema変更を要求しない。
-
-- 一意なEvidence ID、対象capability・要求、Support Profile / CoverageProfile参照。
-- Yohaku commit、Runtime/SDK/plugin version、OS、surface、provider/model、関係する設定と観測日。秘密値は保存しない。
-- Evidence levelと試験種別、実taskかfixtureか、確認者、観測手順、期待結果、実際の結果。
-- 原資料の参照・hash、完了相関、現在state照合等の確認範囲、欠落・再現条件・Known Limitations。
-- 個別Verdict、判定理由、review担当者と日付、旧記録との関係。未判定reportは`pending review`とし、Verdictへ新しい値を追加しない。
-
-旧Evidenceのsource・versionとの差分がある場合は、影響するcapabilityだけを再評価する。古い結果を現在のsourceで実行済みとは表示しない。秘匿化により確認不能になった箇所も明記する。
-
-## Evidence Verdict
-
-| Verdict | 定義 |
-|---|---|
-| PASS | 明示した要求を、記録した条件・範囲の証拠で実証した |
-| PARTIAL | 要求の一部または限定・degraded経路を確認した。未成立部分を列挙する |
-| FAIL | 評価対象の要求を満たさない挙動を確認した |
-| UNSUPPORTED | 指定version/surface/profileでは要求を支える機構・契約がないと確認した |
-| NOT_RUN | 当該要求の評価を実施していない。文書調査だけでlive試験済みにしない |
-
-ソースの存在はruntime capabilityのPASSにならない。静的根拠でUNSUPPORTEDを付ける場合は、公開契約上の非対応と実測結果を分ける。単なる情報不足は非対応の証明にならず、live評価はNOT_RUNのままにする。
-
-既存のPhase全体の集約Verdictも履歴として保持する。Phase 14のoverall PARTIAL、Scenarioごとの限定PASS、Hook FAIL_OPEN、native recovery restart UNSUPPORTED等は変更しない。FAIL_OPENは障害時の挙動を表す分類であり、maturityや六つ目のVerdictではない。
-
-## Issue・bug report・tester feedback
-
-友人や外部testerの通常作業もField Evidenceとして利用できる。受付時にEvidence IDを付け、成功報告・失敗報告の両方について、利用version、構成、task概要、期待/実際の挙動、再現手順、共有可能な証拠、欠落情報を記録する。利用者が送信した範囲だけを扱い、会話全文・認証情報の提出や自動telemetryは要求しない。公開転載には共有範囲の同意を確認する。
-
-処理順は、受付 → profile/capabilityへの対応づけ → 原資料・不足条件のreview → 必要な再現または追加確認 → Verdictの個別判断 → maturity/release判断への参照とする。「動いた」という報告だけなら利用観測として保存し、compact完了やresume検証まで成立したと推定しない。条件不明のreportは未判定のまま保持できる。
-
-Field EvidenceからCapability PASSへの自動昇格は行わない。要求に十分な相関・現在state・実行結果等の証拠があれば、外部testerの記録だけを根拠にreviewして判定することはできる。開発者が同じsubscriptionを契約して再実行することは必須ではない。不足時はPARTIAL / NOT_RUN等を維持し、reportの有用性と適合判定を分ける。
+既存のPhase全体の集約Verdictも履歴として保持する。Phase 14のoverall PARTIAL、Scenario
+ごとの限定PASS、Hook FAIL_OPEN、native recovery restart UNSUPPORTED等は変更しない。
+`FAIL_OPEN`は障害時の挙動を表す分類であり、maturityやCapability Verdictではない。
+重大なfailure Evidenceやcoverage不足はmaturity / release判断の入力になるが、個別Verdictを
+書き換えて一つのrelease判定へ統合しない。
 
 ## 公開に共通する最低条件
 

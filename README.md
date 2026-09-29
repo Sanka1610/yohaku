@@ -176,18 +176,20 @@ synthetic tasks are not Field Evidence or acceptance of the current runtime vers
 
 Package version `0.1.0` does not imply a public release channel. Alpha requires a
 declared profile, relevant lab evidence, usable operational instructions, and a
-release decision. See the [Support and release policy](SUPPORT_POLICY.md).
+release decision. See the [Evidence model](docs/evidence-model.md) and
+[Support maturity and release policy](SUPPORT_POLICY.md).
 
 ## Documentation links
 
 - [Installation](docs/installation.md): shared wheel, startup configuration and removal.
 - [Architecture](docs/architecture.md): implemented responsibilities and design boundaries.
+- [Evidence model](docs/evidence-model.md): Evidence, CoverageProfile, Capability Verdict, provenance, and non-inheritance rules.
 - [Runtime support and evidence scope](docs/runtime-support.md): measured profile, provenance, and strategy limits.
 - [Hermes H-CLI-01 reference](docs/reference/hermes.md): embedded host wiring, receipt and scope limits.
 - [Claude Code C-CLI reference](docs/reference/claude-cli.md): manual completion, opt-in recovery and evidence limits.
 - [Codex reference](docs/reference/codex.md): existing API, storage, Hook, recovery, and archive contracts.
 - [Document review report v1](docs/reference/document-review-report-v1.md): first fixed Real-task Profile and its acceptance boundary.
-- [Support and release policy](SUPPORT_POLICY.md): maturity, evidence, feedback, and release criteria.
+- [Support maturity and release policy](SUPPORT_POLICY.md): profile maturity and release criteria.
 
 Existing README section links remain available below; detailed content is now in
 the reference document.

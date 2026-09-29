@@ -3,8 +3,9 @@
 This page summarizes the preserved Codex reference records and the bounded
 Hermes H-CLI-01 Probe and connected adapter run as of 2026-09-28.
 Local regression tests and the single adapter live run have separate evidence.
-The implementation is experimental; no public release channel is declared. [Support policy](../SUPPORT_POLICY.md) defines the independent axes
-of priority, maturity, evidence level, verdict, and release channel.
+The implementation is experimental; no public release channel is declared. The
+[Evidence model](evidence-model.md) defines Evidence, CoverageProfile, and Capability
+Verdict. [Support policy](../SUPPORT_POLICY.md) defines maturity and release policy.
 
 ## Recorded Codex reference profile
 

@@ -20,7 +20,7 @@ control layerとして次を管理・検証する。
 
 本書は、Yohakuのcomponent責務、control flow、trust boundaryについて、公開文書
 上の正本となる。現在の実装に加えて、profile固有または未実装の境界も示す。
-本書の記述によってRuntime、Support Profile、CoverageProfile、Evidence Verdict
+本書の記述によってRuntime、Support Profile、CoverageProfile、Capability Verdict
 を昇格させることはない。
 
 ## アーキテクチャモデル
@@ -310,9 +310,9 @@ Support Profile、Evidence、Verdictを変更しない。
 
 `README.md`は将来、日本語canonicalへ移行する。英語版のファイル名は
 `README.en.md`とする。詳細docsの英語版は、Alpha公開に必要な主要文書から段階的に
-作成する。今回のlanguage migrationは、本書、[Runtime Mapping](runtime-mapping.md)、
-[Transition Strategies](transition-strategies.md)だけを対象とし、`README.md`の全面
-改稿や英語版の作成は含まない。
+作成する。現在は、本書、[Runtime Mapping](runtime-mapping.md)、
+[Transition Strategies](transition-strategies.md)、[Evidence Model](evidence-model.md)を
+日本語canonicalとする。`README.md`の全面改稿や英語版の作成は、この整理に含めない。
 
 Internal research、raw Evidence、historical / frozen資料は、provenanceとsource
 associationを保つため原文を維持する。一律翻訳せず、公開用のderived documentが
@@ -324,8 +324,10 @@ associationを保つため原文を維持する。一律翻訳せず、公開用
 する。他文書の責務は次のとおりである。
 
 - [README](../README.md)は製品紹介とtop-level current statusを所有する
-- [Support Policy](../SUPPORT_POLICY.md)はSupport Profile、maturity、Evidence level、
-  Verdict、release-channel ruleを定義する
+- [Evidence Model](evidence-model.md)はEvidence、CoverageProfile、Capability Verdict、
+  provenanceと非継承規則を定義する
+- [Support Policy](../SUPPORT_POLICY.md)はRuntime / Support Profile maturityと
+  release-channel ruleを定義する
 - [Runtime Mapping](runtime-mapping.md)はfixed-profile factと、Yohaku roleから
   Runtime固有primitiveへの対応を所有する
 - [Transition Strategies](transition-strategies.md)はManual In-place Compaction、
