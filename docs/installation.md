@@ -1,143 +1,396 @@
-# Installation and startup configuration
+# Installation
 
-Yohaku provides an embedded Python library and a limited operational CLI.
-For end-user configure/start/status/stop, follow [Operational Alpha Foundation](operations.md).
-The embedded-host setup below remains available for existing integrations.
-Install the same normal wheel into the Python environment that owns each integration. The minimum version is **Python
-3.11**; installation and regression checks cover CPython 3.11.16 and 3.14.4 on
-WSL2 Linux. CPython 3.12/3.13, other operating systems and other interpreters are
-not covered by that installation record. Persistence and the Hook bridge require
-POSIX facilities.
+Yohakuを初めて使う場合は、review済みwheelを専用venvへnon-editable installし、
+operational CLIのJSON configを作成する。この経路が現在の推奨installation pathである。
+PackageをinstallしただけではRuntime integrationは有効にならず、RuntimeやTask Profileも
+acceptedにならない。
 
-There are no runtime package dependencies. Building requires `setuptools>=77`;
-installing a prebuilt wheel does not require setuptools. Hermes is supplied by
-the existing pinned Hermes installation, not downloaded as a Yohaku dependency.
+Yohakuはexperimentalであり、release channelは未宣言である。現在利用できるのは、固定した
+Runtime versionとprofileに対するbounded supportである。一般的な「installすると任意のRuntime、
+task、compactionを自動管理するplugin」ではない。
 
-Source-copy imports, `PYTHONPATH=.../src` and editable installs are development or
-Probe techniques, not the installation path for a release candidate. No public
-release is declared by the current `0.1.0` package version.
+実際のcommandだけを先に試す場合は、[Quick Start](quick-start.md)へ進む。本書はinstallation
+path、前提条件、Runtime選択、storage、uninstall、安全なtroubleshootingを説明する。CLIの
+状態遷移と拒否条件は[Operations](operations.md)が正本である。
 
-## Build and inspect the wheel
+## 現在利用できる範囲
 
-From the product checkout, build a wheel into a staging directory:
+Package installation、operational lifecycle、transition、Task Profileは別のclaimである。
 
-```sh
-python3.11 -m pip wheel --no-deps --wheel-dir /absolute/staging/directory .
-sha256sum /absolute/staging/directory/yohaku-0.1.0-py3-none-any.whl
-```
+| 対象 | 現在の範囲 |
+|---|---|
+| Python package | `yohaku` `0.1.0`。Metadata上はPython `>=3.11`、runtime dependencyなし |
+| Codex lifecycle | `codex-operational-0.158`。Codex `0.158.0-alpha.2.1`、WSL2 Linux、CPython `3.14.4`でno-inference lifecycleを提供 |
+| Hermes lifecycle | `hermes-operational-h-cli-01`。Hermes `0.21.0`、固定source commit、Hermes venvのCPython `3.11.16`でno-inference lifecycleを提供 |
+| Packaged real Task Profile | Codex専用の`codex-document-review-report-v1`。固定した`document-review-report-v1`だけを`run`できる |
+| Historical Codex Reference | `codex-reference-0.155`。Codex `0.155.0-alpha.16.4`のretained Referenceであり、current operational launcherではない |
+| Hermes connected adapter | `hermes-h-cli-01`。H-CLI adapter Evidence用profileであり、current operational launcherではない |
+| Claude Code CLI | Runtime canonicalとbounded adapter Evidenceはあるが、Codex / Hermes相当のformal operational launcherはない |
 
-The build frontend may download build requirements. Record the wheel checksum
-and source commit together; the checksum distinguishes local candidates sharing
-the current development version. `uv build --wheel` is another supported build
-frontend. For an offline installation, obtain a reviewed wheel before proceeding.
+`profiles`はこの区別をJSONで返す。Runtime family名だけを見てprofileを選ばず、
+`runtime_version`、`surface`、`operational_platform`、`operational_python`、
+`launch_supported`、`task_profile`、`known_limitations`を確認する。
 
-## Codex host environment
+## Installation pathの区別
 
-Use an isolated venv for the existing Companion/RuntimeHost integration:
+### 推奨: review済みwheelのnormal installation
 
-```sh
-python3.14 -m venv /absolute/path/yohaku-venv
-/absolute/path/yohaku-venv/bin/python -m pip install --no-index --no-deps /absolute/staging/directory/yohaku-0.1.0-py3-none-any.whl
-/absolute/path/yohaku-venv/bin/python -m pip check
-/absolute/path/yohaku-venv/bin/python -I -c 'import yohaku; from importlib.metadata import metadata; print(yohaku.__file__); print(metadata("yohaku")["Requires-Python"])'
-```
+一般利用者は、source commitとSHA-256をreviewしたwheelを、対象profileが要求するPython環境へ
+non-editable installする。現在のpackageはpublic releaseを宣言していないため、index上の同名packageを
+無条件に取得する手順は示さない。Wheelと期待するdigestは、信頼できる配布元から別々に確認する。
 
-The package path must be inside this venv's `site-packages`. The Codex process
-and its Python Companion remain separate as in the existing reference. Configure
-the Hook command with the **absolute path to this venv's Python**:
+Codex operational profileとTask Profileでは、専用venvへwheelをinstallする。Hermes operational
+profileだけは、pinned Hermes sourceに含まれる既存venvがhost interpreterになるため、そのvenvへ
+同じwheelをinstallする。
 
-```text
-/absolute/path/yohaku-venv/bin/python -m yohaku.hook --socket <bridge.path>
-```
+### Repository / development installation
 
-See the canonical [Codex Runtime page](runtimes/codex.md) for connection initialization, Hook
-trust, work coverage and observer requirements. Installing the wheel does not
-start Codex or register Hooks.
-
-## Hermes host environment
-
-For the pinned H-CLI-01 profile, install into the Python environment already used
-by Hermes. Do not replace Hermes's interpreter or upgrade its dependencies:
+Product checkoutからwheel candidateを作る場合は、source commitを固定してから次を実行する。
 
 ```sh
-/absolute/hermes/venv/bin/python -m pip install --no-index --no-deps /absolute/staging/directory/yohaku-0.1.0-py3-none-any.whl
-/absolute/hermes/venv/bin/python -m pip check
-/absolute/hermes/venv/bin/python -I -c 'import yohaku; from yohaku.hermes_adapter import HermesCLIAdapter; print(yohaku.__file__)'
+python3.14 -m pip wheel --no-deps --wheel-dir ./dist .
+sha256sum ./dist/yohaku-0.1.0-py3-none-any.whl
 ```
 
-Use the actual Hermes venv path, not an unrelated Python executable. Record
-installed package versions before and after; only Yohaku should change. The
-measured Hermes 0.21.0 environment uses Python 3.11.16. Its source pin and native
-API requirements remain those in the canonical [Hermes Runtime page](runtimes/hermes.md).
-There is no added bridge, RPC protocol or second Yohaku process for this profile.
+Build frontendは`setuptools>=77`を必要とし、取得時にnetworkを使う可能性がある。生成物は
+local candidateであり、build成功だけではreview済みrelease artifactにならない。Source commit、
+wheel hash、review結果を対応付けてから、別のclean venvへnormal installする。
 
-## Enable and disable at host startup
+`pip install -e .`と`PYTHONPATH=src`は開発・local test用である。利用者向けのoperational
+installationとして扱わない。
 
-Create an explicitly selected UTF-8 TOML file for each host. Disabled is the
-default when `enabled` is omitted:
+### Historical source-copy / Probe-only path
+
+Historical Hermes ProbeとStage 4 adapter acceptanceには、Yohaku sourceを固定Hermes環境へcopyして
+importしたrunがある。このsource-copyは、そのEvidenceの取得条件を示すhistorical手順であり、current
+installation pathではない。Source-copyをnormal wheel installationの代替にせず、過去の結果を
+installed wheelの新しいlive acceptanceへ読み替えない。
+
+### Embedded TOML activation
+
+`yohaku.config.load_config()` / `activate()`と次のTOMLは、既存のembedding hostがowner factory、
+observer、Hook、storageを自分で構成するためのopt-in helperである。
 
 ```toml
 [yohaku]
-runtime = "hermes-h-cli-01" # use "codex" for the Codex host
+runtime = "codex"
 enabled = false
 ```
 
-The embedding application reads it using `load_config` and wraps its existing
-owner factory with `activate`:
+`runtime`には`codex`または`hermes-h-cli-01`を指定できる。`enabled = true`にしてもYohakuがRuntimeを
+自動launchするわけではなく、embedding applicationが`activate(..., create=...)`へ渡したfactoryを
+呼ぶだけである。このTOMLはcurrent operational CLIのconfigではない。新規利用者は、次項のJSON / CLI
+configurationを使う。
 
-```python
-from yohaku.config import activate, load_config
+### Operational JSON / CLI configuration
 
-config = load_config("/absolute/path/yohaku.toml")
-owner = activate(config, runtime="hermes-h-cli-01", create=create_owned_hermes_host)
-```
+`yohaku configure`は、profile、Runtime path、workspace、private state rootをbindingしたJSON configを
+新規作成する。`preflight`、`enable`、`start`または`run`、`status`、`stop`、`disable`、
+`recover --inspect`はこのconfigを使う。Config fileとstate rootは既存物を採用せず、別Runtime、
+別profile、別workspaceへ切り替えるときは新しい組を作る。
 
-`create_owned_hermes_host` is the embedding application's existing factory, not
-a Yohaku launcher. It must construct the dedicated SessionStore and adapter,
-register its native observers/Hooks and return the owner. For Codex use
-`runtime="codex"` and a factory that constructs its existing Companion,
-HookBridge and RuntimeHost. Keep all Yohaku storage creation and Hook/observer
-registration **inside** that factory. If `owner is None`, omit those registrations
-and do not call owner methods. Ordinary runtime behavior remains the host's
-responsibility.
+## Python、platform、storageの前提
 
-Set `enabled = true` and start the host to opt in. A missing file, unknown field,
-unknown runtime, non-boolean flag or runtime mismatch raises an error before
-activation. The configuration contains no provider credentials or arbitrary
-module/command loading. It does not change `CODEX_HOME`; configure that explicitly
-in the dedicated host environment using the existing reference contract.
+`requires-python = ">=3.11"`はpackage metadataのinstallation floorである。Operational
+profileのaccepted host条件は、これより狭い。
 
-To disable, finish or stop the current owner using the host's existing shutdown
-procedure, set `enabled = false`, and start again without the Yohaku registrations.
-The flag is a startup choice, not an emergency stop for a running owner or an
-instruction to repeat interrupted work. Keep checkpoint, handoff and archive
-files. If completion is ambiguous, retain evidence and reconcile manually;
-disabling does not establish completion. Hermes owner restart remains unsupported.
+| Profile | Host Python | Platform / storage | Runtime requirement |
+|---|---|---|---|
+| `codex-operational-0.158` | CPython `3.14.4` | WSL2 Linux。POSIX ownership、mode、`flock`、Unix socket、`fsync`を利用 | `codex-cli 0.158.0-alpha.2.1`と完全一致するbinary |
+| `codex-document-review-report-v1` | CPython `3.14.4` | WSL2 Linux。private dedicated workspaceと別のprivate state root | 同じCodex binary、既存のCodex `auth.json`、profile実行に利用できるaccount / provider access |
+| `hermes-operational-h-cli-01` | Hermes venvのCPython `3.11.16` | WSL2 Linux。POSIX storage、native Hermes DB、Yohaku store | Hermes `0.21.0`、source `c5594ec4b34097cafbe24deb6dfd9ac4b21d411d`、clean source tree、`<source>/venv` |
 
-The setting is read only when the embedding application calls `load_config`.
-No normal Codex/Hermes configuration is automatically edited. Installing the
-package alone never enables it. The separate [operational CLI](operations.md)
-supplies lifecycle-only host startup.
-It uses its own JSON configuration; this embedded TOML helper remains unchanged.
+Wheelのclean installと`pip check`はCPython `3.11.16`と`3.14.4`で確認されている。これは
+CPython `3.12` / `3.13`、Windows native、他OS、他interpreter、他patch versionのoperational
+acceptanceではない。Current `preflight`はprofileに固定したPython versionとWSL2 Linuxを検査し、
+未測定条件を拒否する。
 
-## Remove the package
+Windowsから利用する場合も、command、Runtime、config、state、control socketはWSL2 Linux内で動かす。
+Windows-native persistenceは未対応である。Storageは、accepted local POSIX semanticsを満たすprivate
+filesystemへ置く。Network filesystem、backup restore、cross-host migration、power-loss recoveryは
+accepted scope外である。
 
-After stopping the owner and removing its host registrations:
+`--config`、`--runtime-path`、`--workspace`、`--state-dir`、Task Profileのinput / output /
+credential homeにはabsolute pathが必要で、`..`やsymlink componentは拒否される。Config directory、
+config file、state root、Task Profile workspace / inputはcurrent UIDが所有し、group / otherから
+accessできない必要がある。
+
+## Runtimeの選択
+
+### Codex
+
+初回のoperational確認には`codex-operational-0.158`を選ぶ。このprofileは専用App Server、fresh
+thread、status、graceful stopを確認するが、credentialを読み込まず、inference、task turn、compact、
+handoff、resumeを無効にする。Lifecycle `PASS`はtransition `PASS`ではない。
+
+実taskを実行できるcurrent bindingは`codex-document-review-report-v1`だけである。Codex
+`0.158.0-alpha.2.1`上で、宣言したUTF-8 Markdown / text inputを読み、一回のmanual compact後に
+create-only Markdown reportを一つ作る。Mechanical completionはaccepted scopeに含まれるが、文章品質と
+事実性は`NOT_ASSESSED`である。
+
+`codex-reference-0.155`はHistorical Referenceである。Codex `0.155.0-alpha.16.4`のmanual / native
+transition Evidenceを保持するが、current `0.158` operational profileまたはTask Profileへ継承しない。
+`launch_supported=false`なので、一般利用者が`start`するprofileではない。
+
+### Hermes
+
+`hermes-operational-h-cli-01`は、pinned native Hermes source、native DB、Yohaku storeを一つの
+foreground processで開くlifecycle-only profileである。Hermesの既存venvへwheelをinstallし、
+`--runtime-path`にはshell launcherではなくpinned source rootを指定する。Inference agent、chat、
+compression、task tools、provider requestは有効にならない。
+
+`hermes-h-cli-01`は別profileである。H-CLI adapter Evidenceはmanual compression、Runtime固有の
+completion proof、adapter-defined receipt、fixed synthetic assessorを含むが、formal operational
+launcherとして公開されていない。H-CLI adapter workflowのbounded `PASS`を、lifecycle launcher、
+general Task Profile、Hermes family supportへ読み替えない。
+
+Hermesのhistorical live profilesは既存`openai-codex` credential、`gpt-5.6-luna`、reasoning lowを
+使った。Lifecycle-only profileはprovider requestを発行しないため、provider / account compatibilityを
+確認する用途には使えない。
+
+### Claude Code CLI
+
+Claude Code CLIにはRuntime canonicalとbounded completion / recovery adapter Evidenceがある。ただし、
+`claude-c-cli`と`claude-c-cli-local-nonce`は`launch_supported=false`であり、Codex / Hermes相当の
+formal operational launcherではない。`configure`で選択しても`preflight`は
+`OPERATIONAL_PROFILE_UNSUPPORTED`を返す。Installation guideから一般operational supportを推定しない。
+
+## Clean wheel installation
+
+次の例はCodex operational profile向けであり、wheelをcurrent directoryへ置いた状態から始める。
+`python3.14 --version`が`Python 3.14.4`であることを先に確認する。変数は例を実行するshell内だけで使う。
 
 ```sh
-/absolute/path/to/host/python -m pip uninstall yohaku
+python3.14 --version
+YOH_WHEEL="$(realpath ./yohaku-0.1.0-py3-none-any.whl)"
+YOH_VENV="$(pwd -P)/.venv-yohaku"
+test -f "$YOH_WHEEL"
+test ! -e "$YOH_VENV"
+
+sha256sum "$YOH_WHEEL"
+python3.14 -m venv "$YOH_VENV"
+"$YOH_VENV/bin/python" -m pip install --no-index --no-deps "$YOH_WHEEL"
+"$YOH_VENV/bin/python" -m pip check
+"$YOH_VENV/bin/python" -m yohaku --version
+"$YOH_VENV/bin/yohaku" profiles
+"$YOH_VENV/bin/python" -I -c 'import yohaku; from importlib.metadata import metadata; print(yohaku.__file__); print(metadata("yohaku")["Requires-Python"])'
 ```
 
-Uninstall removes package files, not runtime profiles or Yohaku state. Do not
-delete those records as an uninstall step. Reinstall a reviewed wheel using the
-same interpreter before reconnecting any host registrations.
+出力では、versionが`0.1.0`、`Requires-Python`が`>=3.11`、package pathが作成したvenvの
+`site-packages`配下であることを確認する。WheelのSHA-256は、配布元から得た期待値と照合する。
+`profiles`の表示はcurrent registryの確認であり、各profileのlive acceptanceを再実行するcommandではない。
 
-## Evidence limits
+Hermesでは新しいvenvを作らず、pinned sourceの既存venvを使う。
 
-Clean non-editable installs on 3.11.16/3.14.4, installed-package regression tests,
-configuration rejection, disabled/no-owner behavior and enabled host construction
-have been checked. The installed Hermes wheel also completed a native host
-rehearsal through `RESUME_VERIFIED` using synthetic HTTP responses and zero
-provider requests. That is installation/connection preparation, not a new live
-acceptance run. The preceding Stage 4 source-based live evidence retains its
-original scope; [runtime support](runtime-support.md) separates those records.
+```sh
+YOH_WHEEL="$(realpath ./yohaku-0.1.0-py3-none-any.whl)"
+HERMES_SOURCE="$(realpath /absolute/path/to/pinned-hermes-source)"
+"$HERMES_SOURCE/venv/bin/python" --version
+"$HERMES_SOURCE/venv/bin/python" -m pip install --no-index --no-deps "$YOH_WHEEL"
+"$HERMES_SOURCE/venv/bin/python" -m pip check
+"$HERMES_SOURCE/venv/bin/python" -m yohaku --version
+```
+
+このinstallによってHermes dependenciesをupgradeしない。Install前後のpackage一覧を保存し、Yohaku以外が
+変わっていないことを確認する。Pinned source revisionとclean treeは`preflight`も検査する。
+
+## Config / storage作成前の確認
+
+`configure`はconfig fileとstate rootを新規作成し、既存pathがあれば拒否する。まずprivate config
+directoryとworkspaceだけを作り、state pathは存在しない状態にする。
+
+```sh
+umask 077
+YOH_LOCAL_ROOT="$(pwd -P)/yohaku-local"
+YOH_CONFIG_DIR="$YOH_LOCAL_ROOT/config"
+YOH_WORKSPACE="$YOH_LOCAL_ROOT/workspace"
+YOH_CONFIG="$YOH_CONFIG_DIR/codex-lifecycle.json"
+YOH_STATE="$YOH_LOCAL_ROOT/codex-lifecycle-state"
+
+test ! -e "$YOH_LOCAL_ROOT"
+mkdir -p "$YOH_CONFIG_DIR" "$YOH_WORKSPACE"
+chmod 700 "$YOH_LOCAL_ROOT" "$YOH_CONFIG_DIR" "$YOH_WORKSPACE"
+test ! -e "$YOH_CONFIG"
+test ! -e "$YOH_STATE"
+```
+
+State rootとworkspaceは、同一pathにも親子関係にもできない。Ambient environmentにあるRuntime homeを
+`--state-dir`として採用しない。別profileを試すときもconfigのfieldを直接編集せず、新しいconfig fileと
+state rootを使う。
+
+## Configureからrecovery inspectionまで
+
+Codex lifecycle-only profileのcopy-paste可能な全手順は
+[Lifecycle-only Quick Start](quick-start.md#lifecycle-only-quick-start)に示す。Commandの順序は次である。
+
+```text
+profiles
+  → configure
+  → preflight
+  → enable
+  → start
+  → status
+  → stop
+  → disable
+  → recover --inspect
+```
+
+`start`はforeground ownerとしてterminalを占有する。`status`と`stop`は別terminalから実行する。
+`disable`は将来のstartを止めるconfig変更であり、実行中ownerを停止しない。先に`stop`が`STOPPED`を
+記録し、owner lockが解放されたことを`status`で確認する。
+
+`preflight PASS`が示すのは、固定profileの設定、version、platform、ownership、fresh-start条件が
+実行前検査を通ったことだけである。Native startup、transition acceptance、Task Profile completion、
+Runtime family supportは示さない。Lifecycle-only profileでは`transition_available=false`と
+`TASK_PROFILE_REQUIRED`が正常な結果である。
+
+## Lifecycle-only Quick Start
+
+公開例には`codex-operational-0.158`を使う。Hermes lifecycleと異なり、既存Runtime venvへwheelを
+installする必要がなく、credential、provider request、inferenceを使用しないためである。
+
+このprofileは次だけを確認する。
+
+- Dedicated Codex App Serverをowned processとしてstartできる
+- Fresh thread、private run storage、status、graceful stopを扱える
+- Confirmed clean stop後にfresh dedicated sessionを開始できる
+
+Task input、inference、manual / native transition、handoff、receipt、resumeは実行しない。成功しても
+Verified Context Transition成功ではない。実行手順は
+[Lifecycle-only Quick Start](quick-start.md#lifecycle-only-quick-start)を参照する。
+
+## `document-review-report-v1` Quick Start
+
+Packaged real Task Profileは`document-review-report-v1`だけであり、current accepted bindingはCodex
+`0.158.0-alpha.2.1`に限定される。`start`ではなく`run`を使う。
+
+Task workspaceには宣言したinput fileだけを置き、outputは存在しないpathを指定する。Config、state、
+credential homeはworkspace外に置く。`configure`では次をすべて固定する。
+
+- `--profile codex-document-review-report-v1`
+- 一回以上の`--input`
+- 一つのcreate-only `--output`
+- 固定`--instruction`
+- 既存Codex `auth.json`を持つ`--credential-home`
+- `--single-owner --dedicated-session`
+
+実行順は`configure → preflight → enable → run → status → disable`である。Runnerは宣言inputの
+read、verified boundary、checkpoint、一回のmanual compact、handoff、explicit receipt、fresh observation、
+一回のreport write、mechanical assessmentをboundedに実行する。成功時は`mechanical_task_completion=PASS`、
+`core_state=RESUME_VERIFIED`、固定output pathを返す。
+
+同じstate rootまたは同じoutputでrerunしない。Completed runは`TASK_COMPLETE_NO_RERUN`、interruptedまたは
+uncertain runは`TASK_RESTART_UNSUPPORTED` / `RECOVERY_REQUIRED`として扱う。文章品質、事実性、レビュー内容の
+妥当性は`NOT_ASSESSED`であり、mechanical `PASS`から推定しない。正確な例は
+[`document-review-report-v1` Quick Start](quick-start.md#document-review-report-v1-quick-start)、完全な
+contractは[Task Profile canonical](task-profiles/document-review-report-v1.md)を参照する。
+
+## `CODEX_HOME`とcredential home
+
+`CODEX_HOME`には文脈ごとに別の役割がある。
+
+- Historical Reference / embedded integrationでは、Codex config / authのrootであると同時に、既存
+  persistence互換性のためYohaku schema-1 storage namespaceの選択にも使われる。
+- `codex-operational-0.158`はrunごとにisolated `CODEX_HOME`を作り、credentialを置かず、inferenceを
+  無効化する。利用者がambient `CODEX_HOME`を設定しても、operational JSON configや`--state-dir`にはならない。
+- `codex-document-review-report-v1`の`--credential-home`は、既存`auth.json`の所在を指定する。Runnerは
+  per-run isolated Codex homeを作り、その`auth.json`だけをsymlinkする。Credential valueをYohaku configや
+  Evidenceへcopyするためのoptionではない。
+
+Runtime authentication、account、subscriptionはRuntime側で管理する。Yohakuの`preflight`はTask Profileで
+`auth.json`の存在を確認するが、account、provider、quota、billing、model accessの成立までは証明しない。
+
+## Status、stop、recoveryの安全な使い方
+
+通常時は`status`の`owner_live`、`owner_lock_busy`、`operational.state`、
+`recovery.fresh_start_allowed`、`recovery.resume_supported`を一緒に読む。PIDやsocketの有無だけでclean stopを
+推定しない。
+
+| 表示 | 次の安全な動作 |
+|---|---|
+| `RUNTIME_VERSION_MISMATCH` / `SOURCE_VERSION_MISMATCH` | Profileを変更して通過させず、固定version、binary / source path、source commitを照合する |
+| `OWNER_UNREACHABLE` / stale owner | 第二ownerを起動せず、lock、retained run record、Runtime processをinspectする |
+| `STOP_INCOMPLETE` / `STOP_TIMEOUT` | Kill、lock削除、uninstall、fresh startを行わず、同じownerへ`status` / `stop`を行ってnative shutdownを確認する |
+| `AMBIGUOUS` | Side effectまたはtransitionが完了した可能性を保持し、通常作業とblind retryを止め、correlated late Evidenceを照合する |
+| `RECOVERY_REQUIRED` | Old authorityを復元せず、state rootとRuntime-native storageを保持してprofile canonicalに沿ってmanual reviewする |
+
+Read-only inspectionは次で実行する。
+
+```sh
+yohaku recover --inspect --config /absolute/path/to/config.json
+```
+
+このcommandはRuntimeへ接続せず、continuationやretryを送らず、authorityを復元しない。
+`recover`を`--inspect`なしで実行すると`UNSUPPORTED_RECOVERY`で拒否される。詳細は
+[Storage and Recovery](storage-and-recovery.md)を参照する。
+
+## Disable、uninstall、data deletion
+
+次のoperationは別々であり、一つを実行しても他は実行されない。
+
+| Operation | 変更するもの | 保持するもの |
+|---|---|---|
+| `disable` | Configのactivation flag | Config binding、run metadata、Yohaku storage、Runtime-native storage |
+| Package uninstall | 選択したinterpreterのpackage files | User-managed config、state root、workspace、Runtime-native storage |
+| Config deletion | User-managed JSON config | State rootとRuntime-native storage。Bindingとの対応を失うため、recovery前に行わない |
+| Yohaku storage deletion | Checkpoint、journal、handoff、archive、adapter / operational metadata | Runtime-native DB / transcriptとtask workspace。Completionやclean stopの代用にならない |
+| Runtime-native storage deletion | Codex thread / transcript / home、Hermes SessionDBなど | Yohaku stateとtask workspace。Runtime側のretention / auth policyに従う |
+
+Uninstall前にownerをclean stopし、`status`で`owner_lock_busy=false`と`STOPPED`を確認する。その後、
+installに使った同じinterpreterからpackageだけを削除する。
+
+```sh
+/absolute/path/to/yohaku-venv/bin/python -m pip uninstall yohaku
+```
+
+`STOP_INCOMPLETE`、`OWNER_UNREACHABLE`、`AMBIGUOUS`、`RECOVERY_REQUIRED`の状態でuninstallしても、
+recovery問題は解決しない。現在、保存dataを一括削除する一般commandはない。Retention期間、secure deletion、
+export、backup / restore policyも未定義である。したがって、installation guideは再帰的なcleanup commandを
+提示しない。削除が必要な場合は、config、Yohaku state、task workspace、Runtime-native storageを個別に
+inventoryし、各ownerのretention / privacy policyとrecovery要否を確認してから扱う。
+
+## Security / privacy
+
+- Credential、token、cookie、account情報をYohaku Evidenceへ含めない
+- Runtime authはRuntime側で管理し、Yohaku configやtask inputへcopyしない
+- Config directory、state root、task workspace、Runtime-native storageをprivateに保つ
+- Evidenceを共有するときはallowlist方式でsanitizationし、不要なabsolute pathとtool argument / resultを除く
+- Private transcript、Codex thread / home、Hermes `SessionDB`、Runtime state DBをそのまま公開しない
+- Secretの単純hashも公開correlation IDとして使わない
+
+Evidenceのauthorityと公開境界は[Evidence Model](evidence-model.md)、bundle作成とsanitization手順は
+[Testing and Evidence](development/testing-and-evidence.md)を参照する。
+
+## Known Limitations
+
+- 全profileのmaturityはexperimental、release channelはundeclared
+- Package publishingとinstallerは提供していない。一般利用者はreview済みwheelを別途必要とする
+- Operational hostはWSL2 Linuxとprofile固定Python / Runtime versionに限定される
+- Windows native、他OS、network filesystem、power loss、backup restore、cross-host migrationは未受入
+- Lifecycle-only profileにはTask Observer / Assessorがなく、inferenceとtransitionを実行しない
+- Packaged Task ProfileはCodexの`document-review-report-v1`だけで、general document / coding taskではない
+- Task Profileのrestart、rerun、repeated transition、existing output採用は未対応
+- Hook fault時のRuntime-wide fail-closed、Runtime-wide atomic freeze、external writer排除は未成立
+- Parallel、background、detached、subagent、general MCP / shell / filesystem toolはaccepted coverage外
+- Strong Transition Assurance、general exactly-once、Field Evidence、文章 / 事実品質の評価は未成立
+- Claude Code CLIのformal operational launcherはない
+- General retention、secure deletion、backup / restore policyは未定義
+
+## Documentation navigation
+
+### 初見利用者
+
+- [Quick Start](quick-start.md): lifecycle-onlyと`document-review-report-v1`の実行例
+- [Operations](operations.md): commandの状態遷移、拒否条件、status field
+- [Runtime Support](runtime-support.md): profileごとのEvidence、Verdict、非継承範囲
+- [Codex Runtime canonical](runtimes/codex.md)、[Hermes Runtime canonical](runtimes/hermes.md)、
+  [Claude Code CLI Runtime canonical](runtimes/claude-code-cli.md): Runtime固有のversion、primitive、制限
+- [Task Profile canonical](task-profiles/document-review-report-v1.md): input / output、allowed work、rerun禁止
+- [Storage and Recovery](storage-and-recovery.md): durable record、recovery outcome、retentionの未定義範囲
+
+### 開発者・Evidence reviewer
+
+- [Architecture](architecture.md): component、control flow、trust boundary
+- [Evidence Model](evidence-model.md): Evidence、CoverageProfile、Capability Verdict
+- [Runtime Adapter Contract](development/adapter-contract.md): Core / adapter境界、identity、completion contract
+- [Testing and Evidence](development/testing-and-evidence.md): Environment Contract、negative case、sanitization、review
