@@ -127,8 +127,8 @@ Python >=3.14 package requirement; its local checks used Python 3.14.4.
 The explicit receipt is an adapter-defined protocol over native tool calls,
 not a built-in Hermes acknowledgement. General tool coverage, Hook-fault safety,
 races, background/parallel work, restart, late completion, repeated compression
-and live selected-archive retrieval remain unaccepted. See the
-[Hermes integration reference](reference/hermes.md) for required host wiring.
+and live selected-archive retrieval remain unaccepted. See the canonical
+[Hermes Runtime page](runtimes/hermes.md) for required host wiring.
 
 ## Claude Code Ollama local maintainer testing profile
 

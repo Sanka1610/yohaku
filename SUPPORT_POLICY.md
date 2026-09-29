@@ -41,7 +41,7 @@ Priorityからmaturityを決めず、Capability Verdictの集計だけでmaturit
 
 制定時はCodex Referenceをexperimentalとする。これは新しい分類の初期値であり、既存の限定PASSを取り消すものでも、公開Alphaを承認するものでもない。他Runtimeはexperimentalの調査候補で、adapterは未実装・live capability受入はNOT_RUN。未実装という状態もmaturityと併記する。
 
-その後、Hermes H-CLI-01はbounded workflow PASS / profile PARTIALとなり、completion predicateをCoreから分離した。完成adapterと公開channelは未成立。更新後の実装・実測範囲は[Runtime support](docs/runtime-support.md#target-runtime-status)を参照する。
+その後、Hermes H-CLI-01はbounded connected adapter workflow PASS / profile PARTIALとなり、completion predicateをCoreから分離した。General Hermes adapter、Strong Transition Assurance、公開channelは未成立。更新後の実装・実測範囲は[Hermes Runtime](docs/runtimes/hermes.md)と[Runtime support](docs/runtime-support.md#target-runtime-status)を参照する。
 
 Claude Code + Ollama localは、固定version/modelの[maintainer testing profile](docs/runtime-support.md#claude-code-ollama-local-maintainer-testing-profile)として別登録した。2026-09-29時点で同一構成のbounded recoveryは成功1回・追加試行の失敗1回。歴史的workflow PASSと今回の再現確認FAILを併記し、overall PARTIAL / experimentalを維持する。手動reviewを伴う回帰診断には条件付きで使用できるが、安定した必須自動gateには採用しない。Anthropic subscription profileのEvidence・Verdictは変更しない。
 

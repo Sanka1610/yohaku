@@ -312,8 +312,9 @@ Support Profile、Evidence、Verdictを変更しない。
 `README.en.md`とする。詳細docsの英語版は、Alpha公開に必要な主要文書から段階的に
 作成する。現在は、本書、[Runtime Mapping](runtime-mapping.md)、
 [Transition Strategies](transition-strategies.md)、[Evidence Model](evidence-model.md)、
-[Runtime文書の構成規則](runtimes/README.md)、[Codex Runtime](runtimes/codex.md)を日本語
-canonicalとする。`README.md`の全面改稿や英語版の作成は、この整理に含めない。
+[Runtime文書の構成規則](runtimes/README.md)、[Codex Runtime](runtimes/codex.md)、
+[Hermes Runtime](runtimes/hermes.md)を日本語canonicalとする。`README.md`の全面改稿や
+英語版の作成は、この整理に含めない。
 
 Internal research、raw Evidence、historical / frozen資料は、provenanceとsource
 associationを保つため原文を維持する。一律翻訳せず、公開用のderived documentが
@@ -337,10 +338,9 @@ associationを保つため原文を維持する。一律翻訳せず、公開用
 - [Runtime文書の構成規則](runtimes/README.md)はRuntime個別pageの章順と記述規則を所有する
 - [Runtime support](runtime-support.md)はcross-Runtime status summary、historical provenance、
   retained Evidenceへの公開参照を保持する
-- [Codex Runtime](runtimes/codex.md)はCodexのcurrent public canonicalとしてprofile、
-  primitive、Evidence scope、制限を説明する。[Hermes reference](reference/hermes.md)と
-  [Claude CLI reference](reference/claude-cli.md)は、個別のcanonical整理まで既存contractを
-  保持する
+- [Codex Runtime](runtimes/codex.md)と[Hermes Runtime](runtimes/hermes.md)は各Runtimeの
+  current public canonicalとしてprofile、primitive、Evidence scope、制限を説明する。
+  [Claude CLI reference](reference/claude-cli.md)は個別のcanonical整理まで既存contractを保持する
 - [document-review profile](reference/document-review-report-v1.md)は現在のbounded
   Task Profileを定義する
 - [Operations](operations.md)と[Installation](installation.md)は、architecture acceptance

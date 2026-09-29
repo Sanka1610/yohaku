@@ -185,7 +185,7 @@ release decision. See the [Evidence model](docs/evidence-model.md) and
 - [Architecture](docs/architecture.md): implemented responsibilities and design boundaries.
 - [Evidence model](docs/evidence-model.md): Evidence, CoverageProfile, Capability Verdict, provenance, and non-inheritance rules.
 - [Runtime support and evidence scope](docs/runtime-support.md): measured profile, provenance, and strategy limits.
-- [Hermes H-CLI-01 reference](docs/reference/hermes.md): embedded host wiring, receipt and scope limits.
+- [Hermes Runtime](docs/runtimes/hermes.md): canonical Probe、adapter、operational profiles、native primitives、Evidence scope、制限。
 - [Claude Code C-CLI reference](docs/reference/claude-cli.md): manual completion, opt-in recovery and evidence limits.
 - [Runtime document structure](docs/runtimes/README.md): shared chapter order and profile documentation rules.
 - [Codex Runtime](docs/runtimes/codex.md): canonical Codex profiles, primitives, Evidence scope, and limitations.

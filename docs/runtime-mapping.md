@@ -8,7 +8,7 @@ delivery、current-state observation、continuation、Known Limitationsなど、
 [Architecture](architecture.md)はcomponent責務とtrust boundaryを所有する。
 [Transition Strategies](transition-strategies.md)はContext Transition方式のtaxonomyと
 共通semanticsを所有する。Runtime固有contractの詳細は[Codex](runtimes/codex.md)、
-[Hermes](reference/hermes.md)、[Claude Code](reference/claude-cli.md)の各referenceに
+[Hermes](runtimes/hermes.md)、[Claude Code](reference/claude-cli.md)の各pageに
 残す。
 
 文書に記載しただけではsupportは成立しない。実装の存在、retained Evidence、Verdict
@@ -204,7 +204,7 @@ Evidence claimは別である。共通するprofile factを一度だけ示し、
 | Host-local identity | adapter request / generationとowner mapping。native identityを置き換えず、並べて保持する。 |
 | Completion proof | host history mutationと、independent read-only `SessionDB`によるexact projection / archived-row readback。engine return / countだけでは不十分。 |
 | Checkpoint / journal | Core checkpointとhandoff recordを保持する。Hermes adapter event metadataはbounded diagnostic stateであり、general restart journalではない。 |
-| Runtime-native storage | `SessionDB` / `SessionStore`。completion readback sourceであり、Yohaku checkpoint / archiveではない。 |
+| Runtime-native storage | Hermes `SessionDB`とnative history / compression state。Completion readback sourceであり、Yohaku `SessionStore`内のcheckpoint / archiveではない。 |
 | Handoff creation / delivery / injection | Coreがdurable handoffを作り、embedded hostがfixed continuation pathでdeliveryする。 |
 | Explicit receipt | 必須Runtime / Yohaku correlationを含むadapter-defined assistant tool receipt。Hermes built-in receipt primitiveではない。 |
 | Fresh current-state observation | delivery後、assessment前のindependent current native / task read |

@@ -11,8 +11,8 @@ Runtime family全体ではなく、固定したSupport Profileごとの実装、
 [Support Policy](../../SUPPORT_POLICY.md)はmaturity / release policyを所有する。Runtime pageは
 これらを再定義せず、一つのRuntimeでどのprimitiveが各roleを実現するかを確定する。
 
-現在のcanonical Runtime pageは[Codex](codex.md)である。HermesとClaude Codeは、個別の
-整理を行うまで既存reference pageを維持する。
+現在のcanonical Runtime pageは[Codex](codex.md)と[Hermes](hermes.md)である。Claude Codeは、
+個別の整理を行うまで既存reference pageを維持する。
 
 ## Profileを先に分ける
 

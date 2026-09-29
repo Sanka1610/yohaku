@@ -68,7 +68,7 @@ by Hermes. Do not replace Hermes's interpreter or upgrade its dependencies:
 Use the actual Hermes venv path, not an unrelated Python executable. Record
 installed package versions before and after; only Yohaku should change. The
 measured Hermes 0.21.0 environment uses Python 3.11.16. Its source pin and native
-API requirements remain those in the [Hermes reference](reference/hermes.md).
+API requirements remain those in the canonical [Hermes Runtime page](runtimes/hermes.md).
 There is no added bridge, RPC protocol or second Yohaku process for this profile.
 
 ## Enable and disable at host startup
