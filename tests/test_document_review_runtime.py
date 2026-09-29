@@ -3,10 +3,12 @@
 import unittest
 from pathlib import Path
 import tempfile
+from unittest.mock import patch
 
 from yohaku.document_review import READ_TOOL, WRITE_TOOL
-from yohaku.document_review_runtime import DocumentReviewRuntime
+from yohaku.document_review_runtime import DocumentReviewRuntime, run_document_review
 from yohaku import operational as op
+from yohaku.profiles import profile
 
 
 class DocumentReviewRuntimeTests(unittest.TestCase):
@@ -41,7 +43,9 @@ class DocumentReviewRuntimeTests(unittest.TestCase):
             source.chmod(0o600)
             credentials = root / "credentials"
             credentials.mkdir(mode=0o700)
-            (credentials / "auth.json").write_text("{}")
+            auth = credentials / "auth.json"
+            auth.write_text("{}")
+            auth.chmod(0o600)
             path = root / "config.json"
             config = op.OperationalConfig(
                 "codex-document-review-report-v1", str(Path("/usr/bin/false").resolve()),
@@ -58,6 +62,44 @@ class DocumentReviewRuntimeTests(unittest.TestCase):
             self.assertFalse(op.recovery(config)["fresh_start_allowed"])
             op.set_enabled(path, False)
             self.assertFalse(op.load(path).enabled)
+
+    def test_runtime_recheck_rejects_replacement_before_provider_request(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            workspace = root / "workspace"
+            workspace.mkdir(mode=0o700)
+            source = workspace / "input.md"
+            source.write_text("# Input\n")
+            source.chmod(0o600)
+            credentials = root / "credentials"
+            credentials.mkdir(mode=0o700)
+            auth = credentials / "auth.json"
+            auth.write_text("{}")
+            auth.chmod(0o600)
+            state = root / "state"
+            state.mkdir(mode=0o700)
+            config = op.OperationalConfig(
+                "codex-document-review-report-v1", str(Path("/usr/bin/false").resolve()),
+                str(workspace), str(state), True, True, enabled=True,
+                task_inputs=(str(source),), task_output=str(workspace / "report.md"),
+                task_instruction="Review the input.", credential_home=str(credentials))
+            expected = op.credential_identity(config)
+
+            def replace_after_runtime_files(_config, run, _bridge, _expected):
+                auth.unlink()
+                auth.write_text('{"replacement": true}')
+                auth.chmod(0o600)
+                return run / "codex-home", {}
+
+            check = {"profile": profile(config.profile),
+                     "observed_runtime": "codex-cli 0.158.0-alpha.2.1"}
+            with patch('yohaku.document_review_runtime._runtime_files',
+                       side_effect=replace_after_runtime_files), \
+                    patch.object(DocumentReviewRuntime, 'start_turn') as provider_request:
+                result = run_document_review(config, check, expected)
+            self.assertEqual(result["mechanical_task_completion"], "REFUSED")
+            self.assertEqual(result["reason"], "CODEX_CREDENTIAL_STATE_CHANGED")
+            provider_request.assert_not_called()
 
 
 if __name__ == "__main__":

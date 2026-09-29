@@ -123,8 +123,14 @@ Codexのversion出力が一致しない場合は`RUNTIME_VERSION_MISMATCH`、Her
 transition acceptanceを示さない。
 
 Lifecycle-only profileにはTrusted ObserverとTask Assessorがない。この場合、preflight自体は
-通り得るが、`transition_available=false`と`TASK_PROFILE_REQUIRED`を返す。`transition`、
-task turn、compact、resumeを送る経路は拒否される。
+通り得るが、`task_profile_registered=false`、`transition_ready=false`、
+`TASK_PROFILE_REQUIRED`を返す。`transition`、task turn、compact、resumeを送る経路は拒否される。
+
+`document-review-report-v1`では、credential homeと`auth.json`がsymlinkでないこと、current UIDの
+所有物であること、group / otherへ権限を与えていないこと、前者がdirectory、後者がregular fileで
+あることを検査する。`run`はpreflight時のfile identityを保持し、owner lock取得後とCodex起動直前に
+再照合する。差し替えを検出した場合はprovider request前に拒否する。この検査はaccount、subscription、
+quota、billing、model accessの成立を示さない。
 
 ## `enable`
 
@@ -161,13 +167,18 @@ clean stopが記録されず、次回startはrecovery判定で拒否される可
 | `profile` / `package` | 固定profile、installed package version、Python、installed RECORD hash |
 | `observed_runtime` / profile内のexpected identity | 起動時に照合したRuntime versionまたはsource commit |
 | `operational.state` | `NEVER_STARTED`、`STARTING`、`RUNNING`、`STOPPING`、`STOP_INCOMPLETE`、`STOPPED`、`FAILED`、`AMBIGUOUS`、`OWNER_UNREACHABLE`、`RECOVERY_REQUIRED`のいずれか |
+| `task_profile_registered` | RegistryにTask Profileが登録されているというstatic fact |
+| `transition_ready` | Current config、enabled state、preflight、task stateが新しいTask Profile runを開始できるか |
+| `transition_available` | `transition_ready`の互換field。Task Profile登録の別名ではない |
+| `transition_reason` | `transition_ready=false`の理由。Disabled、preflight failure、missing Task Profileなど |
 | `recovery.fresh_start_allowed` | Prior runをresumeせず、新しいdedicated sessionを開始できるか |
 | `recovery.resume_supported` | Prior runのtask / sessionを再開できるか。現在のoperational CLIでは常に`false` |
 | `recovery.reason` | Fresh start可能、不可能、またはmanual inspectionが必要な理由 |
 | `recovery.saved_data_retained` | Recovery判断によって保存dataを削除していないこと |
-| `transition_available` / `transition_reason` | Task integrationの有無。Lifecycle statusやcompletion proofではない |
 
-`fresh_start_allowed=true`と`resume_supported=true`は同じ意味ではない。Confirmed clean stop後の
+`task_profile_registered=true`だけでは`transition_ready=true`にならない。Disabled config、preflight
+failure、completed task、`RECOVERY_REQUIRED`、`AMBIGUOUS`では、新しいTask Profile runを開始できない。
+`fresh_start_allowed=true`と`resume_supported=true`も同じ意味ではない。Confirmed clean stop後の
 lifecycle-only profileは、新しいsessionを開始できるだけで、停止前sessionをresumeしない。
 Task Profile runは、正常終了後も`TASK_COMPLETE_NO_RERUN`となり、同じstate rootで再実行しない。
 

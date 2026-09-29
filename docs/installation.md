@@ -244,8 +244,8 @@ profiles
 
 `preflight PASS`が示すのは、固定profileの設定、version、platform、ownership、fresh-start条件が
 実行前検査を通ったことだけである。Native startup、transition acceptance、Task Profile completion、
-Runtime family supportは示さない。Lifecycle-only profileでは`transition_available=false`と
-`TASK_PROFILE_REQUIRED`が正常な結果である。
+Runtime family supportは示さない。Lifecycle-only profileでは`task_profile_registered=false`、
+`transition_ready=false`、`TASK_PROFILE_REQUIRED`が正常な結果である。
 
 ## Lifecycle-only Quick Start
 
@@ -296,12 +296,15 @@ contractは[Task Profile canonical](task-profiles/document-review-report-v1.md)�
   persistence互換性のためYohaku schema-1 storage namespaceの選択にも使われる。
 - `codex-operational-0.158`はrunごとにisolated `CODEX_HOME`を作り、credentialを置かず、inferenceを
   無効化する。利用者がambient `CODEX_HOME`を設定しても、operational JSON configや`--state-dir`にはならない。
-- `codex-document-review-report-v1`の`--credential-home`は、既存`auth.json`の所在を指定する。Runnerは
-  per-run isolated Codex homeを作り、その`auth.json`だけをsymlinkする。Credential valueをYohaku configや
-  Evidenceへcopyするためのoptionではない。
+- `codex-document-review-report-v1`の`--credential-home`は、既存`auth.json`の所在を指定する。Credential
+  homeはcurrent UID所有のprivate directory、`auth.json`はcurrent UID所有のprivate regular fileでなければ
+  ならず、symlinkとgroup / other permissionsは拒否される。Runnerはper-run isolated Codex homeを作り、
+  検査済みの`auth.json`だけをsymlinkする。Credential valueをYohaku configやEvidenceへcopyするための
+  optionではない。
 
 Runtime authentication、account、subscriptionはRuntime側で管理する。Yohakuの`preflight`はTask Profileで
-`auth.json`の存在を確認するが、account、provider、quota、billing、model accessの成立までは証明しない。
+credential homeと`auth.json`のpath、owner、mode、typeを確認する。`run`はCodex起動前にも同じfile identityを
+再検査するが、account、provider、quota、billing、model accessの成立までは証明しない。
 
 ## Status、stop、recoveryの安全な使い方
 

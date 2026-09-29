@@ -26,6 +26,12 @@ class OperationError(RuntimeError):
     pass
 
 
+@dataclass(frozen=True)
+class CredentialIdentity:
+    home: tuple[int, ...]
+    auth: tuple[int, ...]
+
+
 def absolute(value):
     p = Path(value)
     if not p.is_absolute() or '..' in p.parts:
@@ -44,6 +50,37 @@ def private(path, *, directory=False):
     if not (stat.S_ISDIR(s.st_mode) if directory else stat.S_ISREG(s.st_mode)):
         raise OperationError('WRONG_PATH_TYPE')
     return p
+
+
+def _private_identity(path, *, directory=False):
+    p = private(path, directory=directory)
+    s = p.lstat()
+    if s.st_uid != os.getuid() or s.st_mode & 0o077:
+        raise OperationError('PRIVATE_PATH_REQUIRED')
+    if not (stat.S_ISDIR(s.st_mode) if directory else stat.S_ISREG(s.st_mode)):
+        raise OperationError('WRONG_PATH_TYPE')
+    return p, (s.st_dev, s.st_ino, s.st_uid, stat.S_IMODE(s.st_mode),
+               s.st_size, s.st_mtime_ns, s.st_ctime_ns)
+
+
+def credential_identity(config, expected=None):
+    try:
+        home, home_before = _private_identity(config.credential_home, directory=True)
+    except FileNotFoundError:
+        raise OperationError('CODEX_CREDENTIAL_HOME_MISSING') from None
+    except OSError:
+        raise OperationError('CODEX_CREDENTIAL_HOME_INVALID') from None
+    try:
+        _, auth = _private_identity(home / 'auth.json')
+    except FileNotFoundError:
+        raise OperationError('CODEX_AUTH_MISSING') from None
+    except OSError:
+        raise OperationError('CODEX_AUTH_INVALID') from None
+    _, home_after = _private_identity(home, directory=True)
+    current = CredentialIdentity(home_after, auth)
+    if home_before != home_after or expected is not None and current != expected:
+        raise OperationError('CODEX_CREDENTIAL_STATE_CHANGED')
+    return current
 
 
 def read_json(path):
@@ -254,7 +291,7 @@ def command_output(args, *, cwd=None):
     return r.stdout.strip()
 
 
-def preflight(config):
+def _preflight(config):
     p = profile(config.profile)
     errors = []
     actual = None
@@ -273,16 +310,14 @@ def preflight(config):
     if not p['launch_supported']:
         errors.append('OPERATIONAL_PROFILE_UNSUPPORTED')
     task_contract = None
+    credential = None
     if p.get('task_profile') == 'document-review-report-v1':
         try:
             from .document_review import DocumentReviewContract
             task_contract = DocumentReviewContract.create(
                 workspace=config.workspace, inputs=config.task_inputs,
                 output=config.task_output, instruction=config.task_instruction)
-            home = absolute(config.credential_home)
-            auth = home / 'auth.json'
-            if not auth.is_file():
-                errors.append('CODEX_AUTH_MISSING')
+            credential = credential_identity(config)
         except OperationError as exc:
             errors.append(str(exc))
     try:
@@ -314,12 +349,15 @@ def preflight(config):
         errors.append(str(exc))
     is_task = p.get('task_profile') == 'document-review-report-v1'
     task_enabled = task_contract is not None and not errors
-    transition_reason = (None if task_enabled else
+    transition_ready = task_enabled and config.enabled
+    transition_reason = (None if transition_ready else 'DISABLED' if task_enabled else
                          '; '.join(errors) if is_task and errors else MISSING_TASK)
-    return dict(verdict='PASS' if not errors else 'FAIL', profile=p, package=package_identity(), observed_runtime=actual,
+    report = dict(verdict='PASS' if not errors else 'FAIL', profile=p, package=package_identity(), observed_runtime=actual,
                 expected_runtime=p.get('source_commit', p['runtime_version']), errors=errors,
                 enabled=config.enabled, inference_enabled=task_enabled,
-                work_observation_available=task_enabled, transition_available=task_enabled,
+                work_observation_available=task_enabled,
+                task_profile_registered=is_task, transition_ready=transition_ready,
+                transition_available=transition_ready,
                 transition_reason=transition_reason,
                 task_contract=(dict(profile=p.get('task_profile'),
                     logical_task_id=task_contract.logical_task_id,
@@ -333,6 +371,11 @@ def preflight(config):
                 assumptions={'single_owner_acknowledged': config.single_owner,
                              'dedicated_session_acknowledged': config.dedicated_session,
                              'external_clients_excluded_by_lock': False})
+    return report, credential
+
+
+def preflight(config):
+    return _preflight(config)[0]
 
 
 def set_enabled(path, enabled):
@@ -389,10 +432,13 @@ def status(config):
         current = dict(current, state='RECOVERY_REQUIRED')
     elif not busy:
         current = dict(current, runtime_running=False, owner_attached=False)
-    task = profile(config.profile).get('task_profile')
+    check, _ = _preflight(config)
     return dict(profile=profile(config.profile), package=package_identity(), enabled=config.enabled, owner_live=live is not None,
                 owner_lock_busy=busy, operational=current, recovery=recovery(config),
-                transition_available=bool(task), transition_reason=None if task else MISSING_TASK)
+                task_profile_registered=check['task_profile_registered'],
+                transition_ready=check['transition_ready'],
+                transition_available=check['transition_ready'],
+                transition_reason=check['transition_reason'])
 
 
 def stop(config):
@@ -445,7 +491,7 @@ def run(path):
         raise OperationError('RUN_REQUIRES_DOCUMENT_REVIEW_PROFILE')
     if not config.enabled:
         raise OperationError('DISABLED')
-    check = preflight(config)
+    check, credential = _preflight(config)
     if check['errors']:
         raise OperationError('; '.join(check['errors']))
     with owner_lock(config), task_workspace_lock(config):
@@ -454,8 +500,9 @@ def run(path):
             raise OperationError('DISABLED')
         if not recovery(config)['fresh_start_allowed']:
             raise OperationError('RECOVERY_REQUIRED')
+        credential_identity(config, credential)
         from .document_review_runtime import run_document_review
-        return run_document_review(config, check)
+        return run_document_review(config, check, credential)
 
 
 def _serve(config, check):
@@ -470,6 +517,7 @@ def _serve(config, check):
     run.mkdir(mode=0o700)
     state = dict(schema=1, config_digest=config_digest(config), run_id=run_id, state='STARTING',
                  owner_pid=os.getpid(), runtime_running=False, owner_attached=False,
+                 task_profile_registered=False, transition_ready=False,
                  transition_available=False, transition_reason=MISSING_TASK,
                  profile=profile(config.profile), package=package_identity(),
                  observed_runtime=check['observed_runtime'], run_dir=str(run), inference_requests=0,

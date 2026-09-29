@@ -20,7 +20,9 @@ from .document_review import (
     PROFILE, READ_TOOL, WRITE_TOOL, document_review_tools,
 )
 from .model import BoundaryVerification, State
-from .operational import OperationError, config_digest, package_identity, write_json
+from .operational import (
+    OperationError, config_digest, credential_identity, package_identity, write_json,
+)
 from .recovery import RecoveredData
 from .runtime import HookBridge, RuntimeHost
 
@@ -257,7 +259,8 @@ def turn_id(message):
     return params.get("turnId") or turn.get("id")
 
 
-def _runtime_files(config, run, bridge):
+def _runtime_files(config, run, bridge, expected_credential):
+    credential_identity(config, expected_credential)
     home = run / "codex-home"
     home.mkdir(mode=0o700)
     isolated_home = run / "runtime-home"
@@ -354,7 +357,7 @@ def _safe_reason(exc):
     return type(exc).__name__
 
 
-def run_document_review(config, check):
+def run_document_review(config, check, expected_credential):
     root = Path(config.state_dir)
     run_id = uuid4().hex
     runs = root / "runs"
@@ -371,7 +374,8 @@ def run_document_review(config, check):
              "state": "STARTING", "owner_pid": os.getpid(), "runtime_running": False,
              "owner_attached": False, "profile": check["profile"],
              "package": package_identity(), "observed_runtime": check["observed_runtime"],
-             "run_dir": str(run), "transition_available": True,
+             "run_dir": str(run), "task_profile_registered": True,
+             "transition_ready": False, "transition_available": False,
              "task_profile": PROFILE, "core_state": None,
              "mechanical_task_completion": "NOT_RUN", "writing_quality": "NOT_ASSESSED"}
 
@@ -383,12 +387,15 @@ def run_document_review(config, check):
     success = False
     close_error = None
     try:
-        _, env = _runtime_files(config, run, bridge)
+        _, env = _runtime_files(config, run, bridge, expected_credential)
+        credential_identity(config, expected_credential)
         state["hook_hashes"] = _trust_hooks(config, env, contract.workspace)
+        credential_identity(config, expected_credential)
         runtime.open(env)
         state.update(state="RUNNING", runtime_running=True, owner_attached=True,
                      thread_id=runtime.thread_id)
         save()
+        credential_identity(config, expected_credential)
         initial_turn = runtime.start_turn(_initial_prompt(contract))
         runtime.wait_turn(initial_turn)
         observed = task.observe()

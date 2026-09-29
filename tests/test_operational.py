@@ -1,6 +1,6 @@
 """Operational failure boundaries; injected hosts here are synthetic evidence only."""
 
-from contextlib import redirect_stdout, redirect_stderr
+from contextlib import ExitStack, redirect_stdout, redirect_stderr
 from dataclasses import replace
 import io
 import json
@@ -68,6 +68,16 @@ class OperationalTests(unittest.TestCase):
         self.assertEqual(result['error'], 'DISABLED')
         host.assert_not_called()
         self.assertFalse((Path(self.config.state_dir) / 'runs').exists())
+
+    def test_top_level_help_distinguishes_lifecycle_and_fixed_task_run(self):
+        out = io.StringIO()
+        with redirect_stdout(out), self.assertRaises(SystemExit) as stopped:
+            main(['--help'])
+        self.assertEqual(stopped.exception.code, 0)
+        help_text = ' '.join(out.getvalue().split())
+        self.assertIn('lifecycle-only profiles', help_text)
+        self.assertIn('fixed Task Profile runs', help_text)
+        self.assertIn('general transitions are not supported', help_text)
 
     def test_unknown_fields_config_binding_and_copy_rejected(self):
         data = json.loads(self.path.read_text())
@@ -197,6 +207,181 @@ class OperationalTests(unittest.TestCase):
             if proc.is_alive():
                 proc.kill()
                 proc.join()
+
+
+class CredentialAndStatusTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.base = Path(self.tmp.name)
+        self.workspace = self.base / 'workspace'
+        self.workspace.mkdir(mode=0o700)
+        self.source = self.workspace / 'input.md'
+        self.source.write_text('# Input\n')
+        self.source.chmod(0o600)
+        self.credentials = self.base / 'credentials'
+        self.credentials.mkdir(mode=0o700)
+        self.auth = self.credentials / 'auth.json'
+        self.auth.write_text('{}')
+        self.auth.chmod(0o600)
+        self.path = self.base / 'config.json'
+        self.config = op.OperationalConfig(
+            'codex-document-review-report-v1', str(Path('/usr/bin/false').resolve()),
+            str(self.workspace), str(self.base / 'state'), True, True,
+            task_inputs=(str(self.source),), task_output=str(self.workspace / 'report.md'),
+            task_instruction='Review the input.', credential_home=str(self.credentials))
+
+    def configure(self, *, enabled=False):
+        op.configure(self.path, self.config)
+        if enabled:
+            op.set_enabled(self.path, True)
+        return op.load(self.path)
+
+    def runtime_patches(self, output='codex-cli 0.158.0-alpha.2.1'):
+        stack = ExitStack()
+        stack.enter_context(patch('yohaku.operational.command_output', return_value=output))
+        stack.enter_context(patch('yohaku.operational.platform.release',
+                                  return_value='6.6.0-microsoft-standard-WSL2'))
+        stack.enter_context(patch('yohaku.operational.platform.python_version',
+                                  return_value='3.14.4'))
+        return stack
+
+    def lifecycle(self, config, state):
+        op.write_json(Path(config.state_dir) / 'last-run.json', {
+            'schema': 1, 'config_digest': op.config_digest(config),
+            'run_id': state.lower(), 'state': state})
+
+    def test_valid_private_credential_home_and_auth(self):
+        identity = op.credential_identity(self.config)
+        self.assertEqual(identity, op.credential_identity(self.config, identity))
+
+    def test_credential_home_symlink_rejected(self):
+        real = self.base / 'credentials-real'
+        self.credentials.rename(real)
+        self.credentials.symlink_to(real, target_is_directory=True)
+        with self.assertRaisesRegex(op.OperationError, 'SYMLINK'):
+            op.credential_identity(self.config)
+
+    def test_auth_symlink_rejected(self):
+        replacement = self.base / 'other-auth.json'
+        replacement.write_text('{}')
+        replacement.chmod(0o600)
+        self.auth.unlink()
+        self.auth.symlink_to(replacement)
+        with self.assertRaisesRegex(op.OperationError, 'SYMLINK'):
+            op.credential_identity(self.config)
+
+    def test_wrong_owner_is_exercised_at_unit_boundary(self):
+        with patch('yohaku.operational.os.getuid', return_value=os.getuid() + 1):
+            with self.assertRaisesRegex(op.OperationError, 'PRIVATE_PATH_REQUIRED'):
+                op.credential_identity(self.config)
+
+    def test_wrong_auth_owner_is_exercised_at_unit_boundary(self):
+        owner = os.getuid()
+        with patch('yohaku.operational.os.getuid',
+                   side_effect=(owner, owner, owner + 1)):
+            with self.assertRaisesRegex(op.OperationError, 'PRIVATE_PATH_REQUIRED'):
+                op.credential_identity(self.config)
+
+    def test_insecure_credential_directory_mode_rejected(self):
+        self.credentials.chmod(0o770)
+        with self.assertRaisesRegex(op.OperationError, 'PRIVATE_PATH_REQUIRED'):
+            op.credential_identity(self.config)
+
+    def test_insecure_auth_mode_rejected(self):
+        self.auth.chmod(0o640)
+        with self.assertRaisesRegex(op.OperationError, 'PRIVATE_PATH_REQUIRED'):
+            op.credential_identity(self.config)
+
+    def test_non_regular_auth_rejected(self):
+        self.auth.unlink()
+        self.auth.mkdir(mode=0o700)
+        with self.assertRaisesRegex(op.OperationError, 'WRONG_PATH_TYPE'):
+            op.credential_identity(self.config)
+
+    def test_missing_auth_rejected(self):
+        self.auth.unlink()
+        with self.assertRaisesRegex(op.OperationError, 'CODEX_AUTH_MISSING'):
+            op.credential_identity(self.config)
+
+    def test_replacement_after_preflight_is_rejected_before_runtime_runner(self):
+        self.configure(enabled=True)
+        original = op._preflight
+
+        def replace_after_preflight(config):
+            report, identity = original(config)
+            self.auth.unlink()
+            self.auth.write_text('{"replacement": true}')
+            self.auth.chmod(0o600)
+            return report, identity
+
+        with self.runtime_patches(), \
+                patch('yohaku.operational._preflight', side_effect=replace_after_preflight), \
+                patch('yohaku.document_review_runtime.run_document_review') as runner:
+            with self.assertRaisesRegex(op.OperationError, 'CODEX_CREDENTIAL_STATE_CHANGED'):
+                op.run(self.path)
+        runner.assert_not_called()
+
+    def test_status_semantics_for_lifecycle_fresh_disabled_and_preflight_failure(self):
+        lifecycle_path = self.base / 'lifecycle.json'
+        lifecycle = op.OperationalConfig(
+            'codex-operational-0.158', str(Path('/usr/bin/false').resolve()),
+            str(self.workspace), str(self.base / 'lifecycle-state'), True, True)
+        op.configure(lifecycle_path, lifecycle)
+        with self.runtime_patches():
+            status = op.status(op.load(lifecycle_path))
+        self.assertFalse(status['task_profile_registered'])
+        self.assertFalse(status['profile']['task_profile_registered'])
+        self.assertNotIn('transition_available', status['profile'])
+        self.assertFalse(status['transition_ready'])
+        self.assertTrue(status['recovery']['fresh_start_allowed'])
+        self.assertFalse(status['recovery']['resume_supported'])
+
+        config = self.configure()
+        with self.runtime_patches():
+            status = op.status(config)
+        self.assertTrue(status['task_profile_registered'])
+        self.assertFalse(status['transition_ready'])
+        self.assertEqual(status['transition_reason'], 'DISABLED')
+
+        op.set_enabled(self.path, True)
+        config = op.load(self.path)
+        with self.runtime_patches():
+            status = op.status(config)
+        self.assertTrue(status['task_profile_registered'])
+        self.assertTrue(status['transition_ready'])
+        self.assertTrue(status['transition_available'])
+        self.assertTrue(status['recovery']['fresh_start_allowed'])
+        self.assertFalse(status['recovery']['resume_supported'])
+
+        with self.runtime_patches('codex-cli 0.0.0'):
+            status = op.status(config)
+        self.assertFalse(status['transition_ready'])
+        self.assertFalse(status['transition_available'])
+        self.assertIn('RUNTIME_VERSION_MISMATCH', status['transition_reason'])
+
+    def test_candidate_a_registry_wording_does_not_change_excluded_profiles(self):
+        candidate = op.profile('codex-document-review-report-v1')
+        self.assertTrue(candidate['task_profile_registered'])
+        self.assertNotIn('transition_available', candidate)
+        excluded = op.profile('hermes-operational-h-cli-01')
+        self.assertIn('transition_available', excluded)
+        self.assertNotIn('task_profile_registered', excluded)
+
+    def test_completed_recovery_required_and_ambiguous_are_not_transition_ready(self):
+        config = self.configure(enabled=True)
+        with self.runtime_patches():
+            for state in ('STOPPED', 'RUNNING', 'AMBIGUOUS'):
+                with self.subTest(state=state):
+                    self.lifecycle(config, state)
+                    status = op.status(config)
+                    self.assertTrue(status['task_profile_registered'])
+                    self.assertFalse(status['transition_ready'])
+                    self.assertFalse(status['transition_available'])
+                    self.assertFalse(status['recovery']['fresh_start_allowed'])
+                    self.assertFalse(status['recovery']['resume_supported'])
+                    if state != 'STOPPED':
+                        self.assertEqual(status['operational']['state'], 'RECOVERY_REQUIRED')
 
 
 if __name__ == '__main__':

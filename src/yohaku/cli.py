@@ -10,7 +10,9 @@ from .profiles import MISSING_TASK, PROFILES, profile
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='Yohaku operational lifecycle; task transitions are disabled')
+    parser = argparse.ArgumentParser(description=(
+        'Yohaku operational CLI for lifecycle-only profiles and fixed Task Profile runs; '
+        'general transitions are not supported'))
     parser.add_argument('--version', action='version', version=version('yohaku'))
     commands = parser.add_subparsers(dest='command', required=True)
     commands.add_parser('profiles')
@@ -27,8 +29,13 @@ def main(argv=None):
     cfg.add_argument('--output', help='fixed create-only document-review report path')
     cfg.add_argument('--instruction', help='fixed document-review instruction')
     cfg.add_argument('--credential-home', help='existing Codex home containing auth.json; never copied')
+    command_help = {
+        'start': 'start a lifecycle-only operational profile',
+        'run': 'run a fixed registered Task Profile',
+        'transition': 'unsupported general transition command',
+    }
     for name in ('preflight', 'enable', 'start', 'run', 'status', 'stop', 'disable', 'recover', 'transition'):
-        sub = commands.add_parser(name)
+        sub = commands.add_parser(name, help=command_help.get(name))
         sub.add_argument('--config', required=True)
         sub.add_argument('--json', action='store_true', help='output is always structured JSON')
         if name == 'recover':
@@ -69,7 +76,8 @@ def main(argv=None):
     except Exception as exc:
         # Runtime stderr and arbitrary exception text may contain credentials.
         reason = str(exc) if isinstance(exc, op.OperationError) else type(exc).__name__
-        print(json.dumps({'error': reason, 'transition_available': False}), file=sys.stderr)
+        print(json.dumps({'error': reason, 'transition_ready': False,
+                          'transition_available': False}), file=sys.stderr)
         return 2
 
 

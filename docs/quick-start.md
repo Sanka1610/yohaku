@@ -73,8 +73,8 @@ test ! -e "$YOH_STATE"
 "$YOH_VENV/bin/yohaku" start --config "$YOH_CONFIG"
 ```
 
-`preflight`は`verdict: PASS`を返す一方、`transition_available: false`と
-`TASK_PROFILE_REQUIRED`も返す。Lifecycle-only profileではこれが正常である。`start`はstartup JSONを
+`preflight`は`verdict: PASS`を返す一方、`task_profile_registered: false`、
+`transition_ready: false`、`TASK_PROFILE_REQUIRED`も返す。Lifecycle-only profileではこれが正常である。`start`はstartup JSONを
 表示した後、foreground ownerとして待機する。このterminalを閉じずにTerminal 2へ進む。
 
 `preflight PASS`はnative startup、transition acceptance、Task Profile completion、Codex family supportを
@@ -199,6 +199,11 @@ test -f "$YOH_OUTPUT"
 `mechanical_task_completion: PASS`は、declared input、fixed instruction、one compact、one create-only
 output、fresh observation、non-duplicate continuationがTask Profile contractを満たしたことを示す。
 Reportの文章品質、事実性、指摘の妥当性は`NOT_ASSESSED`である。
+
+`status`の`task_profile_registered: true`はRegistry上のstatic factである。新しいrunを開始できるのは
+`transition_ready: true`の場合だけであり、completed task、disabled config、preflight failure、
+`RECOVERY_REQUIRED`、`AMBIGUOUS`では`false`になる。`transition_available`は`transition_ready`と同じ値を
+返す互換fieldであり、Task Profile登録の別名ではない。
 
 同じconfig、state root、outputを使って`run`を繰り返さない。Completed runでは
 `TASK_COMPLETE_NO_RERUN`、interrupted / uncertain runでは`TASK_RESTART_UNSUPPORTED`または
