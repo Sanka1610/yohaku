@@ -115,7 +115,7 @@ transition completionとは別のcapabilityである。
 - Runtime固有trigger、transport、Hook enforcement、continuation dispatch
 - Runtime固有restart / reconnect codec
 
-一つの共通interfaceへ値を詰め替えられることと、同じauthorityやacceptanceを持つことは別である。
+一つの共通interfaceへ値を詰め替えられても、authorityやacceptanceが同一になるわけではない。
 情報を落とす正規化によって、native identityやfailure stateを捏造してはならない。
 
 ## Identity contract

@@ -284,7 +284,7 @@ claim、task assessmentは、matching fixed profileとretained Evidenceなしに
 ## Runtime固有文書で確定する事項
 
 本taxonomyでは、正確なnative event名、field mapping、timeout、configuration、event
-orderの選択肢をRuntime reference pageへ委ねる。後続整理では、各pageで次を明示する。
+orderの選択肢をRuntime canonicalへ委ねる。各pageでは次を明示する。
 
 - 必須native identity fieldとhost-local correlation
 - completion predicate全体と合法なevent-order variation

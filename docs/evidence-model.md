@@ -19,12 +19,12 @@ Verdictを変更せず、過去のrunを現在のversionで再実行したこと
 | 文書 | 所有する内容 |
 |---|---|
 | [Architecture](architecture.md) | component、control flow、trust boundary |
-| [Runtime Mapping](runtime-mapping.md) | fixed Runtime / Support Profile固有の事実とRuntime primitiveへの対応 |
+| [Runtime Mapping](runtime-mapping.md) | mapping key、fixed profile間の比較、Runtime primitiveへの対応 |
 | [Transition Strategies](transition-strategies.md) | Context TransitionのtaxonomyとStrategy共通semantics |
 | 本書 | Evidence、Coverage、Verdict、provenanceと非継承規則 |
 | [Support Policy](../SUPPORT_POLICY.md) | Runtime / Support Profile maturityとrelease policy |
 
-Runtime固有pageはnative event、version、configuration、timeout、Known Limitationsを保持
+Runtime固有pageはprofile固有factの正本として、native event、version、configuration、timeout、Known Limitationsを保持
 する。本書は個別runの一覧を保持せず、各recordをどの条件でEvidenceとして採用し、
 CoverageProfileとVerdictへ反映するかを定義する。
 
@@ -365,7 +365,7 @@ storage authority、Verdict、maturity、release statusは、matching Evidence�
 
 本書は既存recordのschema migrationを要求しない。現行のCoverageProfile、private raw
 Evidence、sanitized external bundle、public Runtime summaryは、それぞれの元のscopeとhashを
-保ったまま維持する。現行公開文書と記録方式には次の不一致が残るため、後続reviewでは
+保ったまま維持する。現行公開文書と記録方式には次の不一致が残る。公開reviewでは、
 不足を新しい値で上書きせず明示する。
 
 - producer / execution / workloadが一つの自由記述へ結合され、各軸を機械的に検索できない

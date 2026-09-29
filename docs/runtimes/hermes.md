@@ -31,7 +31,7 @@ backend / modelは別のprofile dimensionとして保持する。
 | Mapping key | Support Profile ID | Evidence Record ID | 位置付け | Accepted endpoint |
 |---|---|---|---|---|
 | `H-PROBE` | `H-CLI-01`（internal Probe profile） | Separate public IDは未割当。Stage 2 retained recordを参照 | Probe instrumentationによるbounded live measurement。Product adapterではない | Host / DB reflection、fresh task-state read、非重複continuationを含むProbe workflow PASS。Explicit receiptはPARTIAL、overall PARTIAL |
-| `H-ADAPTER` | `hermes-h-cli-01`（product registry）／retained record上は`H-CLI-01` | `H-CLI-01-STAGE4` | Yohaku checkpoint、manual compression、handoff、receipt、resumeを接続したbounded adapter | Fixed synthetic workflowがCore `RESUME_VERIFIED`までPASS。Overall PARTIAL |
+| `H-ADAPTER` | `hermes-h-cli-01`（product registry）／historical retained labelは`H-CLI-01` | `H-CLI-01-STAGE4` | Yohaku checkpoint、manual compression、handoff、receipt、resumeを接続したbounded adapter | Fixed synthetic workflowがCore `RESUME_VERIFIED`までPASS。Overall PARTIAL |
 | `H-OP` | `hermes-operational-h-cli-01` | `S5-OP-HERMES` | Native Hermes CLIとstoreを所有するlifecycle-only operational profile | Install / configure後のstart、status、stop、clean stop後のfresh lifecycle。Lifecycle PASS、task / transition NOT_RUN |
 
 Stage 2 EvidenceをStage 4へ自動継承していない。Stage 4は、Stage 2で選択したRuntime pinと

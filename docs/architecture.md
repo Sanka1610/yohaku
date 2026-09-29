@@ -101,7 +101,7 @@ Coreの判断を共有していても、判断に必要な観測やI/OがRuntime
 | Runtime Host / Companion | Runtime connectionと直列化されたevent loopを所有し、observation、durable state、dispatch、timeout、recoveryを接続する。 | Runtime messageとtrusted callback → ordered Core mutationとpersisted decision | ownerが観測の直列化とcorrelationを担う。`RuntimeHost`と`CompanionController`はCodex指向のままである。Hermes / Claudeはneutral Companionではなく、別のbounded wiringを使う。 | Codexには **Runtime-specific implementation** がある。Hermes / Claudeのconnection pathは **Bounded-profile implementation**。neutral cross-Runtime hostは **Future / Deferred**。 |
 | Work observation / active-pending ledger | admitted work、active operation、incorporation待ちのcompleted result、observation lossを記録する。 | Runtime tool lifecycleとtrusted result incorporation → active / pending / uncertain work state | Tool taxonomyと「incorporated」の意味はRuntime / task固有である。tool resultが成功しても、Agentがtask stateへ反映したことは証明できない。 | Codexには **Runtime-specific bounded ledger** がある。Hermes、Claude、document reviewには別々の **Bounded-profile ledger** がある。universal ledgerはない。 |
 | Work-plane gate | transition barrier中の新しいstate-changing workを拒否し、関係するactive / pending workがsettleするまで待つ。 | Proposed operation、barrier state、observed ledger → allow、deny、`DEFERRED`、ambiguity、またはrecovery停止 | local gateが対象にできるのは、そこを通るoperationだけである。全Runtime tool、background process、external client、workspace writerをatomicに停止するものではない。 | 宣言したoperationに対する **Runtime-specific / Bounded-profile implementation**。Runtime-wide atomic freezeは未実装。 |
-| Task Profile | logical taskを、allowed work plane、input/output contract、Trusted Observer、Task Assessor、Transition Strategy、refusal ruleへ結び付ける。 | Fixed task configurationとcurrent task state → admitted task workflowまたは拒否 | Runtime supportはlifecycle capabilityを提供し、task supportはtask semanticsを提供する。どちらからも他方を推定できない。 | `document-review-report-v1`の **Bounded-profile implementation**。general task frameworkは **Design concept only**。 |
+| Task Profile | logical taskを、allowed work plane、input/output contract、Trusted Observer、Task Assessor、Transition Strategy、refusal ruleへ結び付ける。 | Fixed task configurationとcurrent task state → admitted task workflowまたは拒否 | Runtime supportはlifecycle capabilityを提供し、Task Profile supportはtask semanticsを提供する。どちらからも他方を推定できない。 | `document-review-report-v1`の **Bounded-profile implementation**。general task frameworkは **Design concept only**。 |
 | Trusted Observer | boundary、freshness、active / pending work、resume checkに使うcurrent task observationを生成する。 | Declared input、workspace、observed Runtime result → versioned task observationと`WorkspaceRevision` | model outputではなくtrusted integration codeである。宣言scope内だけを主張でき、unobserved external writerの不在は証明できない。 | document reviewとfixture固有integrationの **Bounded-profile implementation**。general observerはない。 |
 | Task Assessor | 固定taskのpermitted continuationが、stale、duplicate、undeclared、pending workを残さずmechanicalに完了したか判断する。 | Fresh observation、continuation item、task contract → task固有resume proofまたは拒否 | general quality oracleではない。mechanical completionを検証しても、content correctnessやqualityは未評価のままにできる。 | **Bounded-profile implementation**。`document-review-report-v1`が評価するのはmechanical completionだけである。 |
 | Operational Host / launcher | reviewed Runtime processを起動・所有し、stateを分離し、profile設定を適用する。status / stopを提供し、profileがtask integrationを持つ場合だけ接続する。 | Explicit configurationとfixed profile → owned Runtime lifecycleまたはtask-enabled run | lifecycle-only hostは意図的にinference、Task Observer、work observation、transition authorityを持たない。Runtimeの起動はtransition acceptanceではない。 | CodexとHermesのlifecycle-only profileに **Runtime-specific implementation** がある。document reviewには **bounded Codex task runner** がある。Claude operational launcherは **Future / Deferred**。 |
@@ -245,13 +245,13 @@ generation identity、delivery、continuation、visible-turn extractionを所有
 snapshot schemaへ合わせるために、Coreが他Runtime用のCodex型event列を捏造しては
 ならない。
 
-## Task Profile: Runtime supportとtask supportの区別
+## Task Profile: Runtime supportとTask Profile supportの区別
 
-Runtime supportとtask supportは、別の問いに答える。
+Runtime supportとTask Profile supportは、別の問いに答える。
 
 ```text
-Runtime support  = fixed Runtime profileでtransitionを観測・制御できるか
-Task support     = fixed Task Profileで安全なboundaryと完了を判断できるか
+Runtime support      = fixed Runtime profileでtransitionを観測・制御できるか
+Task Profile support = fixed Task Profileで安全なboundaryと完了を判断できるか
 ```
 
 lifecycle-only Runtime profileは、task observerやassessorを持たないため、起動、停止、
@@ -259,24 +259,13 @@ state保持だけを提供し、inferenceやtransitionを意図的に拒否で�
 contractが存在しても、Runtime completion、identity、receipt、continuation evidenceの
 不足は補えない。
 
-`document-review-report-v1`は最初のpackaged Task Profileであり、general task
-frameworkではない。定義する範囲は次のとおりである。
-
-- profile所有のdynamic toolである`read_review_inputs`と
-  `publish_review_report`だけをallowed work planeとする
-- 宣言済みUTF-8 Markdown / text inputと、一つのcreate-only Markdown outputに
-  preflight input/output contractを設ける
-- input identity、read / write lifecycle、result incorporation、active / pending work、
-  workspace freshnessをTrusted Observerが観測する
-- continuation内のfresh read一回とpublish一回だけをTask Assessorが受理し、command、
-  file change、MCP、duplicate、stale、pending workを拒否する
-- 評価対象をmechanical completionとする
-- stale output、undeclared / duplicate input、workspace変更、duplicate write、
-  unsupported workをfail closedで拒否する
-
-このprofileはreportの事実性、完全性、編集品質、文章品質を評価しない。これらは
-`NOT_ASSESSED`のままである。accepted workflowを任意のdocument processing、coding
-task、別tool集合、別Runtimeへ一般化しない。
+`document-review-report-v1`は現在唯一のpackaged Task Profileであり、general task
+frameworkではない。固定input / output、allowed work、Trusted Observer、Task Assessor、
+create-only / no-rerun contractの正本は
+[Task Profile canonical](task-profiles/document-review-report-v1.md)である。本Architectureでは、
+Task ProfileがRuntime supportとは別の境界を持ち、mechanical completionだけを評価することを
+定める。Reportの事実性、完全性、編集品質、文章品質は`NOT_ASSESSED`であり、accepted workflowを
+任意のdocument processing、coding task、別tool集合、別Runtimeへ一般化しない。
 
 ## Non-goals / Non-guarantees
 
@@ -308,16 +297,10 @@ Yohakuの公開文書は、日本語版をcanonicalとする。英語版を作�
 日本語版から生成・更新するderived documentationとして扱い、英語版だけで仕様、
 Support Profile、Evidence、Verdictを変更しない。
 
-`README.md`は将来、日本語canonicalへ移行する。英語版のファイル名は
-`README.en.md`とする。詳細docsの英語版は、Alpha公開に必要な主要文書から段階的に
-作成する。現在は、本書、[Runtime Mapping](runtime-mapping.md)、
-[Transition Strategies](transition-strategies.md)、[Evidence Model](evidence-model.md)、
-[Operations](operations.md)、[Storage and Recovery](storage-and-recovery.md)、
-[Runtime文書の構成規則](runtimes/README.md)、[Codex Runtime](runtimes/codex.md)、
-[Hermes Runtime](runtimes/hermes.md)、
-[Claude Code CLI Runtime](runtimes/claude-code-cli.md)、
-[document-review Task Profile](task-profiles/document-review-report-v1.md)を日本語canonicalとする。
-`README.md`の全面改稿や英語版の作成は、この整理に含めない。
+`README.md`を含むcurrent public canonicalの一覧と分類は、
+[Documentation Index](index.md)をnavigation canonicalとする。英語版を作る場合のファイル名は
+`README.en.md`とし、日本語canonicalから生成・更新する。Current canonicalに英語版だけの
+仕様、Support Profile、Evidence、Verdictを置かない。
 
 Internal research、raw Evidence、historical / frozen資料は、provenanceとsource
 associationを保つため原文を維持する。一律翻訳せず、公開用のderived documentが
@@ -331,10 +314,10 @@ associationを保つため原文を維持する。一律翻訳せず、公開用
 - [README](../README.md)は製品紹介とtop-level current statusを所有する
 - [Evidence Model](evidence-model.md)はEvidence、CoverageProfile、Capability Verdict、
   provenanceと非継承規則を定義する
-- [Support Policy](../SUPPORT_POLICY.md)はRuntime / Support Profile maturityと
+- [Support Policy](../SUPPORT_POLICY.md)はSupport Profile maturityと
   release-channel ruleを定義する
-- [Runtime Mapping](runtime-mapping.md)はfixed-profile factと、Yohaku roleから
-  Runtime固有primitiveへの対応を所有する
+- [Runtime Mapping](runtime-mapping.md)はmapping keyと、fixed profile間の比較、Yohaku roleから
+  Runtime固有primitiveへの対応を所有する。Runtime固有factの正本は各Runtime canonicalとする
 - [Transition Strategies](transition-strategies.md)はManual In-place Compaction、
   Native Automatic Compaction、Fresh-context Rollover、Session Migrationのtaxonomyと
   共通semanticsを所有する

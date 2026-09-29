@@ -1,6 +1,8 @@
 # Yohaku — Proactive Context Compaction Manager
 
-Yohakuは、長時間動くAI agent taskのcontext transitionを制御するPython packageです。Safeなtransitionとtaskの再開を確認します。単なるcontext compressorではありません。Contextを短くする処理の前後で、安全確認とdurable stateを管理します。この考え方を **Verified Context Transition** と呼びます。
+Yohakuは、長時間続くAI agent taskでcontext transitionを安全に管理するPython packageです。
+単にcontextを圧縮するのではなく、transition前後の安全確認、durable state、taskを再開できる
+状態かどうかの検証を扱います。この考え方を **Verified Context Transition** と呼びます。
 
 ## What Yohaku does
 
@@ -15,7 +17,7 @@ Yohakuは、次の流れを一つのtransitionとして扱います。
 
 ## Current status
 
-- Maturityは`experimental`です。
+- 公開中の全Support Profileのmaturityは`experimental`です。
 - Release channelは`undeclared`です。
 - 公開scopeは、Runtime、version、surface、environment、taskを固定したbounded profileに限られます。
 - Strong Transition Assuranceは成立していません。
@@ -30,14 +32,14 @@ Production ready、general purpose、全Runtime対応のいずれも宣言して
 | Codex lifecycle-only | Inferenceとtask transitionを無効にしたoperational lifecycle |
 | Codex `document-review-report-v1` | 固定input、manual transition 1回、create-only report 1点に限定したreal-task profile |
 | Hermes lifecycle-only | Inferenceとtask transitionを無効にしたoperational lifecycle |
-| Hermes adapter | H-CLI-01のbounded connected workflowに対するaccepted Evidence。Overall coverageは`PARTIAL` |
-| Claude Code CLI | Bounded completion / recovery adapter Evidence。Codex / Hermesと同等のformal operational launcherはない |
+| Hermes adapter | `H-ADAPTER`（product registry `hermes-h-cli-01`）のbounded connected workflowに対するaccepted Evidence。overall coverageは`PARTIAL` |
+| Claude Code CLI | Subscription completionとlocal recoveryを分けたbounded adapter Evidence。Subscription recoveryは`NOT_RUN`で、formal operational launcherはない |
 
 Profileごとの固定条件、Evidence provenance、Capability Verdictは、Documentation IndexからRuntime Supportへ進んで確認してください。
 
 ## Quick Start
 
-用途に応じて、次のどちらかから始めます。README内にcommandは複製していません。
+用途に応じて、次のどちらかから始めます。
 
 - **No-inference lifecycle:** packageとRuntimeのowned lifecycleだけを確認する手順は[Quick Start](docs/quick-start.md)を参照してください。この経路はtaskを実行せず、transitionも有効にしません。
 - **Fixed real-task:** Codexで固定文書をreviewする手順は[`document-review-report-v1` Quick Start](docs/quick-start.md#document-review-report-v1-quick-start)を参照してください。一般の文書taskやcoding taskには使えません。

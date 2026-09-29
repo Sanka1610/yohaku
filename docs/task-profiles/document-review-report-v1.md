@@ -31,7 +31,8 @@ Runtime supportとTask Profile supportは別のclaimである。
 ```text
 Runtime support  = 固定Runtime profileがtransition、handoff、receipt、continuationを
                    観測・制御できる範囲
-Task support     = 固定Task Profileがinput、output、allowed work、current state、
+Task Profile support
+                 = 固定Task Profileがinput、output、allowed work、current state、
                    mechanical completionを判断できる範囲
 ```
 
@@ -416,10 +417,8 @@ hashとstatは変化していない。Accepted endpointは`RESUME_VERIFIED`で�
 この一つのfixed workflowだけに適用する。製品全体のcoverageは`PARTIAL`、maturityは
 `experimental`、Field Evidenceはない。
 
-Retained Evidenceの索引は`DRR-V1-CODEX-0158-LIVE-01`であり、maintainer workspaceでは
-`yohaku-workspace/internal/document-review-report-v1-live/`の`LIVE_ACCEPTANCE.json`、
-`RESULT.md`、`CONTRACT.md`、`SOURCE_MANIFEST.json`とrun-local recordsを保持している。公開側の
-Evidence規則とRuntime scopeは[Evidence Model](../evidence-model.md)、
+Retained Evidenceは`DRR-V1-CODEX-0158-LIVE-01`で索引し、private maintainer workspaceに
+保持している。公開側のEvidence規則とRuntime scopeは[Evidence Model](../evidence-model.md)、
 [Codex Runtime](../runtimes/codex.md)、[Runtime Support](../runtime-support.md)を参照する。
 
 ## Known Limitations

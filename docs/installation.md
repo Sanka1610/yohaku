@@ -5,7 +5,7 @@ operational CLIのJSON configを作成する。この経路が現在の推奨ins
 PackageをinstallしただけではRuntime integrationは有効にならず、RuntimeやTask Profileも
 acceptedにならない。
 
-Yohakuはexperimentalであり、release channelは未宣言である。現在利用できるのは、固定した
+公開中の全Support Profileはexperimentalであり、release channelは未宣言である。現在利用できるのは、固定した
 Runtime versionとprofileに対するbounded supportである。一般的な「installすると任意のRuntime、
 task、compactionを自動管理するplugin」ではない。
 
@@ -19,13 +19,16 @@ Package installation、operational lifecycle、transition、Task Profileは別�
 
 | 対象 | 現在の範囲 |
 |---|---|
-| Python package | `yohaku` `0.1.0`。Metadata上はPython `>=3.11`、runtime dependencyなし |
+| Python package | `yohaku` `0.1.0`。Metadata上はPython `>=3.11`、runtime dependencyなし。Versionはpublished Alphaやrelease channelを意味しない |
 | Codex lifecycle | `codex-operational-0.158`。Codex `0.158.0-alpha.2.1`、WSL2 Linux、CPython `3.14.4`でno-inference lifecycleを提供 |
 | Hermes lifecycle | `hermes-operational-h-cli-01`。Hermes `0.21.0`、固定source commit、Hermes venvのCPython `3.11.16`でno-inference lifecycleを提供 |
 | Packaged real Task Profile | Codex専用の`codex-document-review-report-v1`。固定した`document-review-report-v1`だけを`run`できる |
 | Historical Codex Reference | `codex-reference-0.155`。Codex `0.155.0-alpha.16.4`のretained Referenceであり、current operational launcherではない |
 | Hermes connected adapter | `hermes-h-cli-01`。H-CLI adapter Evidence用profileであり、current operational launcherではない |
 | Claude Code CLI | Runtime canonicalとbounded adapter Evidenceはあるが、Codex / Hermes相当のformal operational launcherはない |
+
+Pure-Python wheelをinstallできても、確認できるのはpackage compatibilityに限られる。
+Runtime support、Task Profile support、transition acceptanceは別に確認する。
 
 `profiles`はこの区別をJSONで返す。Runtime family名だけを見てprofileを選ばず、
 `runtime_version`、`surface`、`operational_platform`、`operational_python`、

@@ -1,13 +1,11 @@
 # Runtime Mapping
 
 本書は、Yohakuのroleをfixed Runtime Support ProfileとTransition Strategyへ対応付ける。
-Runtime / surface、lifecycle primitive、identity、work observation、completion proof、
-delivery、current-state observation、continuation、Known Limitationsなど、profile固有の
-事実を所有する。
+Mapping key、fixed profile間の比較、Runtime primitiveの横断的な差を所有する。
 
 [Architecture](architecture.md)はcomponent責務とtrust boundaryを所有する。
 [Transition Strategies](transition-strategies.md)はContext Transition方式のtaxonomyと
-共通semanticsを所有する。Runtime固有contractの詳細は[Codex](runtimes/codex.md)、
+共通semanticsを所有する。Runtime固有factとcontractの正本は[Codex](runtimes/codex.md)、
 [Hermes](runtimes/hermes.md)、[Claude Code CLI](runtimes/claude-code-cli.md)の各pageに
 残す。
 
@@ -39,7 +37,7 @@ task supportを分ける。
 | `C-OP` | `codex-operational-0.158` | `S5-OP-CODEX-0158` | inferenceやtask transitionを含まないcurrent-version owned App Server lifecycle | Operational lifecycle実装・測定済み **PASS**。task transition **NOT_RUN**。experimental。 |
 | `C-DRR` | `codex-document-review-report-v1`。Task Profile IDは`document-review-report-v1` | `DRR-V1-CODEX-0158-LIVE-01` | current versionで、一つのmanual compactと一つのreportを含むreal document-review workflow | Bounded implementation。lab / live-Runtime / nonfixture real-task Evidence。profile **PASS**、overall product coverage **PARTIAL**、quality `NOT_ASSESSED`。 |
 | `H-PROBE` | `H-CLI-01`（internal Probe profile） | Separate public ID未割当。Stage 2 retained recordを参照 | connected adapter実装前のfixed native CLI workflowに対するcapability observation | Probe packageと測定workflowのみ。bounded workflow **PASS**、overall **PARTIAL**。adapterやoperational hostではない。 |
-| `H-ADAPTER` | Product registryは`hermes-h-cli-01`。Retained profileは`H-CLI-01` | `H-CLI-01-STAGE4` | 一つのfixed toolと一つのmanual compressionを扱うembedded adapter path | Bounded adapter実装済み。live synthetic Evidenceあり。accepted bounded workflow **PASS**、overall **PARTIAL**。 |
+| `H-ADAPTER` | Product registryは`hermes-h-cli-01`。Historical retained labelは`H-CLI-01` | `H-CLI-01-STAGE4` | 一つのfixed toolと一つのmanual compressionを扱うembedded adapter path | Bounded adapter実装済み。live synthetic Evidenceあり。accepted bounded workflow **PASS**、overall **PARTIAL**。 |
 | `H-OP` | `hermes-operational-h-cli-01` | `S5-OP-HERMES` | inferenceとtransition adapterを無効にしたowned native CLI / store lifecycle | Operational lifecycle実装・測定済み **PASS**。task / tool / transition path **NOT_RUN**。experimental。 |
 | `CL-SUB-C` | Product registryは`claude-c-cli`。Retained profile labelは`C-CLI/2.1.280/Linux/print-stream-json/command-hooks` | `C-CLI-COMPLETION` | external Anthropic subscription CLIのmanual-compaction completionから`ROLLOVER_OBSERVED`まで | Bounded completion adapter実装済み。external live-Runtime synthetic Evidence。manual completion **PASS**、overall **PARTIAL**。 |
 | `CL-SUB-R` | Separate IDは未割当。`claude-c-cli` surface上のrecovery capability row | Qualifying external recordなし | subscription surfaceのhandoff、receipt、continuation、resume contract | Recovery implementationは存在するが、external subscription recovery Evidenceは **NOT_RUN**。local OllamaのVerdictを継承しない。 |
@@ -48,8 +46,11 @@ task supportを分ける。
 
 これらはRuntime family全体のaliasではない。`H-PROBE`、`H-ADAPTER`、`H-OP`は別々の
 claimである。`CL-SUB-C`はrecoveryを含まず、local Ollama recoveryはAnthropic
-subscription recoveryを成立させない。`C-DRR`がTask Profileを追加しても、`C-OP`
-がgeneral task supportを持つことにはならない。
+subscription recoveryを成立させない。`C-DRR`がTask Profileを追加しても、`C-OP`で
+general task supportが成立するわけではない。
+
+以下のRuntime別表は、横断比較に必要なfieldだけを各Runtime canonicalから投影したものであり、
+独立したRuntime contractではない。不一致がある場合は各Runtime canonicalを正本とする。
 
 ## Codex profiles
 
@@ -464,30 +465,7 @@ rule、lease discipline、ambiguity rule、Evidence contractである。matching
 authority、work taxonomy、delivery、receipt、continuation、restart behavior、Task
 Assessorを共有しない。
 
-## 横断reviewで確認した非対称性
-
-次の分類は設計候補の優先度であり、実装済みcomponentや新しいacceptanceを示さない。
-Alphaの対象profileを固定する前に、対象外の候補をblockerへ自動昇格させない。
-
-| 分類 | 確認した事項 | 扱い |
-|---|---|---|
-| 文書上の不整合 | Mapping key、Support Profile ID、Evidence Record IDの欄が混在していた。IdentityもnativeとYohaku / host-localの二分類になっていた | 本Stageで名称と三分類を修正した。既存recordのID、schema、Verdictは変更していない |
-| 文書上の不整合 | Claude completionをCLI successまで含む共通proofのように読める記述と、制定時の「他Runtime adapter未実装」がcurrent statusのように残っていた | Runtime固有completion predicateと時点を明記した |
-| Harmless implementation asymmetry | Completion proof、trigger、transport、delivery、receipt、continuationはRuntime固有である。Active / pending / incorporatedもprofile固有の観測を表す | 意図的に維持する。event名やreceipt shapeを共通化するとEvidence authorityを失う |
-| Harmless implementation asymmetry | Codexだけにaccepted visible-turn archive collectorがあり、Hermes / Claudeはnative historyだけを持つ | Archiveを宣言しないprofileでは許容する。Native DB / transcriptをYohaku archiveへ読み替えない |
-| Alpha前に検討する価値がある候補 | Native、Core、host-local identityをtype levelで区別し、誤った代入を拒否する | 新しいRuntimeやreceipt方式をAlpha scopeへ追加する前に検討する。既存IDのrenameやschema migrationは別判断とする |
-| Alpha前に検討する価値がある候補 | Product profile registry、public support table、retained Evidence indexの対応を機械的に検査する | 公開scopeのstatus drift防止に有用。Evidence自体を生成・再採点する仕組みにはしない |
-| Alpha前に検討する価値がある候補 | Non-Codex profileが使うYohaku store rootをlegacy `CODEX_HOME`名から論理的に分離する | Data layout / compatibility設計を伴う。既存保存dataを暗黙移行しない。Alpha対象がCodexだけなら必須とは限らない |
-| Alpha前に検討する価値がある候補 | `document-review-report-v1`のTask Profile canonical、Observer / Assessor registration、Runtime bindingを明示する | 現在唯一のpackaged Task Profileなので、次のTask Profile追加前に入力contractを固定する |
-| Alpha scope依存 | Claude Code CLIの正式operational launcher | ClaudeをAlphaのoperational scopeに含めるなら事前に必要。Codex / Hermes限定Alphaでは後続にできる |
-| Alpha後でよい候補 | Neutral Runtime Adapter / host interface、cross-Runtime persistence / restart framework | Current profilesはbounded wiringで成立し、Hermes / Claude restartを`UNSUPPORTED`としている。受入scopeを広げる時点で設計する |
-| Alpha後でよい候補 | Universal active / pending ledger、portable snapshot、session migration coordinator | 未観測workやRuntime固有incorporationを一つの型で解決できない。必要な複数profileの実測後に検討する |
-| Alpha後でよい候補 | Hermes / Claude visible-turn collectorとarchive retrieval | Archiveを各profileの公開scopeへ入れる時点で別Capabilityとして実装・受入する |
-
-この分類は、すべてのRuntimeを同じarchitectureへ揃える計画ではない。Safety semanticsだけを
-共有し、Runtime固有Evidenceを保持する。
-
-## 文書境界と後続資料
+## 文書境界
 
 本書では、native eventやEvidence itemをすべて列挙しない。[Evidence Model](evidence-model.md)
 がEvidence authority、provenance、freshness、retention、CoverageProfile composition、

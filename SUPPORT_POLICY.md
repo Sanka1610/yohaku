@@ -7,7 +7,7 @@
 | Priority | Runtime | 実装・検証上の位置づけ |
 |---|---|---|
 | Reference | Codex | 既存実装と限定受入を比較基準として保持する |
-| Target | Claude Code / Hermes | 次のCapability Probeと実装の優先対象 |
+| Target | Claude Code / Hermes | Bounded profileの追加検証とscope拡張を優先する対象。現在の実装状態は各Runtime canonicalで別に示す |
 | Next Target | DeepSeek Harness / OpenCode | Targetで境界を確認した後の候補 |
 | Future | Gemini CLI / Antigravity | 公開制御点と需要を確認して着手する候補 |
 | Research / Auxiliary | Claude Desktop / Cowork | 調査・memory/archive等の補助利用。compact制御対応とは別に評価する |
@@ -23,12 +23,14 @@ Support Profileには利用可能な経路、無効化した経路、Known Limit
 | 軸 | 答える問い | 値の例 |
 |---|---|---|
 | Runtime priority | どこから実装・検証するか | Reference / Target / Next Target / Future / Research / Auxiliary |
-| Runtime maturity | Yohakuのそのprofileをどの程度継続利用できるか | experimental / alpha / beta / stable |
-| Release channel | その製品版をどの範囲・方針で配布するか | Alpha / Beta / Stable |
+| Support Profile maturity | Yohakuのそのprofileをどの程度継続利用できるか | experimental / alpha / beta / stable |
+| Release channel | その製品版をどの範囲・方針で配布するか | undeclared / Alpha / Beta / Stable |
+
+`undeclared`は、製品版の公開channelをまだ宣言していない状態であり、maturityやVerdictではない。
 
 Priorityからmaturityを決めず、Capability Verdictの集計だけでmaturityや公開可否を決めない。Evidence level、Capability Verdict、CoverageProfileもこれらと独立しており、区別は[Evidence Model](docs/evidence-model.md)を参照する。Stable製品版にexperimental adapterを同梱する場合も、opt-inと個別表示を必須にしてStableの保証対象へ含めない。
 
-## Runtime maturity
+## Support Profile maturity
 
 成熟度はYohaku adapter / Support Profileの状態であり、Runtime提供元の製品品質やversion名とは無関係とする。各段階への変更には、対象profile、根拠、未解決事項、review担当者・日付を残す。
 
@@ -54,7 +56,7 @@ PASSと再現確認FAILを併記し、overall PARTIAL / experimentalを維持す
 回帰診断には条件付きで使用できるが、安定した必須自動gateには採用しない。Anthropic
 subscription profileのEvidence・Verdictは変更しない。
 
-Codexの既存受入はCLI `0.155.0-alpha.16.4` / WSL2 Ubuntu / Python `3.14.4`の限定profileである。Phase 14のlive信号を使った合成taskはlab tested / live-runtime、局所・合成テストはlab tested / local-syntheticとして読む。Field Evidenceの取得や現在版での再実行を示すものではない。native auto compactは1 attachmentにつき1回の範囲、native recovery途中のrestartはUNSUPPORTED、反復compactや一般の並列・外部work等は未受入である。
+Historical Codex Referenceの既存受入はCLI `0.155.0-alpha.16.4` / WSL2 Ubuntu / Python `3.14.4`の限定profileである。Phase 14のlive信号を使った合成taskはlab tested / live-runtime、局所・合成テストはlab tested / local-syntheticとして読む。Field Evidenceの取得や現在版での再実行を示すものではない。native auto compactは1 attachmentにつき1回の範囲、native recovery途中のrestartはUNSUPPORTED、反復compactや一般の並列・外部work等は未受入である。
 
 Codex `0.158.0-alpha.2.1`の`document-review-report-v1`は、2026-09-29に別Support Profileとして追加した。専有workspace、明示入力2点、manual compact 1回、create-only Markdown report 1点に限定した非fixture実taskで`RESUME_VERIFIED`へ到達した。固定workflowのCapability VerdictはPASSだが、文章品質はNOT_ASSESSED、profile maturityはexperimental、製品全体のcoverageはPARTIAL、release channelはundeclaredとする。この結果を一般文書task、coding task、別Runtime、Field Evidenceへ適用しない。
 

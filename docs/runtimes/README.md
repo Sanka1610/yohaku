@@ -20,7 +20,8 @@ Runtime family全体ではなく、固定したSupport Profileごとの実装、
 operational lifecycle、Task Profileを一つのprofileへ統合しない。各profileには、少なくとも
 次を記載する。
 
-- 一意なSupport Profile IDまたは既存mapping key
+- Support Profile ID。未割当の場合は未割当と明記する
+- Runtime Mappingで使うmapping key。Support Profile IDの代用にしない
 - Runtime / version / surface / OS
 - provider / backend / modelの扱い
 - 実装状態と起動可能範囲

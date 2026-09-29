@@ -2,7 +2,8 @@
 
 本書は、Codex、Hermes、Claude Code CLIについて、公開済みのfixed profile、Evidence、
 accepted endpoint、Verdict、maturity、Known Limitationsを一覧できるsummaryである。最終横断
-review日は2026-09-29。実装はexperimentalで、public release channelは宣言していない。
+review日は2026-09-29。公開中の全Support Profileは`experimental`で、release channelは
+`undeclared`である。
 
 Runtime固有contractは[Codex](runtimes/codex.md)、[Hermes](runtimes/hermes.md)、
 [Claude Code CLI](runtimes/claude-code-cli.md)を正本とする。Profile比較は
@@ -27,7 +28,7 @@ surface / OS、provider / backend / modelはprofile dimensionであり、どのI
 | `C-OP` | `codex-operational-0.158` | `S5-OP-CODEX-0158` | Native lifecycle `PASS`。Task / transition `NOT_RUN` | experimental。No inference / lifecycle-only |
 | `C-DRR` | `codex-document-review-report-v1` | `DRR-V1-CODEX-0158-LIVE-01` | Fixed workflow `PASS`、`RESUME_VERIFIED`。Overall product coverage `PARTIAL` | experimental。Task Profile `document-review-report-v1`だけ。Quality `NOT_ASSESSED` |
 | `H-PROBE` | `H-CLI-01` internal Probe | Separate public Evidence Record ID未割当。Stage 2 retained record | Bounded Probe workflow `PASS`、explicit receipt `PARTIAL`、overall `PARTIAL` | experimental。Product adapterやlauncherではない |
-| `H-ADAPTER` | Product registry `hermes-h-cli-01`。Retained profile `H-CLI-01` | `H-CLI-01-STAGE4` | Fixed connected workflow `PASS`、Core `RESUME_VERIFIED`、overall `PARTIAL` | experimental。One fixture tool / one compression / one owner |
+| `H-ADAPTER` | Product registry `hermes-h-cli-01`。Historical retained label `H-CLI-01` | `H-CLI-01-STAGE4` | Fixed connected workflow `PASS`、Core `RESUME_VERIFIED`、overall `PARTIAL` | experimental。One fixture tool / one compression / one owner |
 | `H-OP` | `hermes-operational-h-cli-01` | `S5-OP-HERMES` | Native lifecycle `PASS`。Task / tool / transition `NOT_RUN` | experimental。No inference / lifecycle-only |
 | `CL-SUB-C` | Product registry `claude-c-cli`。Retained label `C-CLI/2.1.280/Linux/print-stream-json/command-hooks` | `C-CLI-COMPLETION`、external / live-runtime / synthetic | Manual completionから`ROLLOVER_OBSERVED`まで`PASS`、overall `PARTIAL` | experimental。Subscription recoveryは含まない |
 | `CL-SUB-R` | Separate ID未割当。`claude-c-cli` recovery capability row | External qualifying recordなし | Recovery implementationあり、external subscription acceptance `NOT_RUN` | experimental。Local Ollama Evidenceを継承しない |
@@ -50,20 +51,10 @@ recovery PASS、Task Profile PASS、overall CoverageProfile、maturity、release
 
 ## Completion、receipt、archive
 
-- Codex manual completionは、同じrequest / compact turnに対するcompaction item、
-  `PostCompact`、compact turn completionの三要素を要求する。Native-autoは別contractで、
-  compaction itemと`PostCompact`をcompletionに使い、active turn completionは後段で使う。
-- Hermes completionは、host history mutationとindependent `SessionDB` readback、projection /
-  hash / count一致、inactive old rowを要求する。Engine returnやcountだけでは成立しない。
-- Claude completionは、`PreCompact(manual)`、`PostCompact(manual)`、
-  `SessionStart(compact)`、closed / drained collectorを要求する。最後の二eventの相互順序は
-  固定しない。CLI success envelope単独はproofにならない。
-- Receiptは、Codexの`YOH_ACK`、Hermesのadapter-defined full-field tool receipt、Claudeの
-  full-identity receiptまたは別profileの`host-nonce-v1`を分ける。Delivery、receipt、fresh
-  observation、continuation、ResumeProofは別段階である。
-- Accepted Yohaku archive collector / retrievalがあるのはhistorical Codex Referenceだけで
-  ある。Hermes `SessionDB`、Claude native history / transcript、Ollama stateはYohaku archive
-  ではない。`C-DRR`もarchive coverageを持たない。
+Exact completion predicate、receipt、storage / archiveの横断比較は
+[Runtime Mapping](runtime-mapping.md#completion-proofとrecovery段階)を参照し、Runtime固有factは
+各Runtime canonicalを正本とする。Accepted Yohaku archive collector / retrievalがあるのは
+historical Codex Referenceだけであり、Runtime-native historyをYohaku archiveへ読み替えない。
 
 ## Historical provenance
 
@@ -99,24 +90,8 @@ Hermes Stage 2はProbe、Stage 4はconnected adapter、`H-OP`はlifecycle-only l
 ではなくadapter-defined protocolである。General tool、Hook-fault enforcement、race、restart、
 late completion、repeated compression、visible-turn archiveはacceptedではない。
 
-## Claude Code Ollama local maintainer testing profile
-
-次のrecordはすべてmaintainer / local-live / synthetic、maturity experimentalである。成功run
-だけをsummaryへ残さず、失敗・`AMBIGUOUS`・後段`NOT_RUN`も保持する。
-
-| Evidence Record | Fixed backend / model | 観測結果 | Verdict / 非継承 |
-|---|---|---|---|
-| `C-CLI-OLLAMA-LOCAL-REPEAT-2026-09-29` | Ollama `0.34.1`、Spark-X2.5-4B digest `e1646156c204…`、context 131072 | `recovery-04`は7 requests / 294.11秒で`RESUME_VERIFIED`。Matching `recovery-05`は最初のcommand引数欠落でadapter前に停止 | Historical bounded run `PASS`、repeatability check `FAIL`、overall `PARTIAL` |
-| `C-CLI-OLLAMA-MIMO-COMPARE-2026-09-29` | MiMo-V2.6-Distill-Qwen-9B-Ablitrated digest `616953773b51…` | 二attemptとも最初のcommand引数欠落で`FAIL`。一attemptは別にupstream `TimeoutError`も記録。Compact以降`NOT_RUN` | SparkやsubscriptionのVerdictを変更しない |
-| `C-CLI-OLLAMA-QWEN-COMPARE-2026-09-29` | Qwen3.5-4B-abliterated digest `4ce045509cfb…` | 二attemptともbackend template HTTP 500。Tool callなし、recovery stages `NOT_RUN` | Backend / template compatibility `FAIL`。Model tool semanticsは未評価 |
-| `C-CLI-OLLAMA-QWEN35-4B-2026-09-29` | `qwen3.5:4b` digest `2a654d98e6fb…`、context 32768 | 二attemptともcompletion / handoff submission後、full-identity receiptの一文字不一致で停止 | 二workflow `FAIL`。Fresh observation以降`NOT_RUN` |
-| `C-CLI-OLLAMA-QWEN35-9B-2026-09-29` | `qwen3.5:9b` digest `6488c96fa5fa…`、context 32768 | 一attemptはreceipt `session_id`不一致で`FAIL`、一attemptは7 requests / 128.37秒で`RESUME_VERIFIED` | Bounded success一回。Repeatability未成立、subscriptionへ非継承 |
-| `C-CLI-NONCE-QWEN35-9B` | 同じQwen 9B、`host-nonce-v1` | Accepted runは7 requests / 100.01秒で`RESUME_VERIFIED`。Earlier context 4096 attemptは`PreCompact`だけで`AMBIGUOUS` | Fixed workflow `PASS`、overall `PARTIAL`。Earlier failureも保持 |
-
-Full-identity receiptと`host-nonce-v1`は別protocolである。Nonce profileの成功をfull-identity
-receipt、Anthropic subscription、Claude Code family全体へ適用しない。Elapsed timeの差から
-speed improvementを推定せず、一成功からreliabilityを推定しない。詳細contractは
-[Claude Code CLI Runtime](runtimes/claude-code-cli.md#explicit-receipt)を参照する。
+Claude Code CLIの個別model / backend比較は
+[Claude Code CLI Runtime](runtimes/claude-code-cli.md#model-comparisonの扱い)を正本とする。
 
 ## Installation compatibility
 
@@ -133,7 +108,10 @@ non-editable installできる。これはtransition acceptanceとは別のinstal
 | Installed Hermes rehearsal | Native offline preflightとsynthetic-response H-CLI-01 rehearsal `PASS`、provider request 0 |
 | Installed wheelの新しいlive acceptance | `NOT_RUN`。Historical Stage 4 scopeを維持 |
 
-## Operational Alpha Foundation
+## Operational lifecycle foundation
+
+これはRelease Alphaまたはprofile maturityの宣言ではない。公開中の全Support Profileは
+`experimental`、release channelは`undeclared`のままである。
 
 Codex `0.158.0-alpha.2.1`とpinned Hermes `0.21.0`には、no-inference lifecycle profileが
 ある。Native start / status / stop / clean stop後のfresh lifecycleはlab-testedである。

@@ -78,9 +78,8 @@ accepted runのobserved contextは`32768`である。
 - Model instruction / tool fidelity: 固定modelが必要なtool名と引数を正確に生成できるか
 
 Spark、MiMo、Qwenの成功・失敗は、この三層のどこで停止したかを示すprofile Evidenceであり、
-Claude Code全体のmodel benchmarkではない。詳細比較は
-[Runtime support](../runtime-support.md#claude-code-ollama-local-maintainer-testing-profile)とretained
-Evidenceへ委ねる。
+Claude Code全体のmodel benchmarkではない。詳細比較は本書の
+[Model comparisonの扱い](#model-comparisonの扱い)とretained Evidenceで確認する。
 
 ## Transition Strategy
 
@@ -353,7 +352,7 @@ acceptanceではない。
 
 ## Evidence provenance
 
-個別runのevent一覧は本書へ複製しない。公開summaryとmodel comparisonは
+個別runのevent一覧は本書へ複製しない。公開status summaryは
 [Runtime support](../runtime-support.md#target-runtime-status)、retained detailsは各`RESULT.md`、
 `COVERAGE.json`、`SUPPORT_PROFILE.json`、manifest、hash付きEvidence indexで保持する。
 
@@ -370,11 +369,21 @@ nonce receiptへ再解釈せず、nonce successをfull-identityやsubscription�
 
 ### Model comparisonの扱い
 
-MiMo、Qwen3.5 4B、Qwen派生modelの比較recordは、tool argument omission、message-template incompatibility、
-receipt identity mismatch等のfailureを保持する。これらはbackend / model compatibilityの診断であり、
-`CL-LOCAL-FULL`や`CL-LOCAL-NONCE`のVerdictを上書きしない。本書はmodel benchmark一覧を持たず、
-[Runtime support](../runtime-support.md#claude-code-ollama-local-maintainer-testing-profile)とretained Evidenceを
-参照する。
+次のrecordはすべてmaintainer / local-live / syntheticである。成功runだけを残さず、
+failure、`AMBIGUOUS`、後段`NOT_RUN`も保持する。
+
+| Evidence Record | Fixed backend / model | 観測結果 | Verdict / 非継承 |
+|---|---|---|---|
+| `C-CLI-OLLAMA-LOCAL-REPEAT-2026-09-29` | Ollama `0.34.1`、Spark-X2.5-4B digest `e1646156c204…`、context 131072 | `recovery-04`は7 requests / 294.11秒で`RESUME_VERIFIED`。Matching `recovery-05`は最初のcommand引数欠落でadapter前に停止 | Historical bounded run `PASS`、repeatability check `FAIL`、overall `PARTIAL` |
+| `C-CLI-OLLAMA-MIMO-COMPARE-2026-09-29` | MiMo-V2.6-Distill-Qwen-9B-Ablitrated digest `616953773b51…` | 二attemptとも最初のcommand引数欠落で`FAIL`。一attemptは別にupstream `TimeoutError`も記録。Compact以降`NOT_RUN` | SparkやsubscriptionのVerdictを変更しない |
+| `C-CLI-OLLAMA-QWEN-COMPARE-2026-09-29` | Qwen3.5-4B-abliterated digest `4ce045509cfb…` | 二attemptともbackend template HTTP 500。Tool callなし、recovery stages `NOT_RUN` | Backend / template compatibility `FAIL`。Model tool semanticsは未評価 |
+| `C-CLI-OLLAMA-QWEN35-4B-2026-09-29` | `qwen3.5:4b` digest `2a654d98e6fb…`、context 32768 | 二attemptともcompletion / handoff submission後、full-identity receiptの一文字不一致で停止 | 二workflow `FAIL`。Fresh observation以降`NOT_RUN` |
+| `C-CLI-OLLAMA-QWEN35-9B-2026-09-29` | `qwen3.5:9b` digest `6488c96fa5fa…`、context 32768 | 一attemptはreceipt `session_id`不一致で`FAIL`、一attemptは7 requests / 128.37秒で`RESUME_VERIFIED` | Bounded success一回。Repeatability未成立、subscriptionへ非継承 |
+| `C-CLI-NONCE-QWEN35-9B` | 同じQwen 9B、`host-nonce-v1` | Accepted runは7 requests / 100.01秒で`RESUME_VERIFIED`。Earlier context 4096 attemptは`PreCompact`だけで`AMBIGUOUS` | Fixed workflow `PASS`、overall `PARTIAL`。Earlier failureも保持 |
+
+Full-identity receiptと`host-nonce-v1`は別protocolである。Nonce profileの成功をfull-identity
+receipt、Anthropic subscription、Claude Code family全体へ適用しない。Elapsed timeの差から
+speed improvementを推定せず、一成功からreliabilityを推定しない。
 
 ## Verdict / maturity
 

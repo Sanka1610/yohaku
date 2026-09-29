@@ -468,7 +468,7 @@ bundleがある。一方、次の共通機能は完成していない。
 したがって、本書は完成済みの統一testing frameworkの操作説明ではない。開発者とreviewerが、既存の
 profile固有harnessとretained recordを同じ安全semanticsで評価するためのworkflow contractである。
 
-## 今回の範囲外
+## 本workflowの非責務
 
 本書は次を実装または実行しない。
 
@@ -479,5 +479,4 @@ profile固有harnessとretained recordを同じ安全semanticsで評価するた
 - 新しいCapability Probe
 - Runtime実行またはprovider request
 - 製品コード / test codeのrefactor
-- README / installationの全面改稿
 - 既存Evidence、CoverageProfile、Capability Verdictの再採点
