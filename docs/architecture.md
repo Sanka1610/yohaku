@@ -314,8 +314,9 @@ Support Profile、Evidence、Verdictを変更しない。
 [Transition Strategies](transition-strategies.md)、[Evidence Model](evidence-model.md)、
 [Runtime文書の構成規則](runtimes/README.md)、[Codex Runtime](runtimes/codex.md)、
 [Hermes Runtime](runtimes/hermes.md)、
-[Claude Code CLI Runtime](runtimes/claude-code-cli.md)を日本語canonicalとする。`README.md`の全面改稿や
-英語版の作成は、この整理に含めない。
+[Claude Code CLI Runtime](runtimes/claude-code-cli.md)、
+[document-review Task Profile](task-profiles/document-review-report-v1.md)を日本語canonicalとする。
+`README.md`の全面改稿や英語版の作成は、この整理に含めない。
 
 Internal research、raw Evidence、historical / frozen資料は、provenanceとsource
 associationを保つため原文を維持する。一律翻訳せず、公開用のderived documentが
@@ -342,7 +343,7 @@ associationを保つため原文を維持する。一律翻訳せず、公開用
 - [Codex Runtime](runtimes/codex.md)、[Hermes Runtime](runtimes/hermes.md)、
   [Claude Code CLI Runtime](runtimes/claude-code-cli.md)は各Runtimeのcurrent public canonicalとして
   profile、primitive、Evidence scope、制限を説明する
-- [document-review profile](reference/document-review-report-v1.md)は現在のbounded
+- [document-review profile](task-profiles/document-review-report-v1.md)は現在のbounded
   Task Profileを定義する
 - [Operations](operations.md)と[Installation](installation.md)は、architecture acceptance
   ではなくlauncher behaviorとsetupを説明する

@@ -283,10 +283,10 @@ revision、execution revision、workspace、logical taskを読み直し、unreso
 許可しない。
 
 `C-DRR`ではTask Profile固有observerがcurrent task stateを供給する。現時点のretained
-contractとEvidence参照は[Task Profile reference](../reference/document-review-report-v1.md)に
-あるが、詳細契約のpublic canonical化は後続の`docs/task-profiles/`で行う。本書が確定するのは、
+contractとEvidence参照は[Task Profile reference](../task-profiles/document-review-report-v1.md)に
+あり、同文書をTask Profile詳細契約のcurrent public canonicalとする。本書が所有するのは、
 current Codex profileのacceptanceにtask-specific fresh observationが必要だというRuntime境界
-までである。
+と、そのCodex-specific bindingである。
 
 ## Continuation
 
@@ -306,9 +306,8 @@ Codex Runtime supportだけでは、semantic boundary、task freshness、task co
 `document-review-report-v1`は、Current Real-task profileに存在し、Codex
 `0.158.0-alpha.2.1`でlive acceptedされた。Task-specific observer / assessorを使って
 `RESUME_VERIFIED`へ到達したが、この結果はmechanical completionだけを評価する。Task
-Profileの詳細契約は本Stageでは正本化せず、後続の`docs/task-profiles/`へ委ねる。現時点の
-retained contractとEvidence参照は[専用reference](../reference/document-review-report-v1.md)に
-残す。
+Profileの詳細契約、retained contract、Evidence参照は
+[専用canonical](../task-profiles/document-review-report-v1.md)に分離する。
 
 Historical Referenceのscenario / fixture assessorもgeneral Task Assessorではない。
 `C-OP`にはTask Observer / Task Assessorがなく、task transitionを拒否する。

@@ -146,6 +146,11 @@ task dynamic toolをHookが拒否してtransition前に`REFUSED`となったrun�
 accepted runと、existing outputを`STALE_OUTPUT_PRESENT`で拒否したrepeat checkも別結果として
 保持する。Mechanical completionは`PASS`だが、writing / factual qualityは`NOT_ASSESSED`である。
 
+このEvidenceはlifecycle-only Codex profile、historical Codex `0.155`、別Runtime、別Task
+Profileへ適用しない。External-writer exclusion、restart、repeated transition、arbitrary
+document task、coding taskも対象外である。Input / output、Observer、Assessor、no-retryの
+詳細は[fixed Task Profile contract](task-profiles/document-review-report-v1.md)を正本とする。
+
 ## Known Limitations
 
 - 全profileのmaturityはexperimental、release channelはundeclared

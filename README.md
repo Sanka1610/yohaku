@@ -112,7 +112,7 @@ editable installs are development/Probe techniques, not release installation.
 The [installation guide](docs/installation.md) covers builds, exact interpreter
 selection, basic TOML configuration, explicit enable/disable and removal.
 Installing the package does not enable the integration.
-The [document-review profile reference](docs/reference/document-review-report-v1.md)
+The [document-review profile reference](docs/task-profiles/document-review-report-v1.md)
 defines its exact input/output, tool, observer, assessor and no-retry contract.
 
 For a local developer Core check from a checkout, without provider access:
@@ -184,16 +184,18 @@ release decision. See the [Evidence model](docs/evidence-model.md) and
 - [Installation](docs/installation.md): shared wheel, startup configuration and removal.
 - [Architecture](docs/architecture.md): implemented responsibilities and design boundaries.
 - [Evidence model](docs/evidence-model.md): Evidence, CoverageProfile, Capability Verdict, provenance, and non-inheritance rules.
+- [Runtime mapping](docs/runtime-mapping.md): cross-Runtime profile identities, primitives, accepted endpoints, and non-inheritance boundaries.
+- [Transition strategies](docs/transition-strategies.md): cross-Runtime strategy taxonomy and shared failure semantics.
 - [Runtime support and evidence scope](docs/runtime-support.md): measured profile, provenance, and strategy limits.
 - [Hermes Runtime](docs/runtimes/hermes.md): canonical Probe、adapter、operational profiles、native primitives、Evidence scope、制限。
 - [Claude Code CLI Runtime](docs/runtimes/claude-code-cli.md): canonical completion, recovery, receipt, Evidence scope, and limitations.
 - [Runtime document structure](docs/runtimes/README.md): shared chapter order and profile documentation rules.
 - [Codex Runtime](docs/runtimes/codex.md): canonical Codex profiles, primitives, Evidence scope, and limitations.
-- [Document review report v1](docs/reference/document-review-report-v1.md): first fixed Real-task Profile and its acceptance boundary.
+- [Document review report v1](docs/task-profiles/document-review-report-v1.md): first fixed Real-task Profile and its acceptance boundary.
 - [Support maturity and release policy](SUPPORT_POLICY.md): profile maturity and release criteria.
 
 Existing README section links remain available below; detailed content is now in
-the canonical Runtime documents.
+the canonical Runtime and Task Profile documents.
 
 <a id="direction-and-support-status"></a>
 

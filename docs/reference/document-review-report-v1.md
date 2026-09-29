@@ -1,5 +1,9 @@
 # Codex `document-review-report-v1`
 
+> **Historical / compatibility reference:** Current public canonicalは
+> [Task Profile: `document-review-report-v1`](../task-profiles/document-review-report-v1.md)である。
+> 本pathは既存linkとretained Evidenceの参照を維持するため残している。
+
 `document-review-report-v1` is Yohaku's first nonfixture Real-task Profile. It
 reviews an explicitly declared set of UTF-8 text documents and creates one fixed
 Markdown report. It is not a general document, filesystem, shell or coding profile.
