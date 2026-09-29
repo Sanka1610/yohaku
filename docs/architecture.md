@@ -321,8 +321,13 @@ control flow, and trust boundaries. Other documents have narrower roles:
   status;
 - the [support policy](../SUPPORT_POLICY.md) defines Support Profiles, maturity,
   Evidence level, Verdict, and release-channel rules;
-- [Runtime support](runtime-support.md) records profile-specific status,
-  historical provenance, and known limitations;
+- [Runtime Mapping](runtime-mapping.md) owns fixed-profile facts and the mapping
+  from Yohaku roles to Runtime-specific primitives;
+- [Transition Strategies](transition-strategies.md) owns the taxonomy and common
+  semantics of manual in-place compaction, native automatic compaction,
+  fresh-context rollover, and session migration;
+- [Runtime support](runtime-support.md) retains profile status, historical
+  provenance, and known limitations pending its later profile-specific cleanup;
 - the [Codex reference](reference/codex.md), [Hermes reference](reference/hermes.md),
   and [Claude CLI reference](reference/claude-cli.md) describe Runtime-specific
   contracts and limits;
