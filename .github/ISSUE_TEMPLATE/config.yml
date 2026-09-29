@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+- name: Privacy / security reporting boundary
+  url: https://github.com/Sanka1610/yohaku/blob/main/docs/issue-reporting.md#security-reporting
+  about: 公開してよい情報とsecurity報告の扱い。重大脆弱性やsecretを通常Issueへ投稿しないでください。
+- name: Documentation Index
+  url: https://github.com/Sanka1610/yohaku/blob/main/docs/index.md
+  about: 導入、操作、Runtime support、更新とrollbackの入口。
+- name: Troubleshooting / reporting issues
+  url: https://github.com/Sanka1610/yohaku/blob/main/docs/issue-reporting.md
+  about: 再実行を避ける状態、safe metadata、Issue受付の前提を確認してください。

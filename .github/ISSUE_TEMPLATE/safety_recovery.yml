@@ -1,0 +1,159 @@
+name: Safety / recovery report
+description: 不確実な実行・書込・owner状態を公開可能なmetadataだけで報告します。
+title: '[Safety / recovery] '
+body:
+- type: markdown
+  attributes:
+    value: |-
+      このformは公開Issue用です。Alpha候補はCandidate Aだけです。
+      credential、token / API key、auth.json、config全文、raw transcript、conversation本文、session ID、
+      receipt nonce、raw tool argument / result、Runtime DB、Yohaku state directory archive、
+      private repository path、private document本文、report本文、maintainer / user固有absolute pathは投稿しないでください。
+      添付ファイル、画面写真、raw status出力も送らず、公開可能なmetadataを手入力してください。
+      必要なcorrelationはpublic-safe release ID / profile ID / sanitized error code / artifact digestで行います。
+
+      AMBIGUOUS、RECOVERY_REQUIRED、write uncertaintyでは、Issue作成のためにrunを再実行しないでください。
+      upgrade、rollback、fresh stateへの切替による同じtaskの再実行も避け、既存stateを保持してください。
+      未確認値はUNKNOWNとし、調査のためにtaskを再実行する必要はありません。
+
+      重大security vulnerability、攻撃手順、credentialやsecretを公開Issueに投稿しないでください。
+      確認済みprivate reporting窓口がある場合だけ非公開で連絡してください。窓口が未確認なら詳細を公開せず保持してください。
+      [Privacy / security reporting案内](https://github.com/Sanka1610/yohaku/blob/main/docs/issue-reporting.md#security-reporting)を確認してください。
+- type: checkboxes
+  id: privacy-confirmation
+  attributes:
+    label: 公開前の確認
+    options:
+    - label: 秘密情報・本文・path・raw dataを含めず、重大脆弱性の詳細を公開しません。
+      required: true
+    - label: 現在の状態を保持し、Issue作成や不確実な結果の調査のためにrunを再実行しません。
+      required: true
+- type: dropdown
+  id: concern
+  attributes:
+    label: Safety / recovery category
+    options:
+    - AMBIGUOUS
+    - RECOVERY_REQUIRED
+    - write uncertainty
+    - unexpected duplicate
+    - credential / privacy concern (公開可能な症状だけ)
+    - owner / state inconsistency
+  validations:
+    required: true
+- type: input
+  id: release-id
+  attributes:
+    label: Yohaku release identifier
+    description: 公開release ID。未公開buildならUNRELEASED。不明ならUNKNOWN。
+  validations:
+    required: true
+- type: input
+  id: package-version
+  attributes:
+    label: Package version
+    description: Release channelとは別です。既知のversionだけを記載してください。
+  validations:
+    required: true
+- type: dropdown
+  id: support-profile
+  attributes:
+    label: Support Profile ID
+    options:
+    - codex-operational-0.158
+    - codex-document-review-report-v1
+    - UNKNOWN / outside Candidate A
+  validations:
+    required: true
+- type: input
+  id: runtime-version
+  attributes:
+    label: Runtime exact version
+    description: Runtimeのexact version。別versionへのsupport継承はありません。
+  validations:
+    required: true
+- type: input
+  id: runtime-surface
+  attributes:
+    label: Runtime surface
+    description: App Server / stdioなど。command全文やpathは不要です。
+  validations:
+    required: true
+- type: input
+  id: os
+  attributes:
+    label: OS
+    description: OS / distribution / WSLの有無。hostnameやuser名は不要です。
+  validations:
+    required: true
+- type: input
+  id: python-version
+  attributes:
+    label: Python version
+    description: 既知のversion、またはUNKNOWN。executableのabsolute pathは不要です。
+  validations:
+    required: true
+- type: dropdown
+  id: operation
+  attributes:
+    label: Operation
+    options:
+    - configure
+    - preflight
+    - start
+    - run
+    - status
+    - stop
+    - recover --inspect
+    - UNKNOWN
+  validations:
+    required: true
+- type: input
+  id: error-state
+  attributes:
+    label: Sanitized error code / operational state
+    description: '例: AMBIGUOUS / RECOVERY_REQUIRED。raw exceptionやJSON全文を貼らないでください。'
+  validations:
+    required: true
+- type: dropdown
+  id: side-effect
+  attributes:
+    label: Side effect / writeの可能性
+    options:
+    - UNKNOWN / 可能性を否定できない
+    - 発生した可能性がある
+    - 発生を確認した
+    - 発生なしと確認済み
+  validations:
+    required: true
+- type: dropdown
+  id: state-origin
+  attributes:
+    label: Fresh state / existing state
+    options:
+    - UNKNOWN
+    - 発生時はfresh config / state
+    - 発生時はexisting config / state
+  validations:
+    required: true
+- type: textarea
+  id: expected
+  attributes:
+    label: Expected behavior
+    description: 公開可能な短い説明だけ。task、文書、reportの本文は不要です。
+  validations:
+    required: true
+- type: textarea
+  id: actual
+  attributes:
+    label: Actual behavior
+    description: 既に観測した症状だけ。再現のためのrun再実行やraw log添付は不要です。
+  validations:
+    required: true
+- type: input
+  id: artifact
+  attributes:
+    label: Release asset名またはwheel SHA-256
+    description: 公開assetのbasenameまたはSHA-256。不明ならUNKNOWN。local pathは不要です。
+  validations:
+    required: true
