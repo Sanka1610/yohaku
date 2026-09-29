@@ -54,6 +54,24 @@ claimのscopeには、該当する範囲で次を含める。
 不足する条件を推定してCapability PASSに使わない。複数のcapabilityを一つのrunで観測
 した場合も、Verdictはrequirementごとに判断する。
 
+### Profileとrecordの識別子
+
+同じ文字列形式に見える識別子でも、識別する対象は異なる。公開文書では次の名称を
+使い分ける。
+
+| 名称 | 識別する対象 | 他の識別子との関係 |
+|---|---|---|
+| Mapping key | `runtime-mapping.md`内の比較rowを指す短い略称 | 文書内の索引であり、Support Profile IDやEvidence Record IDではない |
+| Support Profile ID | Runtime、surface、owner条件、設定、利用可能なpathを固定したprofile | 一つのSupport Profileに複数のEvidence RecordとCoverageProfile revisionを関連付けられる |
+| Evidence Record ID | 一回のrunまたは一回のstatic reviewと、その結果 | 成功・失敗・未完了を別recordとして保持し、Support Profile IDを置き換えない |
+| CoverageProfile ID / revision | 一つのSupport ProfileについてrequirementとEvidenceを集約したreview record | 個別runのIDではなく、採用した複数のEvidence Recordを参照する |
+| Task Profile ID | task固有のinput / output、work plane、observer、assessorを識別する | Runtime Support Profile IDとは別であり、両者の組合せを明示する |
+
+Runtime version、surface、OS、provider、backend、model、context、Hook、permissionは
+Support Profileを固定するdimensionである。これらの値をmapping key、Support Profile ID、
+Evidence Record IDとして読み替えない。既存recordに一意なIDがない場合は`未割当`または
+`UNKNOWN`と記載し、別のIDを推定で作らない。
+
 ## Provenance、authority、freshness、correlation
 
 四つの性質は互いを代替しない。

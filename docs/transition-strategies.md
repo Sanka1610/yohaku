@@ -43,8 +43,9 @@ fresh-contextやsession migrationが実装済みという意味でもない。
 
 - **source context**: transition前にcurrent workとrevisionを観測したcontext
 - **target context**: Agentが実際にtaskを継続するcontext
-- **generation and identity**: 一つのattemptを結び付けるnative identityとhost-local
-  identity。host-local IDをRuntime-nativeと扱わない
+- **generation and identity**: 一つのattemptを結び付けるRuntime-native identity、Yohaku
+  Core identity、host-local correlation identity。Core / host-local IDをRuntime-nativeと
+  扱わない
 - **durable state**: transient process stateを失っても残るcheckpointとhandoff
 - **completion**: Runtimeが要求を受理したことではなく、要求したtransitionを実行
   したことを示すproof
@@ -102,6 +103,9 @@ lifecycleを検証する。
 
 fixed completionの例は[RoleからRuntime primitiveへの対応](runtime-mapping.md#roleからruntime-primitiveへの対応)
 にまとめる。正確なevent orderはRuntime reference pageが所有する。
+共通contractが要求するのは「fixed profileごとにRuntime固有completion proofを定義し、
+不足時に進めない」ことまでである。Codexの三要素、Hermesのhost / DB readback、Claudeの
+Hook windowとcollector closureを、一つの共通event列や同一predicateへ変換しない。
 
 ### Proactive成功の条件
 

@@ -27,15 +27,16 @@ Shared Coreが同じでも、Codex `0.155.0-alpha.16.4`のReference EvidenceをC
 ## Supported / measured profiles
 
 `C-REF-M`、`C-REF-A`、`C-OP`、`C-DRR`は
-[Runtime Mapping](../runtime-mapping.md)内のmapping keyであり、新しいSupport Profile ID
-ではない。
+[Runtime Mapping](../runtime-mapping.md)内のmapping keyであり、Support Profile IDやEvidence
+Record IDではない。Runtime version / surface / OSとprovider / backend / modelは、IDではなく
+profileを固定するdimensionである。
 
-| Key | Fixed profile | 位置付け | Accepted endpoint |
-|---|---|---|---|
-| `C-REF-M` | `codex-reference-0.155` / Manual In-place Compaction | Historical Reference。Phase 14までのretained Reference Evidence | Completion scenarioは`ROLLOVER_OBSERVED`、accepted recovery scenarioは`RESUME_VERIFIED`。各original Verdictを維持する |
-| `C-REF-A` | 同じhistorical profile / Native Automatic Compaction | Scenario Gのbounded emergency recovery。Manual pathとは別Strategy | Same-turn `RESUME_VERIFIED`。Scenario G PASS、Phase 14 overall PARTIAL |
-| `C-OP` | `codex-operational-0.158` | Current Operational。Inferenceとtask transitionを無効にしたowned lifecycle | Dedicated App Server startup、fresh thread、status、stop、clean stop後のfresh-session start |
-| `C-DRR` | `codex-document-review-report-v1` | Current Real-task。Task Profile `document-review-report-v1`を有効にしたbounded workflow | `RESUME_VERIFIED`とmechanical completion PASS。Writing qualityは`NOT_ASSESSED` |
+| Mapping key | Support Profile ID | Evidence Record ID | 位置付け | Accepted endpoint |
+|---|---|---|---|---|
+| `C-REF-M` | `codex-reference-0.155` | `PHASE14`配下のmanual scenario record | Historical Reference。Phase 14までのretained Reference Evidence | Completion scenarioは`ROLLOVER_OBSERVED`、accepted recovery scenarioは`RESUME_VERIFIED`。各original Verdictを維持する |
+| `C-REF-A` | `codex-reference-0.155` | `PHASE14`のScenario G record | 同じSupport Profileのbounded emergency recovery。Manual pathとは別Strategy | Same-turn `RESUME_VERIFIED`。Scenario G PASS、Phase 14 overall PARTIAL |
+| `C-OP` | `codex-operational-0.158` | `S5-OP-CODEX-0158` | Current Operational。Inferenceとtask transitionを無効にしたowned lifecycle | Dedicated App Server startup、fresh thread、status、stop、clean stop後のfresh-session start |
+| `C-DRR` | `codex-document-review-report-v1` | `DRR-V1-CODEX-0158-LIVE-01` | Current Real-task。Task Profile `document-review-report-v1`を有効にしたbounded workflow | `RESUME_VERIFIED`とmechanical completion PASS。Writing qualityは`NOT_ASSESSED` |
 
 `C-REF-M`と`C-REF-A`は同じhistorical Runtime versionを使うが、trigger、completion proof、
 checkpointの意味、continuation、restart contractが異なる。二つを一つのCodex compact
@@ -146,12 +147,14 @@ Historical work ledgerはin-memoryであり、restart時に再構成しない。
 
 ## Native identity / host-local identity
 
-Codexから観測するnative identityと、Yohakuが作るhost-local identityを分ける。
+Codexから観測するnative identity、Yohaku Core identity、host-local correlation identityを
+分ける。同じ文字列を複数の欄に保存してもauthorityは統合されない。
 
 | 種類 | 例 | Authority |
 |---|---|---|
-| Codex native | Thread / session ID、turn ID、item ID、Hook run ID、dynamic tool call ID | App Server / Hook stream内の対象を識別する |
-| Yohaku / host-local | Boundary ID、checkpoint ID、lease ID、request ID、Core generation、handoff ID、attachment / run ID | Yohakuのauthority、durability、deduplication、continuation bindingを識別する |
+| Codex native identity | Thread / session ID、turn ID、item ID、Hook run ID、dynamic tool call ID | App Server / Hook stream内の対象を識別する |
+| Yohaku Core identity | Boundary ID、checkpoint ID、lease ID、request ID、Core generation、handoff ID、continuation permit | Core authority、durability、deduplication、state transitionを識別する |
+| Host-local correlation identity | Companion / connection owner ID、attachment / run ID、ordered event sequence、task-ledger entry | Native observationとCore requestをfixed owner内で対応付ける。Codex native authorityにもCore authorityにもならない |
 
 Codex notificationはYohaku request IDやCore generationをnative fieldとして提供しない。
 Historical manual mappingは、一つのexclusively owned thread、一つのoutstanding request、
@@ -384,6 +387,11 @@ associationは[Runtime support](../runtime-support.md)とprivate Evidence index�
 
 新しい文書commitはhistorical scenarioの再実行ではない。`C-REF-M` / `C-REF-A`のEvidenceを
 `C-OP` / `C-DRR`へ継承せず、`C-DRR`のresultを別Task Profileへ継承しない。
+
+`C-DRR`のfinal accepted runより前に、task dynamic toolをHookが拒否してtransition前に
+`REFUSED`となったrunを保持する。Exact allowlist修正後のaccepted runと、既存outputを
+`STALE_OUTPUT_PRESENT`で拒否したrepeat checkも別結果である。成功runだけでfailure recordを
+置き換えていない。
 
 ## Verdict / maturity
 

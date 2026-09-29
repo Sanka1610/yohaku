@@ -27,23 +27,24 @@ delivery、current-state observation、continuation、Known Limitationsなど、
 
 ## Fixed profile一覧
 
-Mapping keyは本書内だけで使う略称であり、新しいSupport Profile IDではない。同じ
-Runtime versionを使っていても、Probe、adapter、operational lifecycle、task supportを
-分ける。
+Mapping keyは本書内だけで使う略称であり、Support Profile IDやEvidence Record IDではない。
+Runtime / version / surface / OS、provider / backend / modelもprofile dimensionであり、IDと
+して扱わない。同じRuntime versionを使っていても、Probe、adapter、operational lifecycle、
+task supportを分ける。
 
-| Key | Fixed profileまたはretained record | このrowが示す範囲 | Implementation / Evidence / Verdict |
-|---|---|---|---|
-| `C-REF-M` | Codex historical Reference profile、`0.155.0-alpha.16.4` / Manual In-place Compaction | historical proactive manual path、archive、Core persistence behavior | Reference integration実装済み。retained local / syntheticとbounded live Runtime Evidenceあり。historical Phase 14 overall **PARTIAL**。 |
-| `C-REF-A` | 同じhistorical Reference profile / Native Automatic Compaction emergency recovery | historical Scenario Gのnative race recovery。proactive transition成功ではない | Bounded emergency implementationとEvidenceあり。Scenario G **PASS**、historical Phase 14 overall **PARTIAL**。 |
-| `C-OP` | `codex-operational-0.158` | inferenceやtask transitionを含まないcurrent-version owned App Server lifecycle | Operational lifecycle実装・測定済み **PASS**。task transition **NOT_RUN**。experimental。 |
-| `C-DRR` | `codex-document-review-report-v1` / Task Profile `document-review-report-v1` | current versionで、一つのmanual compactと一つのreportを含むreal document-review workflow | Bounded implementation。lab / live-Runtime / nonfixture real-task Evidence。profile **PASS**、overall product coverage **PARTIAL**、quality `NOT_ASSESSED`。 |
-| `H-PROBE` | Hermes `H-CLI-01` Stage 2 Probe | connected adapter実装前のfixed native CLI workflowに対するcapability observation | Probe packageと測定workflowのみ。bounded workflow **PASS**、overall **PARTIAL**。adapterやoperational hostではない。 |
-| `H-ADAPTER` | `hermes-h-cli-01` / retained Stage 4 adapter profile | 一つのfixed toolと一つのmanual compressionを扱うembedded adapter path | Bounded adapter実装済み。live synthetic Evidenceあり。accepted bounded workflow **PASS**、overall **PARTIAL**。 |
-| `H-OP` | `hermes-operational-h-cli-01` | inferenceとtransition adapterを無効にしたowned native CLI / store lifecycle | Operational lifecycle実装・測定済み **PASS**。task / tool / transition path **NOT_RUN**。experimental。 |
-| `CL-SUB-C` | `C-CLI/2.1.280/Linux/print-stream-json/command-hooks` completion profile | external Anthropic subscription CLIのmanual-compaction completionから`ROLLOVER_OBSERVED`まで | Bounded completion adapter実装済み。external live-Runtime synthetic Evidence。manual completion **PASS**、overall **PARTIAL**。 |
-| `CL-SUB-R` | 同じfixed C-CLI surfaceとrecovery adapter | subscription surfaceのhandoff、receipt、continuation、resume contract | Recovery implementationは存在するが、external subscription recovery Evidenceは **NOT_RUN**。local OllamaのVerdictを継承しない。 |
-| `CL-LOCAL-FULL` | `C-CLI-OLLAMA-LOCAL/2.1.280/0.34.1/spark-x2.5-4b-uncensored/e1646156c204` | local maintainer full-identity receipt / recovery比較 | Bounded maintainer adapter。local-live synthetic Evidence。`RESUME_VERIFIED`一回、pre-adapter failure一回。repeatability **FAIL**、overall **PARTIAL**。 |
-| `CL-LOCAL-NONCE` | `claude-c-cli-local-nonce` / `host-nonce-v1` | host-bound one-time nonce receiptを使うlocal maintainer recovery | Bounded maintainer implementation。local-live synthetic Evidence。一つのworkflow **PASS**、overall **PARTIAL**。qualityとrepeatabilityは`NOT_ASSESSED`。 |
+| Mapping key | Support Profile ID | Evidence Record ID | このrowが示す範囲 | Implementation / Evidence / Verdict |
+|---|---|---|---|---|
+| `C-REF-M` | `codex-reference-0.155` | `PHASE14`配下のmanual record | historical proactive manual path、archive、Core persistence behavior | Reference integration実装済み。retained local / syntheticとbounded live Runtime Evidenceあり。historical Phase 14 overall **PARTIAL**。 |
+| `C-REF-A` | `codex-reference-0.155` | `PHASE14` Scenario G | 同じSupport Profileのnative race recovery。proactive transition成功ではない | Bounded emergency implementationとEvidenceあり。Scenario G **PASS**、historical Phase 14 overall **PARTIAL**。 |
+| `C-OP` | `codex-operational-0.158` | `S5-OP-CODEX-0158` | inferenceやtask transitionを含まないcurrent-version owned App Server lifecycle | Operational lifecycle実装・測定済み **PASS**。task transition **NOT_RUN**。experimental。 |
+| `C-DRR` | `codex-document-review-report-v1`。Task Profile IDは`document-review-report-v1` | `DRR-V1-CODEX-0158-LIVE-01` | current versionで、一つのmanual compactと一つのreportを含むreal document-review workflow | Bounded implementation。lab / live-Runtime / nonfixture real-task Evidence。profile **PASS**、overall product coverage **PARTIAL**、quality `NOT_ASSESSED`。 |
+| `H-PROBE` | `H-CLI-01`（internal Probe profile） | Separate public ID未割当。Stage 2 retained recordを参照 | connected adapter実装前のfixed native CLI workflowに対するcapability observation | Probe packageと測定workflowのみ。bounded workflow **PASS**、overall **PARTIAL**。adapterやoperational hostではない。 |
+| `H-ADAPTER` | Product registryは`hermes-h-cli-01`。Retained profileは`H-CLI-01` | `H-CLI-01-STAGE4` | 一つのfixed toolと一つのmanual compressionを扱うembedded adapter path | Bounded adapter実装済み。live synthetic Evidenceあり。accepted bounded workflow **PASS**、overall **PARTIAL**。 |
+| `H-OP` | `hermes-operational-h-cli-01` | `S5-OP-HERMES` | inferenceとtransition adapterを無効にしたowned native CLI / store lifecycle | Operational lifecycle実装・測定済み **PASS**。task / tool / transition path **NOT_RUN**。experimental。 |
+| `CL-SUB-C` | Product registryは`claude-c-cli`。Retained profile labelは`C-CLI/2.1.280/Linux/print-stream-json/command-hooks` | `C-CLI-COMPLETION` | external Anthropic subscription CLIのmanual-compaction completionから`ROLLOVER_OBSERVED`まで | Bounded completion adapter実装済み。external live-Runtime synthetic Evidence。manual completion **PASS**、overall **PARTIAL**。 |
+| `CL-SUB-R` | Separate IDは未割当。`claude-c-cli` surface上のrecovery capability row | Qualifying external recordなし | subscription surfaceのhandoff、receipt、continuation、resume contract | Recovery implementationは存在するが、external subscription recovery Evidenceは **NOT_RUN**。local OllamaのVerdictを継承しない。 |
+| `CL-LOCAL-FULL` | `C-CLI-OLLAMA-LOCAL/2.1.280/0.34.1/spark-x2.5-4b-uncensored/e1646156c204` | `C-CLI-OLLAMA-LOCAL-REPEAT-2026-09-29` | local maintainer full-identity receipt / recovery比較 | Bounded maintainer adapter。local-live synthetic Evidence。`RESUME_VERIFIED`一回、pre-adapter failure一回。repeatability **FAIL**、overall **PARTIAL**。 |
+| `CL-LOCAL-NONCE` | `claude-c-cli-local-nonce` | `C-CLI-NONCE-QWEN35-9B` | `host-nonce-v1`を使うlocal maintainer recovery | Bounded maintainer implementation。local-live synthetic Evidence。一つのworkflow **PASS**、overall **PARTIAL**。qualityとrepeatabilityは`NOT_ASSESSED`。 |
 
 これらはRuntime family全体のaliasではない。`H-PROBE`、`H-ADAPTER`、`H-OP`は別々の
 claimである。`CL-SUB-C`はrecoveryを含まず、local Ollama recoveryはAnthropic
@@ -71,9 +72,9 @@ Evidence claimは別である。共通するprofile factを一度だけ示し、
 | Active / pending / incorporated | Activeはadmit済みforeground operationの実行中を表す。Pendingはresultが独立にterminalかつincorporatedと観測されるまで残る。incorporationにはtrusted host observationが必要で、tool successだけでは足りない。 |
 | Work-plane gate | 宣言work planeに対するlocal barrierとallow / deny rule。Runtime-wide atomic freezeではない。 |
 | Trigger owner | `C-REF-M`はYohaku / host、`C-REF-A`はCodex Runtime。 |
-| Request identity | `C-REF-M`は一つのYohaku `Request`、Core generation、ordered ownerを使う。`C-REF-A`はnative-auto originとrecovery correlationを記録し、proactive leaseを再構成しない。 |
+| Yohaku Core identity | `C-REF-M`は一つのYohaku `Request`、boundary / checkpoint / lease、Core generation、handoffを使う。`C-REF-A`はnative-auto originを記録し、proactive leaseを再構成しない。 |
 | Native session / turn / generation / attachment identity | 利用可能なnative session / threadとactive-turn evidenceを観測する。App Server eventはnative Yohaku request / generation IDを提供しない。 |
-| Host-local identity | Yohaku request ID、generation、attachment / correlation state、ordered owner mapping |
+| Host-local correlation identity | Attachment / correlation state、connection owner、ordered stream mapping。Core request / generationをnative IDへ変換しない。 |
 | Completion proof | Strategy固有のcorrelated native evidence。RPC acknowledgementだけでは不十分。下表で分ける。 |
 | Checkpoint / journal | POSIX `SessionStore`とCore record。`C-REF-M`はauthority前にcurrent checkpointをcommitする。`C-REF-A`はprior checkpointをstaleのまま保持し、emergency deltaを別recordにする。 |
 | Runtime-native storage | Codex transcript / historyはRuntime-native dataであり、Yohaku checkpoint / archiveではない。 |
@@ -109,14 +110,14 @@ Evidence claimは別である。共通するprofile factを一度だけ示し、
 | Lifecycle observation | dedicated App Server connectionによるowned startup、fresh thread、status、shutdown |
 | Work taxonomy; active / pending / incorporated | task workをadmitしない。このprofileのtask-work値はすべて`UNSUPPORTED`。 |
 | Work-plane gate | task gateを主張するのではなく、lifecycle profileとしてtask executionを拒否する。 |
-| Trigger owner / request identity | transition triggerとtransition request identityは`UNIMPLEMENTED`。 |
+| Trigger owner / Yohaku Core identity | Lifecycle-only profileで無効。Capability evaluationは`NOT_RUN`。 |
 | Native identity | lifecycle ownership用のfresh native thread / session identityを観測する。turn / generation / attachmentのtransition identityは`NOT_RUN`。 |
-| Host-local identity | operational runとCompanion / store identity。native Runtime request / generationではない。 |
+| Host-local correlation identity | Operational runとCompanion / store identity。native Runtime request / generationではない。 |
 | Completion proof | `NOT_RUN`。lifecycle startup / shutdownはcompaction proofではない。 |
 | Checkpoint / journal | Companion / store lifecycleは存在するが、task checkpointはcommitしない。 |
 | Runtime-native storage | owned App Server配下のfresh Codex thread state。Yohaku checkpoint / archiveとは扱わない。 |
-| Handoff / receipt / fresh observation / continuation | lifecycle-only runでは`UNIMPLEMENTED`。 |
-| Task assessor / resume verification | `UNIMPLEMENTED`。Task Profileなしのtask transitionは拒否する。 |
+| Handoff / receipt / fresh observation / continuation | Lifecycle-only profileで無効。Capability evaluationは`NOT_RUN`。 |
+| Task assessor / resume verification | Profileに接続しない。Task Profileなしのtask transitionは拒否し、Capability evaluationは`NOT_RUN`。 |
 | Archive / native history | `NOT_RUN`。 |
 | Restart | operational process restartでは新しいowned lifecycleを開始できる。transition restart semanticsは`NOT_RUN`。 |
 | Timeout / late / duplicate / ambiguous behavior | launcher lifecycle errorはoperational failure。transition ambiguity policyは実行していない。 |
@@ -137,9 +138,9 @@ Evidence claimは別である。共通するprofile factを一度だけ示し、
 | Active / pending / incorporated | Activeはadmit済みprofile toolの実行中。Pendingはsuccessful resultが必要なoutgoing / current task stateへ反映されたと独立観測するまで残る。Incorporatedはexact read / publish resultのprofile observationであり、model self-reportではない。 |
 | Work-plane gate | profile所有のtwo-tool gate、transition barrier、create-only output contract |
 | Trigger owner | Trusted Observerがverified boundaryを成立させた後、Yohaku task runnerがtriggerする。 |
-| Request identity | single manual compact用のYohaku request一つとCore generation |
+| Yohaku Core identity | Single manual compact用のboundary、checkpoint、lease、request、Core generation、handoff |
 | Native session / turn / generation / attachment identity | fresh Codex threadとRuntime turn observation。native Yohaku generation identityはない。 |
-| Host-local identity | runner、attachment、request、generation、tool-call / result、declared workspace identity |
+| Host-local correlation identity | Runner、attachment、ordered event sequence、task ledger。Native tool-call / resultとCore identityを対応付ける。 |
 | Completion proof | Codex manualの三要素。compaction item、`PostCompact`、successful compact turn completion。 |
 | Checkpoint / journal | request前にCore checkpointとprofile task stateをcommitする。profile recordはexact input / output identityを保持する。 |
 | Runtime-native storage | native Codex context / historyとtask checkpoint / Yohaku storeを分ける。 |
@@ -172,9 +173,9 @@ Evidence claimは別である。共通するprofile factを一度だけ示し、
 | Work taxonomy | fixed foreground tool workflow一つ。general toolとbackground workは`NOT_RUN`。 |
 | Active / pending / incorporated | Activeはadmit済みfixture handlerの実行区間。`post_tool`後、exact textが同一turnの次のoutgoing requestへ`function_call_output`として入るまでpendingを維持する。bounded propagationのproofであり、semantic understandingやreusable product ledgerではない。 |
 | Work-plane gate | Probe sequencing。product gateはこのStageでは`UNIMPLEMENTED`。 |
-| Trigger owner / request identity | Probe hostがmanual compressionを一回triggerし、Probe-local correlationを使う。 |
+| Trigger owner / Yohaku Core identity | Probe hostがmanual compressionを一回triggerする。Product Core identityはなく、Probe-local correlationだけを使う。 |
 | Native identity | instrumentationが利用可能なHermes session / turn / request / tool identityを観測する。 |
-| Host-local identity | Probe run / correlation ID。native Hermes IDの代わりにはならない。 |
+| Host-local correlation identity | Probe run / correlation ID。native Hermes IDやProduct Core identityの代わりにはならない。 |
 | Completion proof | host historyが変化し、独立read-only `SessionDB` connectionでactive projectionとinactive rowの一致を確認した。Probe instrumentation / Evidenceであり、この時点ではproduct Completion Policyやadapter実装ではない。 |
 | Checkpoint / journal | fixture / Probe checkpoint behaviorのみ。product persistenceは成立していない。 |
 | Runtime-native storage | Probe内でnative history / storeを観測した。Yohaku checkpoint / archiveではない。 |
@@ -199,9 +200,9 @@ Evidence claimは別である。共通するprofile factを一度だけ示し、
 | Active / pending / incorporated | admitted handler開始時にactiveとなる。tool completion後も、exact result textがoutgoing same-turn requestへ入るまでpendingを維持する。bounded propagationのproofであり、semantic understandingではない。 |
 | Work-plane gate | embedded hostがfixed toolをadmitし、active / pending work中はtransitionをblockする。 |
 | Trigger owner | Core authorization後、embedded Yohaku hostがmanual compressionを一回発行する。 |
-| Request identity | Yohaku request / generationとowned native compression callをcorrelateする。 |
+| Yohaku Core identity | Boundary、checkpoint、lease、compression request、Core generation、handoffを使う。 |
 | Native identity | Hermes session、turn、API request、tool call / result identity |
-| Host-local identity | adapter request / generationとowner mapping。native identityを置き換えず、並べて保持する。 |
+| Host-local correlation identity | Adapter event / readback sequenceとowner mapping。Core request / generationとnative identityを置き換えず、対応付ける。 |
 | Completion proof | host history mutationと、independent read-only `SessionDB`によるexact projection / archived-row readback。engine return / countだけでは不十分。 |
 | Checkpoint / journal | Core checkpointとhandoff recordを保持する。Hermes adapter event metadataはbounded diagnostic stateであり、general restart journalではない。 |
 | Runtime-native storage | Hermes `SessionDB`とnative history / compression state。Completion readback sourceであり、Yohaku `SessionStore`内のcheckpoint / archiveではない。 |
@@ -228,12 +229,12 @@ Evidence claimは別である。共通するprofile factを一度だけ示し、
 | Lifecycle observation | native CLI construction、session / store ownership、status、shutdown |
 | Work taxonomy; active / pending / incorporated | task workをadmitしない。lifecycle-only profileでは`UNSUPPORTED`。 |
 | Work-plane gate | Stage 4 gateで観測するのではなく、profileがtask operationを拒否する。 |
-| Trigger / request / completion | このprofileでは`UNIMPLEMENTED`。 |
+| Trigger / request / completion | このlifecycle-only profileで無効。Capability evaluationは`NOT_RUN`。 |
 | Native identity | native lifecycle / session / store identity。task turn / compression identityは実行していない。 |
-| Host-local identity | operational run identity。native Hermes request / turnではない。 |
+| Host-local correlation identity | Operational run identity。native Hermes request / turnではない。 |
 | Checkpoint / journal / native storage | operational store lifecycleのみ。transition checkpointはない。native storeはYohaku persistenceではない。 |
-| Handoff / receipt / fresh observation / continuation / assessor | `UNIMPLEMENTED`。 |
-| Archive | `UNIMPLEMENTED`。 |
+| Handoff / receipt / fresh observation / continuation / assessor | Profileに接続しない。Capability evaluationは`NOT_RUN`。 |
+| Archive | Profileに接続しない。Capability evaluationは`NOT_RUN`。 |
 | Restart | transition restart semanticsは`NOT_RUN`。 |
 | Timeout / late / duplicate / ambiguous behavior | operational lifecycle failureはlauncher error。transition ambiguityは実行していない。 |
 | Known Limitations | lifecycle ownershipだけを示す。`H-PROBE` / `H-ADAPTER`のtask / transition Evidenceを継承しない。 |
@@ -257,13 +258,13 @@ synchronous command Hooksを固定する。Completion / recovery contractで`Pre
 | Transition Strategy | Manual In-place Compaction。fresh process / session一つ、compact一回。 |
 | Lifecycle observation | fixed collector contract内で、synchronous command Hooksからnative `SessionStart`、`PreCompact`、`PostCompact`、compact-origin `SessionStart`を観測する。 |
 | Work taxonomy | fixed synthetic workflow。general task work、background work、arbitrary toolは`NOT_RUN`。 |
-| Active / pending / incorporated | Activeはadmit済みPre / PostToolUse間のfixed foreground fixture operation。collectorとfixture effectでterminal executionを確認できる。general pending-result incorporationとsemantic incorporationは`NOT_RUN`であり、Hook / CLI successから推定しない。 |
+| Active / pending / incorporated | Activeはadmit済みPre / PostToolUse間のfixed foreground fixture operation。collectorとfixture effectでterminal executionを確認できる。general pending-result incorporationは`NOT_RUN`、semantic incorporationは`NOT_ASSESSED`であり、Hook / CLI successから推定しない。 |
 | Work-plane gate | fixed collector / runner sequencing。general C-CLI work gateはない。 |
 | Trigger owner | external operator / runnerがmanual compactを一回発行する。 |
-| Request identity | Yohaku host-local attachment / request / generationとclosed collector sequence |
+| Yohaku Core identity | Boundary、checkpoint、lease、compact request、Core generation。Native Claude fieldではない。 |
 | Native identity | native Claude `session_id`。native Yohaku request、generation、attachment IDはない。 |
-| Host-local identity | attachment、request、generation、collector sequence。明示的にhost-localとして保持する。 |
-| Completion proof | correlated `PreCompact`、compact handler / `PostCompact`、compact-origin `SessionStart`、successful CLI completion、collector closure。CLI successやHook一つだけでは不十分。 |
+| Host-local correlation identity | Attachmentとcollector sequence。Core request / generationとnative sessionをfixed owner内で対応付ける。 |
+| Completion proof | Correlated `PreCompact(manual)`、`PostCompact(manual)`、`SessionStart(compact)`、transport成功、collector closure。CLI result envelopeやHook一つだけでは不十分。 |
 | Checkpoint / journal | committed Yohaku checkpoint / leaseとC-CLI event metadata。external recordはprivate checkpoint / lease byteすべてを独立readbackしていない。 |
 | Runtime-native storage | fresh Claude session storage。Yohaku checkpoint / archiveではない。 |
 | Handoff / receipt / fresh observation / continuation | external subscription recoveryでは`NOT_RUN`。completion Verdictのendpointは`ROLLOVER_OBSERVED`。 |
@@ -285,7 +286,7 @@ synchronous command Hooksを固定する。Completion / recovery contractで`Pre
 | Transition Strategy | fixed external profileを実行した場合のManual In-place Compaction＋same-process recovery |
 | Lifecycle observation / work taxonomy / gate | bounded collectorとfixed recovery work planeを実装済み。external subscription executionは`NOT_RUN`。 |
 | Active / pending / incorporated | 実装済みrecovery adapterでは、foreground receipt / read / action handler一つが、matching successful native PostToolUse resultまでactiveとなる。後続gateはexact prior result / tokenを要求する。fixture-bounded incorporationであり、general semantic understandingではない。external subscription executionは`NOT_RUN`。 |
-| Trigger / request / identities | 同じnative `session_id`とhost-local attachment / request / generation / collector identity。continuation dispatch identityはhost-localであり、native Claude turn IDではない。 |
+| Trigger / identities | Native `session_id`、Core request / generation、host-local attachment / collectorを別に保持する。Continuation dispatch identityはhost-localであり、native Claude turn IDではない。 |
 | Completion proof | `CL-SUB-C`と同じbounded completion predicate。完了後にだけrecoveryを開始する。 |
 | Checkpoint / journal / native storage | 実装済みYohaku recordとClaude-native session storageを分ける。external recovery readbackは`NOT_RUN`。 |
 | Handoff creation / delivery / injection | durable handoffとsame-process injectionを実装済み。external subscription observationは`NOT_RUN`。 |
@@ -310,10 +311,10 @@ synchronous command Hooksを固定する。Completion / recovery contractで`Pre
 | Work taxonomy | synthetic task一つとfixed recovery action。general task / tool / background workは`NOT_RUN`。 |
 | Active / pending / incorporated | fixed receipt / read / action handlerはmatching native PostToolUseまでactive。次のgateはexact successful prior resultまたはfresh tokenを要求する。fixture固有のpropagationであり、semantic content qualityは未評価。 |
 | Work-plane gate | fixture / runner sequencing。general Runtime gateではない。 |
-| Trigger owner / request identity | maintainer runner、host-local attachment / request / generation / collector identity |
+| Trigger owner / Yohaku Core identity | Maintainer runnerがCore request / generation / handoffを所有する。 |
 | Native identity | Claude native `session_id`。native request / generation / attachment identityはない。 |
-| Host-local identity | adapterがfull identity setを保持しreceiptへ要求する。native identityではない。 |
-| Completion proof | fixed C-CLI Hook sequence、successful CLI completion、collector closure |
+| Host-local correlation identity | Attachment / collector / continuation dispatchを保持し、Core identityとnative sessionへ対応付ける。Full-identity receiptは三分類のfieldを列挙するがauthorityを統合しない。 |
+| Completion proof | Fixed C-CLI三Hook、transport成功、collector closure。CLI result envelope単独はproofではない |
 | Checkpoint / journal / native storage | Yohaku checkpoint / event recordとnative Claude / Ollama session dataを分ける。 |
 | Handoff creation / delivery / injection | successful runでは、同じretained processへdurable handoffをinjectした。 |
 | Explicit receipt | successful runのfull correlated identity receipt |
@@ -338,9 +339,9 @@ synchronous command Hooksを固定する。Completion / recovery contractで`Pre
 | Work taxonomy | fixed synthetic recovery action一つ。general work、parallel / multi-pending workは`NOT_RUN`。 |
 | Active / pending / incorporated | fixed receipt / read / action handlerはmatching native PostToolUseまでactive。後続gateはexact prior result / tokenを要求する。nonceはcorrelated tool participationを証明するが、handoffのsemantic incorporationは`NOT_ASSESSED`。 |
 | Work-plane gate | fixed runner / adapter sequencing。general Runtime gateではない。 |
-| Trigger owner / request identity | maintainer runner、一つのhost-local request / generation / collector owner |
+| Trigger owner / Yohaku Core identity | Maintainer runner、一つのCore request / generation / handoff |
 | Native identity | native Claude `session_id`。receipt tool前後のnative Pre / handler / Post observationを要求する。 |
-| Host-local identity | hostがfull identity tupleを保持し、modelは128-bit・22文字のnonce一つだけを返す。host-local IDをnative IDへ読み替えない。 |
+| Host-local correlation identity | Hostがattachment / collector / continuationとfull identity tupleの対応を保持し、modelは128-bit・22文字のnonce一つだけを返す。Host-local IDをnative IDへ読み替えない。 |
 | Completion proof | fixed C-CLI completion predicateの後、nonce receiptのnative Pre / handler / Post evidenceを検証する。 |
 | Checkpoint / journal / native storage | Yohaku checkpoint / event recordとClaude / Ollama native dataを分ける。 |
 | Handoff creation / delivery / injection | durable handoffとnonce challengeを同じretained processへdeliveryする。 |
@@ -366,7 +367,7 @@ event semanticsが同じとは限らない。`C-OP`と`H-OP`はtask transition�
 | Boundary verification | Coreがhost / task evidenceを検証する。`C-DRR`はTrusted Observerを持つ。`C-REF-A`はnative raceで失われたboundaryを後付けしない。 | Coreがfixed adapter observationを検証する。 | adapterがfixed collector / fixture observationを受理する。completion profileのgeneral semantic boundary Evidenceは`NOT_RUN`。 |
 | Checkpoint | `SessionStore`内のYohaku Core checkpoint。`C-REF-A`ではold checkpointをstale、emergency deltaを別recordにする。 | Yohaku Core checkpoint。`SessionDB`ではない。 | Yohaku Core checkpoint / event record。Claude session storageではない。 |
 | Transition trigger | `C-REF-M`は`ManualCompactBackend`。別契約の`C-REF-A`だけがnative Runtime trigger。 | embedded hostがnative manual compressionを発行する。 | operator / runnerがmanual compactを一回発行する。 |
-| Completion proof | `C-REF-M`: correlated compaction item＋`PostCompact`＋compact turn completion。`C-REF-A`: Scenario G固有bounded native sequence。 | host history mutation＋independent read-only `SessionDB` projection / archived-row readback | correlated Hook / handler / compact-origin startup evidence＋CLI completion＋collector closure |
+| Completion proof | `C-REF-M`: correlated compaction item＋`PostCompact`＋compact turn completion。`C-REF-A`: correlated compaction item＋`PostCompact`。Active turn completionは後段のresume verificationで使う。 | host history mutation＋independent read-only `SessionDB` projection / archived-row readback | `PreCompact(manual)`＋`PostCompact(manual)`＋`SessionStart(compact)`＋closed / drained collector。CLI result envelope単独はproofに含めない。 |
 | Handoff delivery | Companionがdurable handoffをowned recovery pathへinjectする。 | embedded hostがdurable handoff一つをdeliveryする。 | same-process recovery adapterがdurable handoff一つをinjectする。external subscription recoveryは`NOT_RUN`。 |
 | Receipt | handoff / generationにcorrelateした`YOH_ACK` | native / Yohaku correlationを含むadapter-defined assistant tool receipt | full-identity receiptまたは`host-nonce-v1`。どちらもClaude built-in receipt primitiveではない。 |
 | Fresh observation | delivery後のtrusted Runtime / task / workspace read | independent current native / task read | fresh recovery token / current-state observation |
@@ -374,12 +375,69 @@ event semanticsが同じとは限らない。`C-OP`と`H-OP`はtask transition�
 | Resume verification | Core＋bounded scenario assessor。`C-DRR`はpackaged mechanical assessorを持つ。 | Core＋fixed fixture / task assessor | Core＋fixed fixture assessor。external subscription recoveryは`NOT_RUN`。 |
 | Archive | historical Reference profileのselected visible-turn archive。`C-DRR`はcoverageを主張しない。 | `UNIMPLEMENTED`。`SessionDB`はnative historyのみ。 | `UNIMPLEMENTED`。Claude session storageはnative historyのみ。 |
 
+### Identityの三分類
+
+Native identity、Yohaku Core identity、host-local correlation identityは、三Runtimeで同じ
+authorityを持たない。次の表は型の共通化ではなく、意味の違いを比較するための対応である。
+
+| 種類 | Codex | Hermes | Claude Code CLI |
+|---|---|---|---|
+| Runtime-native identity | Thread / session、turn、item、Hook run、dynamic tool call | Session、turn、API request、tool call、`SessionDB` row | Native `session_id`、native tool ID |
+| Yohaku Core identity | Boundary、checkpoint、lease、request、Core generation、handoff、continuation permit | 同じCore value shape。Compression requestはCore requestでありHermes native requestではない | 同じCore value shape。Compact requestとgenerationはClaude native fieldではない |
+| Host-local correlation identity | Companion / connection owner、attachment / run、ordered event sequence、task ledger | Probe / adapter run、adapter / readback sequence、embedded owner | Attachment、collector sequence、recovery request、host continuation turn、runner / owner |
+
+Native IDが同名のCore fieldへ保存される場合も、RuntimeがそのCore authorityを発行したことには
+ならない。Host-local IDはnative observationとCore identityをfixed owner内でcorrelateするために
+使い、欠落したnative generationやturn identityを補ったことにはしない。
+
+### Active / pending / incorporatedの差
+
+三語は共通のbarrier guaranteeを表さない。各profileが観測できる範囲と、次のgateへ進むための
+条件を記述する語である。
+
+| Runtime / profile | Active | Pending | Incorporated | Barrier上の限界 |
+|---|---|---|---|---|
+| Codex Reference | Matching `PreToolUse`後のadmitted foreground operation | `PostToolUse`後もterminal effectとworkspace / revision反映を確認するまで残る | Trusted hostがterminal state、partial effect、workspace / revisionを確認した状態 | Registered Hook pathだけ。Hook failureは`FAIL_OPEN`で、Runtime-wide atomic freezeではない |
+| Codex `C-DRR` | Profile-owned dynamic toolの実行中 | Exact resultとtask stateへの反映が確認されるまで残る | Task-specific observerがread / publish resultとworkspace stateを確認した状態 | 二つのprofile toolだけ。General task / tool barrierではない |
+| Hermes H-CLI-01 | Matching native `pre_tool_call`後のfixture handler実行中 | `post_tool_call`後、exact resultがsame-turn outgoing requestへ入るまで残る | Send gateがmatching call / result hashを確認した状態 | Single sequential fixtureだけ。Semantic understandingやbackground workを保証しない |
+| Claude recovery | Admitted `PreToolUse`からmatching handler resultとsuccessful `PostToolUse`まで | 次のgateが要求するprior resultまたはfresh tokenが未確認の状態 | Receipt後のread、token-bound action等、fixed fixtureの機械的sequencingを満たした状態 | General semantic incorporationは`NOT_ASSESSED`。General C-CLI gateはない |
+
+### Completion proofとrecovery段階
+
+共有するのは、Runtime固有proofが揃うまでcompletionを認めないというsafety semanticsだけで
+ある。Proofのeventやstorage shapeは共有しない。
+
+| Runtime path | Completion proof | Delivery | Receipt | Fresh observation | Continuation / ResumeProof |
+|---|---|---|---|---|---|
+| Codex manual | Bound compact turn / requestのcompaction item、`PostCompact`、compact turn completion | Durable handoffをowned recovery pathへinject | `YOH_ACK:<handoff-id>:<generation>` | Trusted Runtime / task / workspace read | New owned continuation turn。Task-specific proof後に`RESUME_VERIFIED` |
+| Codex native-auto | Correlated compaction itemと`PostCompact`。Active turn completionはreceipt / ResumeProof側で使う | Same active turnへhandoffをinject | Manual pathと同じmarkerをnative-auto bindingへcorrelate | Stale checkpointとunverified emergency deltaを区別してcurrent stateを再読 | Same-turn continuation。New `turn/start`を送らない |
+| Hermes adapter | Host history mutationとindependent `SessionDB` projection / archived-row readback | Same owned sessionのactual outgoing promptを確認 | Adapter-defined toolがhandoff / checkpoint / request / session / generationを返し、result incorporationを確認 | Receipt後のindependent current native / task read | Same exclusive embedded host。Fixture assessorのproof後に`RESUME_VERIFIED` |
+| Claude subscription completion | 三Hookとcollector closure | Profile外 | Profile外 | Profile外 | `ROLLOVER_OBSERVED`で停止 |
+| Claude local recovery | 同じ三Hookとcollector closure | Same retained processへhandoffを一回submit / flush | Full-identity tool receiptまたは別profileの`host-nonce-v1` | Receipt後のfresh token / current-state readとpre-action再確認 | Host-local continuation一回。Fixture assessorのproof後に`RESUME_VERIFIED` |
+
+Delivery、receipt、fresh observation、continuation terminal、ResumeProofは順に必要な別contractで
+ある。後段の成功から前段を推定せず、receipt単独からsemantic incorporationやresume correctnessを
+推定しない。
+
+### Storage、archive、Task Profile
+
+| 種類 | Codex | Hermes | Claude Code CLI |
+|---|---|---|---|
+| Yohaku checkpoint | `SessionStore`のverified pre-dispatch state | `SessionStore`のverified pre-compression state | Dedicated storeのverified pre-compact state |
+| Journal | Codex schema-1 hash-chain。Historical manual restartは限定的に対応 | Core snapshotへHermes completion proofをserializeせず、restartへ使わない | Claude bindingをCodex codecへserializeせず、restartへ使わない |
+| Handoff | Durable completed-request / continuation binding | 同じCore documentをadapter固有deliveryへ渡す | 同じCore documentをsame-process deliveryへ渡す |
+| Yohaku archive | Historical Referenceにselected visible-turn collector / retrievalのaccepted pathあり。`C-DRR`はcoverage外 | Shared record formatだけ。Hermes collector / retrievalは`UNIMPLEMENTED` / `NOT_RUN` | Collector / retrievalは`UNIMPLEMENTED` / `NOT_RUN` |
+| Adapter metadata | Runtime event projection、operation / task ledger、run metadata | `hermes-events`とProbe / adapter sequence | `claude-cli-events`とcollector / recovery sequence |
+| Runtime-native storage | Codex thread / context / transcript / history | `SessionDB`、active / inactive row、native conversation history | Claude native session / transcript、Ollama process / model / cache |
+| Packaged Task Profile | `document-review-report-v1`だけ | なし。H-CLI-01 assessorはfixture固有 | なし。Local recovery assessorはfixture固有 |
+| Formal lifecycle-only launcher | `C-OP`あり | `H-OP`あり | なし。Maintainer runnerやadapter implementationをoperational supportへ昇格させない |
+
 この対応から、identityとstorageには次の三原則を適用する。
 
 1. Runtime-native databaseやtranscriptはprofile-scoped evidenceになり得るが、Yohaku
    checkpoint / archiveではない。
-2. Host-local attachment、request、generation、collector、continuation IDは、native
-   eventとcorrelateしてもhost-localのままである。
+2. Yohaku Core request / generationとhost-local attachment / collector / continuation IDを
+   分ける。どちらもnative eventとcorrelateしただけではRuntime-native identityにならない。
 3. 一つのRuntime固有eventを他Runtime用に捏造しない。共有Core stateには、異なる
    Completion PolicyとEvidence shapeを通って到達する。
 
@@ -406,23 +464,28 @@ rule、lease discipline、ambiguity rule、Evidence contractである。matching
 authority、work taxonomy、delivery、receipt、continuation、restart behavior、Task
 Assessorを共有しない。
 
-## Mappingで確認した未分離箇所
+## 横断reviewで確認した非対称性
 
-次は文書整理で確認したアーキテクチャ上の差であり、今回実装する提案ではない。
+次の分類は設計候補の優先度であり、実装済みcomponentや新しいacceptanceを示さない。
+Alphaの対象profileを固定する前に、対象外の候補をblockerへ自動昇格させない。
 
-- adapter実装は一つのneutral Runtime Adapter / host interfaceに揃っていない
-- persistenceとrestartはCodex型のままで、Hermes / Claudeはbounded adapter固有
-  metadataを持つ
-- active / pending / incorporated workはprofile-local ledgerごとに異なり、共有capability
-  descriptionがない
-- native identityとhost-local identityがtype system全体で一貫して分離されていない
-- Task Observer / Task Assessor registrationは`document-review-report-v1`とfixtureだけに
-  packageされている
-- completionにはshared policy seamがあるが、trigger、transport、delivery、continuation、
-  visible-turn extractionにはない
-- profile declaration、public support table、Evidence indexの整合を手動で維持している
+| 分類 | 確認した事項 | 扱い |
+|---|---|---|
+| 文書上の不整合 | Mapping key、Support Profile ID、Evidence Record IDの欄が混在していた。IdentityもnativeとYohaku / host-localの二分類になっていた | 本Stageで名称と三分類を修正した。既存recordのID、schema、Verdictは変更していない |
+| 文書上の不整合 | Claude completionをCLI successまで含む共通proofのように読める記述と、制定時の「他Runtime adapter未実装」がcurrent statusのように残っていた | Runtime固有completion predicateと時点を明記した |
+| Harmless implementation asymmetry | Completion proof、trigger、transport、delivery、receipt、continuationはRuntime固有である。Active / pending / incorporatedもprofile固有の観測を表す | 意図的に維持する。event名やreceipt shapeを共通化するとEvidence authorityを失う |
+| Harmless implementation asymmetry | Codexだけにaccepted visible-turn archive collectorがあり、Hermes / Claudeはnative historyだけを持つ | Archiveを宣言しないprofileでは許容する。Native DB / transcriptをYohaku archiveへ読み替えない |
+| Alpha前に検討する価値がある候補 | Native、Core、host-local identityをtype levelで区別し、誤った代入を拒否する | 新しいRuntimeやreceipt方式をAlpha scopeへ追加する前に検討する。既存IDのrenameやschema migrationは別判断とする |
+| Alpha前に検討する価値がある候補 | Product profile registry、public support table、retained Evidence indexの対応を機械的に検査する | 公開scopeのstatus drift防止に有用。Evidence自体を生成・再採点する仕組みにはしない |
+| Alpha前に検討する価値がある候補 | Non-Codex profileが使うYohaku store rootをlegacy `CODEX_HOME`名から論理的に分離する | Data layout / compatibility設計を伴う。既存保存dataを暗黙移行しない。Alpha対象がCodexだけなら必須とは限らない |
+| Alpha前に検討する価値がある候補 | `document-review-report-v1`のTask Profile canonical、Observer / Assessor registration、Runtime bindingを明示する | 現在唯一のpackaged Task Profileなので、次のTask Profile追加前に入力contractを固定する |
+| Alpha scope依存 | Claude Code CLIの正式operational launcher | ClaudeをAlphaのoperational scopeに含めるなら事前に必要。Codex / Hermes限定Alphaでは後続にできる |
+| Alpha後でよい候補 | Neutral Runtime Adapter / host interface、cross-Runtime persistence / restart framework | Current profilesはbounded wiringで成立し、Hermes / Claude restartを`UNSUPPORTED`としている。受入scopeを広げる時点で設計する |
+| Alpha後でよい候補 | Universal active / pending ledger、portable snapshot、session migration coordinator | 未観測workやRuntime固有incorporationを一つの型で解決できない。必要な複数profileの実測後に検討する |
+| Alpha後でよい候補 | Hermes / Claude visible-turn collectorとarchive retrieval | Archiveを各profileの公開scopeへ入れる時点で別Capabilityとして実装・受入する |
 
-これらはrefactor候補であり、新しいabstractionがすでに存在するという記述ではない。
+この分類は、すべてのRuntimeを同じarchitectureへ揃える計画ではない。Safety semanticsだけを
+共有し、Runtime固有Evidenceを保持する。
 
 ## 文書境界と後続資料
 

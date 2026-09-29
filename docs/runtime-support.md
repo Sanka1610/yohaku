@@ -1,424 +1,164 @@
-# Runtime support and evidence scope
+# Runtime support summary
 
-This page summarizes the preserved Codex reference records and the bounded
-Hermes H-CLI-01 Probe and connected adapter run as of 2026-09-28.
-Local regression tests and the single adapter live run have separate evidence.
-The implementation is experimental; no public release channel is declared. The
-[Evidence model](evidence-model.md) defines Evidence, CoverageProfile, and Capability
-Verdict. [Support policy](../SUPPORT_POLICY.md) defines maturity and release policy.
+本書は、Codex、Hermes、Claude Code CLIについて、公開済みのfixed profile、Evidence、
+accepted endpoint、Verdict、maturity、Known Limitationsを一覧できるsummaryである。最終横断
+review日は2026-09-29。実装はexperimentalで、public release channelは宣言していない。
 
-## Recorded Codex reference profile
+Runtime固有contractは[Codex](runtimes/codex.md)、[Hermes](runtimes/hermes.md)、
+[Claude Code CLI](runtimes/claude-code-cli.md)を正本とする。Profile比較は
+[Runtime Mapping](runtime-mapping.md)、EvidenceとVerdictの定義は
+[Evidence Model](evidence-model.md)、maturityとrelease条件は
+[Support Policy](../SUPPORT_POLICY.md)が所有する。本書はそれらを再定義せず、個別runのraw
+recordやCoverageProfileを置き換えない。
 
-| Dimension | Recorded scope |
-|---|---|
-| Runtime / surface | Codex CLI `0.155.0-alpha.16.4`, owned App Server connection |
-| OS / language runtime | WSL2 Ubuntu / Python `3.14.4` |
-| Provider/model record | Model `gpt-5.6-luna`, effort `low`; no claim for other providers or subscriptions |
-| Owner assumptions | Single writer, exclusively owned thread, ordered observation stream, bounded work coverage |
-| Work | Normal deny/ordering for Bash and apply_patch; active/pending DEFER for one registered foreground Bash worker |
-| Archive integration | Opt-in dynamic tools with `experimentalApi=true`; trusted visible-text selector |
-| Maturity | experimental |
-| Acceptance | Phase 14 evaluation COMPLETE; overall PARTIAL |
-| Evidence kinds | lab tested / local-synthetic and lab tested / live-runtime synthetic tasks, with controlled negatives |
-| Field / current-version evidence | Not established by these records |
+## 識別子の読み方
 
-Raw run records and CoverageProfiles are retained in the private development
-workspace and ignored local Probe results. They are not bundled with the source
-distribution. This public summary is not an independently reproducible evidence
-bundle; publication of reviewed, shareable evidence remains release preparation.
+Mapping key、Support Profile ID、Evidence Record IDは別の識別子である。Runtime version /
+surface / OS、provider / backend / modelはprofile dimensionであり、どのIDの別名でもない。
+一つのSupport Profileへ複数の成功・失敗Evidenceを関連付けられる。別IDが未割当の場合は
+推定で新設しない。
 
-## Transition strategies
+## Current profile summary
 
-| Strategy | Implementation and completion contract | Limits |
-|---|---|---|
-| Codex manual compaction | `ManualCompactBackend`; correlated compaction item completion, successful PostCompact, and successful compact turn completion | RPC ACK alone is insufficient; one outstanding request and exclusive ownership required |
-| Codex native automatic compaction recovery | Opt-in observer; correlated compaction item completion and PostCompact, followed by same-turn receipt and resume verification | One compaction per attachment; emergency delta unverified; native recovery restart UNSUPPORTED |
-| Codex experimental `new_context` | Not selected by the package; UNSUPPORTED in the measured configurations | No fresh-context support inferred from the manual path |
-| Hermes manual in-place compression | H-CLI-01 adapter uses host-history update plus independent DB readback, explicit tool receipt and Core resume gates | One fresh exclusive session and one manual request; embedded instrumentation required, no restart |
+| Mapping key | Support Profile ID | Evidence Record ID / provenance | Accepted endpointとVerdict | Maturity / 主な制限 |
+|---|---|---|---|---|
+| `C-REF-M` | `codex-reference-0.155` | `PHASE14`配下のmanual records | Scenarioごとのoriginal Verdict。Accepted recoveryは`RESUME_VERIFIED`、Phase 14 overall `PARTIAL` | experimental。Historical Codex `0.155`だけ |
+| `C-REF-A` | `codex-reference-0.155` | `PHASE14` Scenario G | Same-turn `RESUME_VERIFIED`、Scenario G `PASS`。Phase 14 overall `PARTIAL` | experimental。Native-auto一回のemergency recoveryだけ |
+| `C-OP` | `codex-operational-0.158` | `S5-OP-CODEX-0158` | Native lifecycle `PASS`。Task / transition `NOT_RUN` | experimental。No inference / lifecycle-only |
+| `C-DRR` | `codex-document-review-report-v1` | `DRR-V1-CODEX-0158-LIVE-01` | Fixed workflow `PASS`、`RESUME_VERIFIED`。Overall product coverage `PARTIAL` | experimental。Task Profile `document-review-report-v1`だけ。Quality `NOT_ASSESSED` |
+| `H-PROBE` | `H-CLI-01` internal Probe | Separate public Evidence Record ID未割当。Stage 2 retained record | Bounded Probe workflow `PASS`、explicit receipt `PARTIAL`、overall `PARTIAL` | experimental。Product adapterやlauncherではない |
+| `H-ADAPTER` | Product registry `hermes-h-cli-01`。Retained profile `H-CLI-01` | `H-CLI-01-STAGE4` | Fixed connected workflow `PASS`、Core `RESUME_VERIFIED`、overall `PARTIAL` | experimental。One fixture tool / one compression / one owner |
+| `H-OP` | `hermes-operational-h-cli-01` | `S5-OP-HERMES` | Native lifecycle `PASS`。Task / tool / transition `NOT_RUN` | experimental。No inference / lifecycle-only |
+| `CL-SUB-C` | Product registry `claude-c-cli`。Retained label `C-CLI/2.1.280/Linux/print-stream-json/command-hooks` | `C-CLI-COMPLETION`、external / live-runtime / synthetic | Manual completionから`ROLLOVER_OBSERVED`まで`PASS`、overall `PARTIAL` | experimental。Subscription recoveryは含まない |
+| `CL-SUB-R` | Separate ID未割当。`claude-c-cli` recovery capability row | External qualifying recordなし | Recovery implementationあり、external subscription acceptance `NOT_RUN` | experimental。Local Ollama Evidenceを継承しない |
+| `CL-LOCAL-FULL` | `C-CLI-OLLAMA-LOCAL/2.1.280/0.34.1/spark-x2.5-4b-uncensored/e1646156c204` | `C-CLI-OLLAMA-LOCAL-REPEAT-2026-09-29` | `RESUME_VERIFIED`成功一回、matching repeat `FAIL`、overall `PARTIAL` | experimental。Repeatability `FAIL` |
+| `CL-LOCAL-NONCE` | `claude-c-cli-local-nonce` | `C-CLI-NONCE-QWEN35-9B` | `host-nonce-v1` bounded workflow `PASS`、overall `PARTIAL` | experimental。Single owner / single pending handoff。Repeatability `NOT_ASSESSED` |
 
-Native recovery does not prove the proactive boundary/checkpoint/lease sequence
-was completed before native compaction. Manual and native results remain separate.
-For exact host requirements, see the canonical [Codex Runtime page](runtimes/codex.md).
+`PASS`は表に記載したbounded requirementだけに適用する。Lifecycle PASS、completion PASS、
+recovery PASS、Task Profile PASS、overall CoverageProfile、maturity、release channelは別のclaim
+である。
+
+## Operational / adapter / task support
+
+| 種類 | Codex | Hermes | Claude Code CLI |
+|---|---|---|---|
+| Lifecycle-only operational support | `C-OP`あり。App Server startup / status / stop / fresh lifecycle | `H-OP`あり。Native CLI / DB / store startup / status / stop / fresh lifecycle | Formal launcherなし。Adapterやmaintainer runnerをoperational supportへ読み替えない |
+| Transition adapter implementation | Historical Reference、`C-DRR` | `H-ADAPTER` | Completion adapterとopt-in recovery adapter |
+| Live accepted transition | Historical fixed scenarios、`C-DRR` | Fixed Stage 4 synthetic adapter workflow | Subscriptionはcompletionまで。Local recoveryはfixed Ollama profileだけ |
+| Packaged real Task Profile | `document-review-report-v1`だけ | なし。H-CLI-01 assessorはfixture固有 | なし。Local assessorはfixture固有 |
+| Runtime family全体 | Support claimなし | Support claimなし | Support claimなし |
+
+## Completion、receipt、archive
+
+- Codex manual completionは、同じrequest / compact turnに対するcompaction item、
+  `PostCompact`、compact turn completionの三要素を要求する。Native-autoは別contractで、
+  compaction itemと`PostCompact`をcompletionに使い、active turn completionは後段で使う。
+- Hermes completionは、host history mutationとindependent `SessionDB` readback、projection /
+  hash / count一致、inactive old rowを要求する。Engine returnやcountだけでは成立しない。
+- Claude completionは、`PreCompact(manual)`、`PostCompact(manual)`、
+  `SessionStart(compact)`、closed / drained collectorを要求する。最後の二eventの相互順序は
+  固定しない。CLI success envelope単独はproofにならない。
+- Receiptは、Codexの`YOH_ACK`、Hermesのadapter-defined full-field tool receipt、Claudeの
+  full-identity receiptまたは別profileの`host-nonce-v1`を分ける。Delivery、receipt、fresh
+  observation、continuation、ResumeProofは別段階である。
+- Accepted Yohaku archive collector / retrievalがあるのはhistorical Codex Referenceだけで
+  ある。Hermes `SessionDB`、Claude native history / transcript、Ollama stateはYohaku archive
+  ではない。`C-DRR`もarchive coverageを持たない。
 
 ## Historical provenance
 
-| Record | Source association and permitted interpretation |
-|---|---|
-| Phase 1–14 freeze | Integrated implementation baseline `7c4a2dda3ca2aed363ca8401ccad9ab5a489c16f` |
-| Phase 14 A–F/H/I | Retain the `c490f9172dcb7928810d8c2ff5e3ac217f7f7de0` profile association and each scenario's original evidence; B reuses earlier live evidence and E is post-run artifact validation |
-| Phase 14 G | `7c4a2dda3ca2aed363ca8401ccad9ab5a489c16f`; one native compaction, same-turn continuation, and controlled missing-completion negative |
-| Recorded 98 tests | Local/synthetic regression evidence at the G baseline; not 98 live or field scenarios |
+Codex Phase 1–14 freezeのintegrated baselineは
+`7c4a2dda3ca2aed363ca8401ccad9ab5a489c16f`である。Phase 14 A–F/H/Iは
+`c490f9172dcb7928810d8c2ff5e3ac217f7f7de0`とのsource associationを保持し、Scenario Gは
+freeze baselineへ結び付く。Recorded 98 testsはlocal / synthetic regression Evidenceであり、
+98 live scenariosではない。新しいdocumentation commitはhistorical scenarioのrerunではない。
 
-Freeze preserves source associations and verdicts. A new document or integration
-commit does not mean historical scenarios were rerun against that commit. Late
-event delivery, duplicate ACK replay, and restart checks retain their controlled
-test conditions; they are not general failure-recovery guarantees.
-
-## Remaining limitations
-
-- Hook failure paths remain `FAIL_OPEN`; owner dispatch suppression is not global
-  runtime cancellation or an atomic work barrier.
-- The final-read-to-dispatch race and lack of native context-generation identity
-  remain. Controller generation must not be presented as native context identity.
-- Active apply_patch, general MCP/local-function work, detached/parallel work,
-  external writers, inflight work-ledger restart, and incomplete-turn archive
-  restart lack equivalent acceptance.
-- Power loss, repeated native compaction, and live native/manual dispatch races
-  remain NOT_RUN in the historical profile. Native recovery restart is UNSUPPORTED.
-- A task-specific observer/assessor and a trusted archive selector are required.
-  No automatic secret classifier or general success oracle is included.
-- Windows-native persistence, other OS/surface profiles, and non-Codex adapters
-  are not covered by the reference evidence. Strong Transition Assurance remains
-  PARTIAL / unestablished.
+Hermes Stage 2はHermes `0.21.0`、source
+`c5594ec4b34097cafbe24deb6dfd9ac4b21d411d`、Ubuntu-Hermes / Python `3.11.16`、
+`openai-codex` / `gpt-5.6-luna` / reasoning lowに固定した。八provider requestsとmanual
+compression一回を測定した。Stage 4は同じpinで九requests（`4 / 1 / 4`）とmanual
+compression一回を実行し、別EvidenceでCore `RESUME_VERIFIED`へ到達した。Stage 2のProbe
+VerdictをStage 4へコピーしたものではない。
 
 ## Target runtime status
 
-Claude Code and Hermes are Targets. DeepSeek Harness and
-OpenCode are Next Targets; Gemini CLI and Antigravity are Future candidates.
-Claude Desktop and Cowork are Research / Auxiliary surfaces.
+Hermes / Claude Code CLIのexact profile、identity、storage、completion、receipt、failure
+contractは各Runtime canonical pageを参照する。DeepSeek HarnessとOpenCodeはNext Target、
+Gemini CLIとAntigravityはFuture、Claude Desktop / CoworkはResearch / Auxiliaryである。
+これらのpriorityは実装、maturity、Verdictを意味しない。
 
-Claude Code C-CLI has a bounded adapter for 2.1.280/Linux/`claude -p`/stream-json
-with synchronous command Hooks. A returned external live-runtime synthetic
-acceptance was reviewed against the original bundle source hashes and the unchanged
-completion policy: Yohaku ManualRequest through ROLLOVER_OBSERVED is **PASS**,
-overall **PARTIAL**, issues `[]`. The observed order was PreCompact,
-SessionStart(compact), PostCompact; either order of the last two remains valid.
-The sanitized submission supports correlation review, not independent readback of
-the tester's private checkpoint/lease or authentication of the external run.
-The older Probe report and its TIME_LIMIT remain a separate historical record.
+Claude subscription completionのreturned external recordは、original bundle source hashと
+unchanged completion policyに対してreview済みである。Manual requestから
+`ROLLOVER_OBSERVED`まで`PASS`、overall `PARTIAL`。Older Probeの`TIME_LIMIT`は別recordとして
+保持する。Sanitized submissionはcorrelation reviewを支えるが、tester private checkpoint /
+leaseの独立readbackやexternal runのauthenticityを証明しない。Subscription recoveryは
+`NOT_RUN`のままである。
 
-`ClaudeCLIAdapter` still stops at ROLLOVER_OBSERVED. The opt-in
-`ClaudeCLIRecoveryAdapter` adds one controller-owned recovery input, explicit
-handoff/checkpoint receipt, fresh current-state observation, a single remaining
-fixture action and task-specific resume verification. Local fixtures and a fake
-CLI using real local command-Hook IPC reach RESUME_VERIFIED and reject missing,
-stale, duplicate or inconsistent evidence. This recovery route keeps the CLI
-process alive across compaction, unlike the earlier completion-only acceptance;
-its new external live acceptance remains **NOT_RUN**. A successful later action
-alone is neither receipt nor resume proof. Overall C-CLI remains **PARTIAL**.
-See the canonical [Claude Code CLI Runtime page](runtimes/claude-code-cli.md) for the exact trust and coverage
-boundaries. Agent SDK/API remains a separate unimplemented profile.
-
-Hermes H-CLI-01 measured an instrumented native CLI host on Ubuntu-Hermes, version
-0.21.0 at `c5594ec4b34097cafbe24deb6dfd9ac4b21d411d`, using the existing
-`openai-codex` route with `gpt-5.6-luna` and low effort for main and compression.
-The Stage 2 live synthetic-task Probe used eight provider requests and one manual
-compression. Bounded workflow: PASS; profile overall: PARTIAL. Host/DB reflection,
-fresh task-state read and nonduplicated controller-driven continuation were
-observed. Explicit handoff receipt was PARTIAL in that Probe; barrier, race and restart
-capabilities were not accepted. This is not interactive terminal acceptance or
-Strong Transition Assurance.
-
-The completion predicate was checked locally against saved Probe metadata and
-synthetic negatives. Historical Probe source associations and verdicts are preserved.
-
-The Stage 4 adapter then completed one new bounded live synthetic-task run with
-nine provider requests (4 before, 1 compression, 4 continuation), one manual
-compression and Core `RESUME_VERIFIED`. Existing durable checkpoint and handoff
-files were connected. The runtime issued an explicit assistant tool receipt
-containing handoff/checkpoint/request/session/generation identity and checkpoint
-checksum; independent post-run DB readback confirmed its arguments and result.
-Fresh state was read after receipt; A and B executed once each. Completion still
-uses the Stage 3 policy, not a new predicate. Bounded workflow and this explicit
-adapter receipt: PASS; overall CoverageProfile: PARTIAL.
-
-That Stage 4 run used Python 3.11.16 with copied source and retained the then-current
-Python >=3.14 package requirement; its local checks used Python 3.14.4.
-The explicit receipt is an adapter-defined protocol over native tool calls,
-not a built-in Hermes acknowledgement. General tool coverage, Hook-fault safety,
-races, background/parallel work, restart, late completion, repeated compression
-and live selected-archive retrieval remain unaccepted. See the canonical
-[Hermes Runtime page](runtimes/hermes.md) for required host wiring.
+Hermes Stage 2はProbe、Stage 4はconnected adapter、`H-OP`はlifecycle-only launcherである。
+三つを一つのHermes supportへ統合しない。Stage 4 receiptはHermes built-in acknowledgement
+ではなくadapter-defined protocolである。General tool、Hook-fault enforcement、race、restart、
+late completion、repeated compression、visible-turn archiveはacceptedではない。
 
 ## Claude Code Ollama local maintainer testing profile
 
-Reviewed 2026-09-29. This is a separate **maintainer / local-live / synthetic**
-control-plane testing profile. Its maturity remains **experimental**, evidence
-level is **lab tested**, and overall verdict is **PARTIAL**.
+次のrecordはすべてmaintainer / local-live / synthetic、maturity experimentalである。成功run
+だけをsummaryへ残さず、失敗・`AMBIGUOUS`・後段`NOT_RUN`も保持する。
 
-| Dimension | Fixed scope |
-|---|---|
-| Profile ID | `C-CLI-OLLAMA-LOCAL/2.1.280/0.34.1/spark-x2.5-4b-uncensored/e1646156c204` |
-| Runtime / OS / surface | Claude Code CLI `2.1.280` / Linux / `claude -p` / stream-json / synchronous command Hooks |
-| Backend | Ollama local client and server `0.34.1`, loopback upstream |
-| Model | `spark-x2.5-4b-uncensored:latest`, 4.1B, `Q4_K_M` |
-| Model digest | `e1646156c20479fe89690bad3f6a38062f4888cc33e03fcbb7a4944556be417f` |
-| Source | Product `e50455e7adef26b6609731ac3b6d45724ca64bd1`; adapter implementation `8ffc81b17876e94418a6d618f3c9c9284816cb41` |
-| Bounds | 300-second owner deadline; 4096 output tokens per inference request including compact; max turns 6; inference request ceiling 20 |
-| Ownership / tools | Fresh exclusive session, single writer, sequential foreground Bash fixture commands, one manual compact and one recovery input in the same CLI process |
-| Backend context | Observed 131072; model metadata maximum is a separate value |
-| Evidence record | `C-CLI-OLLAMA-LOCAL-REPEAT-2026-09-29`; private workspace retains profile, coverage, source snapshots and hashed records |
-| Regression use | Conditional manual maintainer testing with evidence review; not accepted as a required automated pass/fail gate |
+| Evidence Record | Fixed backend / model | 観測結果 | Verdict / 非継承 |
+|---|---|---|---|
+| `C-CLI-OLLAMA-LOCAL-REPEAT-2026-09-29` | Ollama `0.34.1`、Spark-X2.5-4B digest `e1646156c204…`、context 131072 | `recovery-04`は7 requests / 294.11秒で`RESUME_VERIFIED`。Matching `recovery-05`は最初のcommand引数欠落でadapter前に停止 | Historical bounded run `PASS`、repeatability check `FAIL`、overall `PARTIAL` |
+| `C-CLI-OLLAMA-MIMO-COMPARE-2026-09-29` | MiMo-V2.6-Distill-Qwen-9B-Ablitrated digest `616953773b51…` | 二attemptとも最初のcommand引数欠落で`FAIL`。一attemptは別にupstream `TimeoutError`も記録。Compact以降`NOT_RUN` | SparkやsubscriptionのVerdictを変更しない |
+| `C-CLI-OLLAMA-QWEN-COMPARE-2026-09-29` | Qwen3.5-4B-abliterated digest `4ce045509cfb…` | 二attemptともbackend template HTTP 500。Tool callなし、recovery stages `NOT_RUN` | Backend / template compatibility `FAIL`。Model tool semanticsは未評価 |
+| `C-CLI-OLLAMA-QWEN35-4B-2026-09-29` | `qwen3.5:4b` digest `2a654d98e6fb…`、context 32768 | 二attemptともcompletion / handoff submission後、full-identity receiptの一文字不一致で停止 | 二workflow `FAIL`。Fresh observation以降`NOT_RUN` |
+| `C-CLI-OLLAMA-QWEN35-9B-2026-09-29` | `qwen3.5:9b` digest `6488c96fa5fa…`、context 32768 | 一attemptはreceipt `session_id`不一致で`FAIL`、一attemptは7 requests / 128.37秒で`RESUME_VERIFIED` | Bounded success一回。Repeatability未成立、subscriptionへ非継承 |
+| `C-CLI-NONCE-QWEN35-9B` | 同じQwen 9B、`host-nonce-v1` | Accepted runは7 requests / 100.01秒で`RESUME_VERIFIED`。Earlier context 4096 attemptは`PreCompact`だけで`AMBIGUOUS` | Fixed workflow `PASS`、overall `PARTIAL`。Earlier failureも保持 |
 
-The earlier `recovery-04` reached **RESUME_VERIFIED** in 294.11 seconds using
-7 local inference requests. Delivery, explicit handoff/checkpoint receipt,
-fresh observation, token-bound continuation and task-specific assessment each
-had separate evidence. Counters were before=1, after=1, stale=0. Its bounded
-workflow **PASS** is retained.
-
-Exactly one additional attempt, `recovery-05`, used matching runtime binaries,
-model digest, runner and adapter source, prompts and bounds. It stopped in
-11.66 seconds after 1 inference request: the model's first structured Bash call
-omitted the required `before` argument. The owner rejected it with
-`UNEXPECTED_COMMAND` / `CLIENT_REJECTED`; all fixture counters remained zero.
-The adapter had not yet been constructed, so its state was null, and compact,
-receipt and recovery stages were **NOT_RUN**. This attempt's workflow and the
-successful-reproduction check are **FAIL**. The observed defect is in the emitted
-command; a Runtime protocol or adapter recovery defect was not established.
-
-Both attempts configured 4096 output tokens. The earlier compact response reported
-4026 output tokens; the repeat never requested compact. The shorter failed run
-is not a performance improvement. The earlier total time was only 5.89 seconds
-below the nominal owner deadline; stage timings were not recorded. IPC and process
-cleanup have separate grace periods. Sampling seed, host load and cache state
-were not controlled. One success and one failure do not establish reliability.
-
-Completion still accepts either order of SessionStart(compact) and PostCompact.
-Missing, stale, duplicate or inconsistent completion proof must stop recovery;
-a terminal success or later action alone cannot establish receipt or resume.
-Historical local normal-deny evidence and offline negative fixtures retain their
-own scope. The new pre-adapter rejection does not prove Hook-fault enforcement.
-Hook-fault safety, background/subagent work, restart, general task semantics and
-Agent SDK are outside this testing profile. Neither the Anthropic subscription
-profile's evidence/verdicts nor Claude Code-wide support are upgraded by these
-local records. No release channel is declared.
-
-## MiMo local maintainer model-comparison profile
-
-Reviewed 2026-09-29, independently of the Spark profile above. The actual local
-model was `MiMo-V2.6-Distill-Qwen-9B-Ablitrated:latest` (local spelling retained),
-9.0B, `Q4_K_M`, digest
-`616953773b51de179551c7430e3877ea6af9aedaf533e4cc684465e107c2e990`.
-Ollama client/server remained `0.34.1`; Claude Code CLI remained `2.1.280` on
-Linux with `claude -p`, stream-json and synchronous command Hooks. Evidence is
-**maintainer / local-live / synthetic**, maturity **experimental**, overall
-**PARTIAL**. Record: `C-CLI-OLLAMA-MIMO-COMPARE-2026-09-29`.
-
-The comparison imported the original Spark runner and fixture at the same paths.
-Binary and source hashes matched; only model selection, isolated output paths
-and saved model identity changed. Workflow, fixture prompts, adapter, completion
-policy, 300-second owner deadline, 4096 output cap, max turns 6 and inference
-request bound 20 were unchanged. Both runs observed backend context 131072.
-
-| Fixed-workflow run | Initial command fidelity | Compact / receipt / resume | Inference requests | Elapsed |
-|---|---|---|---|---|
-| Spark `recovery-04` (retained) | PASS, then all recovery calls accepted | PASS / PASS / RESUME_VERIFIED | 7 | 294.11 s |
-| Spark `recovery-05` (retained) | FAIL | NOT_RUN | 1 | 11.66 s |
-| MiMo `recovery-01` | FAIL | NOT_RUN | 1 | 30.12 s |
-| MiMo `recovery-02` | FAIL | NOT_RUN | 2 | 83.85 s |
-
-Exactly two MiMo attempts ran. Both omitted required `tool before` arguments in
-the first Bash command. The owner rejected both before fixture execution or
-adapter construction; counters stayed zero and Core state remained null.
-Both bounded workflow attempts are **FAIL**; completion proof, explicit receipt,
-fresh observation, continuation and resume verification remain **NOT_RUN**.
-The second run also recorded an upstream stream `TimeoutError`, followed by a
-nonstream request within the same CLI run. Its error annotation is not a third
-inference request. That transport failure's cause is unknown and is recorded
-separately from the emitted-command defect; no adapter recovery defect was
-established.
-
-**MiMo is not accepted as the primary maintainer regression profile.** Retain
-Spark unchanged for optional low-resource/stress diagnostics, with its existing
-manual-review requirement. Neither profile is accepted as a required automated
-gate. Failed-run times do not measure recovery speed. Two observations per model
-cannot establish general reliability or quality rankings; host load, seed and
-warm state were not controlled. No official model benchmark is used to infer
-quality of this local quantized derivative. Existing Spark and Anthropic
-subscription evidence/verdicts, product adapter behavior and release status
-remain unchanged.
-
-## Qwen local maintainer model-comparison profile
-
-The additional 2026-09-29 profile used
-`hf.co/mradermacher/Qwen3.5-4B-abliterated-GGUF:Q4_K_M`, digest
-`4ce045509cfbf9e700a3fa99bcccf93b0b4ad1ff46511294d97598ea7c62c13f`,
-4.21B. Both `/api/tags` and `/api/show` reported `Q4_K_M`; `/api/ps`
-reported quantization `unknown` for the same digest, which is preserved as an
-observation. Ollama client/server `0.34.1`, Claude Code CLI `2.1.280` / Linux /
-`claude -p` / stream-json / synchronous command Hooks, the original Spark runner,
-fixture, prompts, adapter and evidence conditions were unchanged. The bounds
-remained 300 seconds, 4096 output tokens, max turns 6 and 20 inference requests.
-Both runs observed context 131072. Provenance is **maintainer / local-live /
-synthetic**, maturity **experimental**, overall **PARTIAL**. Record:
-`C-CLI-OLLAMA-QWEN-COMPARE-2026-09-29`.
-
-Exactly two attempts ran: `recovery-01` took 189.89 seconds and `recovery-02`
-179.84 seconds, each with 11 local inference requests. All requests returned
-HTTP 500; the saved CLI error was `Jinja Exception: System message must be at
-the beginning.` Both workflow attempts are **FAIL**. No assistant tool calls
-occurred: command/argument fidelity, compaction, completion proof, receipt,
-fresh observation, continuation and resume verification are **NOT_RUN**.
-The adapter was never constructed and fixture counters remained zero.
-
-This is a backend/model-template message-compatibility failure in the fixed
-configuration, not an evaluated failure of model tool semantics. No template,
-message or prompt correction was made. CLI-internal repeated requests are counted
-as requests within each attempt, not extra owner workflow runs. Failed-run times
-are not recovery or generation-speed measurements.
-
-**Qwen is not accepted as the primary maintainer regression profile.** Together
-with the separate MiMo failures, this comparison provides no basis to replace
-Spark as the optional low-resource/stress diagnostic profile. All three remain
-unaccepted as required automated gates. Previous profile verdicts and product
-adapter code remain unchanged; official model benchmarks are not transferred to
-these local derivatives.
-
-## qwen3.5:4b local maintainer retry profile
-
-The separate 2026-09-29 retry used `qwen3.5:4b`, digest
-`2a654d98e6fba55d452b7043684e9b57a947e393bbffa62485a7aac05ee4eefd`,
-Q4_K_M (metadata parameter size 4.7B), on Ollama client/server 0.34.1.
-Claude Code 2.1.280/Linux/`claude -p`/stream-json/command Hooks, original runner,
-fixture, prompts, adapter and explicit bounds were unchanged: 300 seconds,
-4096 output tokens, max turns 6, inference request ceiling 20. Effective context
-was observed at 32768, unlike 131072 in the earlier profiles; no context override
-was added and the cause of that difference was not established. This is not a
-strict weights-only causal comparison. Provenance is maintainer/local-live/synthetic,
-maturity experimental, overall PARTIAL.
-
-Both attempts reached manual completion and handoff submission: 33.19 and 30.20
-seconds, four local inference requests each. The saved completion proofs passed
-replay through the unchanged policy, including either order of the two post-compact
-hooks. Explicit receipts failed independently: the first run's receipt call omitted one
-character from `session_id` (36 to 35 characters), the second from `handoff_hash`
-(64 to 63). Command syntax was valid, but receipt argument fidelity was **FAIL**.
-The owner rejected both and ended in RECOVERY_REQUIRED with counters 1/0/0.
-Fresh observation, continuation and RESUME_VERIFIED remain **NOT_RUN**.
-
-Both bounded workflows are **FAIL**. This profile is not accepted as the primary
-recovery regression profile or required automated gate; it can support conditional
-manual completion/rejected-receipt diagnostics. Raw collector `explicit_receipt`
-flags remain unchanged; separate reviews record attempted-but-rejected receipts
-as FAIL. No HTTP 500 occurred in these two runs, which does not revise the earlier
-Abliterated profile. Failed-run elapsed times are not completed recovery speed.
-Product code, previous profile verdicts and subscription evidence are unchanged.
-Record: `C-CLI-OLLAMA-QWEN35-4B-2026-09-29`.
-
-## qwen3.5:9b local maintainer comparison profile
-
-The separate 2026-09-29 profile used `qwen3.5:9b`, digest
-`6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7`,
-Q4_K_M (metadata parameter size 9.7B), on Ollama client/server 0.34.1.
-Claude Code CLI 2.1.280/Linux/`claude -p`/stream-json/command Hooks, the original
-Spark runner, fixture, prompts, adapter and acceptance conditions were unchanged.
-Bounds remained 300 seconds, 4096 output tokens, max turns 6 and 20 inference
-requests. Both runs observed context 32768, matching `qwen3.5:4b`; earlier
-profiles observed 131072. Host load, cache, seed and memory placement were not
-controlled. Provenance is maintainer/local-live/synthetic, maturity experimental,
-overall **PARTIAL**. Record: `C-CLI-OLLAMA-QWEN35-9B-2026-09-29`.
-
-Exactly two attempts ran. The first took 113.89 seconds and four inference
-requests: completion and handoff submission passed, but the model's explicit
-receipt had an incorrect `session_id` (39 characters instead of the expected 36).
-The owner rejected it and stopped in RECOVERY_REQUIRED, with counters 1/0/0.
-Its workflow is FAIL; fresh observation through resume verification are NOT_RUN.
-Raw collector evidence is retained, with attempted receipt failure classified
-separately from the absence of an accepted receipt.
-
-The second took 128.37 seconds and seven inference requests and reached
-**RESUME_VERIFIED**. Independent receipt, fresh observation, controller-driven
-continuation and task-specific assessment passed, with counters 1/1/0 and no
-issues. This is a **PASS for this bounded synthetic run only**. Both saved
-completion proofs passed the unchanged policy; either order of the two
-post-compact hooks remains valid. Compact responses reported 1269 and 1001
-output tokens respectively, below the unchanged 4096 bound.
-
-One success out of two does not establish repeatability. This profile is a
-conditional manual recovery regression candidate, not an accepted primary
-profile or required automated gate. Spark remains an unchanged optional
-low-resource/stress diagnostic. No product code or previous profile verdicts
-changed; the local success does not extend Anthropic subscription coverage.
+Full-identity receiptと`host-nonce-v1`は別protocolである。Nonce profileの成功をfull-identity
+receipt、Anthropic subscription、Claude Code family全体へ適用しない。Elapsed timeの差から
+speed improvementを推定せず、一成功からreliabilityを推定しない。詳細contractは
+[Claude Code CLI Runtime](runtimes/claude-code-cli.md#explicit-receipt)を参照する。
 
 ## Installation compatibility
 
-The later installation change lowers the package minimum to Python 3.11 and
-uses one normal wheel in both host environments. No Core, adapter, completion
-policy or saved-data format changed. The package has no runtime dependencies;
-Hermes remains an existing host installation with its own dependencies.
+Package minimumはPython `>=3.11`で、同じnormal wheelをCPython `3.11.16`と`3.14.4`へ
+non-editable installできる。これはtransition acceptanceとは別のinstallation Evidenceである。
 
 | Check | Evidence |
 |---|---|
-| Clean wheel install | PASS on CPython 3.11.16 and 3.14.4; non-editable, isolated venv, outside the source checkout |
-| Python floor regression | 124 local tests on 3.11.16, including all existing modules because the interpreter floor affects the whole package |
-| Existing interpreter regression | 40 selected tests on 3.14.4 covering configuration, completion, persistence, work/Hook, recovery, archive and Hermes adapter |
-| Codex saved-format compatibility | 16 snapshots and 17 durable files match the retained baseline on both interpreters |
-| Activation | Default disabled; enabled real owner construction; disabled startup creates no Yohaku owner/store/Hooks in the tested host wiring |
-| Hermes actual venv | Same wheel installed under site-packages; existing dependency versions unchanged; pip check PASS |
-| Installed Hermes preparation | Native offline route preflight and synthetic-response H-CLI-01 rehearsal PASS, RESUME_VERIFIED, zero provider requests |
-| New live acceptance | NOT_RUN for the installed wheel; historical Stage 4 live scope retained |
-
-See [installation and startup configuration](installation.md). Wheel distribution
-and startup opt-in are available. The operational host below is limited to
-lifecycle checks; a real-task profile and a release decision are still required
-before declaring an Alpha. CPython 3.12/3.13,
-other interpreters and other OS installation matrices remain NOT_RUN.
-
-Dated documentation/source research can identify candidate control points. Before
-implementation, each probe must fix runtime and SDK versions, surface, provider,
-permissions, tools, ownership, storage, cost bounds, strategy, and stop conditions.
-Actual completion, receipt, current-state reconciliation, and negative cases must
-be observed for that profile. Candidate APIs and runtime-native primitives alone
-do not establish Yohaku support.
-
-
-### C-CLI host-bound nonce receipt maintainer profile
-
-A separate opt-in `ClaudeCLINonceRecoveryAdapter` profile uses a single 128-bit
-challenge response while the trusted host retains and checks all handoff,
-checkpoint, request, session, attachment, generation and continuation identities.
-The original full-identity echo adapter and all earlier verdicts remain unchanged.
-Native admission, matching handler/PostToolUse result, fresh observation and an
-independent task assessor remain mandatory. A no-argument or automatic ACK is not
-accepted. This is restricted to one exclusive owner and one pending handoff.
-
-On Claude Code CLI 2.1.280 / Linux / `claude -p` / stream-json / command Hooks,
-Ollama 0.34.1 and `qwen3.5:9b` Q4_K_M (digest
-`6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7`), one
-maintainer/local-live/synthetic run at context 32768 reached **RESUME_VERIFIED**
-in **100.01 seconds / 7 inference requests**. Actual nonce arguments, the submitted
-handoff prompt, durable receipt/read/action records and task effects were reviewed
-independently. Counters were before=1, after=1, stale=0; issues were empty. The
-fixed bounded workflow is **PASS**, overall **PARTIAL**. Repeated-run reliability
-and primary regression-gate adoption remain unestablished.
-
-An earlier attempt after backend startup used context 4096, ended AMBIGUOUS after
-PreCompact only (28.61 seconds / 6 requests), and never reached receipt. It is
-retained but excluded from the same-condition comparison. The corrected run used
-a fresh session and checked context before compact; no old owner/request resumed.
-The 300-second owner bound, 4096 output cap, 6 turns, 20-request ceiling and original
-fixture were preserved. Only receipt arguments changed in the recovery prompt.
-No speed or reliability improvement is inferred from this single comparable run.
-
-Local tests reject missing, stale, duplicate, foreign-owner and mismatched identity
-or result evidence. Tool success does not establish semantic result incorporation;
-the fresh-read token and task assessment remain independent. This profile does not
-promote Anthropic subscription evidence or Claude Code as a whole to PASS. See the
-[nonce receipt contract](runtimes/claude-code-cli.md#explicit-receipt).
+| Clean wheel install | CPython `3.11.16` / `3.14.4`で`PASS`、`pip check` `PASS` |
+| Python floor regression | CPython `3.11.16`で124 local tests `PASS` |
+| Existing interpreter regression | CPython `3.14.4`でselected 40 tests `PASS` |
+| Saved-format compatibility | 16 snapshots / 17 durable filesがretained baselineとbyte-equal |
+| Hermes actual venv | Same wheel install、existing dependency versions unchanged、`pip check` `PASS` |
+| Installed Hermes rehearsal | Native offline preflightとsynthetic-response H-CLI-01 rehearsal `PASS`、provider request 0 |
+| Installed wheelの新しいlive acceptance | `NOT_RUN`。Historical Stage 4 scopeを維持 |
 
 ## Operational Alpha Foundation
 
-The [operational CLI](operations.md) has separate no-inference lifecycle profiles
-for Codex 0.158.0-alpha.2.1 and pinned Hermes 0.21.0. Native start/status/stop and
-fresh-session restart are lab-tested. Codex 0.155 Reference Evidence is not
-applied to the 0.158 lifecycle profile. Hermes native CLI construction leaves the
-lazy inference agent and transition adapter disabled; H-CLI-01 task coverage is
-unchanged.
+Codex `0.158.0-alpha.2.1`とpinned Hermes `0.21.0`には、no-inference lifecycle profileが
+ある。Native start / status / stop / clean stop後のfresh lifecycleはlab-testedである。
+Codex `0.155` Reference Evidenceを`C-OP`へ、H-CLI-01 adapter Evidenceを`H-OP`へ適用しない。
+Claude Code CLIには同等のformal operational launcherがない。
 
-The separate Codex 0.158 `document-review-report-v1` profile has one bounded
-lab/live-runtime/nonfixture PASS. It used a private workspace with two declared
-public-document inputs, one manual compact and one create-only Markdown report.
-It reached `RESUME_VERIFIED`; input/instruction/output hashes matched, total reads
-were two, write start/completion/result incorporation were each one, final
-active/pending were zero, and no command, file-change or MCP item was observed.
-The repeated run was refused as stale output without changing the report.
+Codex `document-review-report-v1`は、public document二点、manual compact一回、create-only
+Markdown report一点のfixed workflowで`RESUME_VERIFIED`へ到達した。Final accepted runの前に、
+task dynamic toolをHookが拒否してtransition前に`REFUSED`となったrunを保持する。修正後の
+accepted runと、existing outputを`STALE_OUTPUT_PRESENT`で拒否したrepeat checkも別結果として
+保持する。Mechanical completionは`PASS`だが、writing / factual qualityは`NOT_ASSESSED`である。
 
-This Evidence does not apply to the lifecycle-only Codex profile or historical
-Codex 0.155 profile. It does not assess report quality, external-writer exclusion,
-restart, repeated transitions, arbitrary document tasks, coding tasks, another
-Codex version, Hermes or Claude. See the
-[fixed task contract](reference/document-review-report-v1.md).
+## Known Limitations
 
-Historical C-CLI and its maintainer nonce profile appear in profile/status output
-with launch unsupported, overall PARTIAL and their distinct evidence provenance.
-No runtime maturity or release channel is promoted by this foundation.
+- 全profileのmaturityはexperimental、release channelはundeclared
+- Runtime family全体のsupportとStrong Transition Assuranceは未成立
+- Hook fault時のRuntime-wide fail-closedとatomic work freezeは未受入
+- Parallel、background、detached、subagent、external writerの一般coverageはない
+- Hermes / Claude transition restartは`UNSUPPORTED`。Power lossは`NOT_RUN`
+- General repeated transition、manual / native race、late-event recoveryは未受入
+- Packaged real Task ProfileはCodex `document-review-report-v1`だけ
+- Hermes / Claude fixture assessorからgeneral Task Profile supportを推定しない
+- Field Evidenceは成立していない
+- Runtime version、surface、OS、provider、backend、model、receipt protocol、Task Profileを
+  越えてEvidenceとVerdictを継承しない
+
+Raw records、CoverageProfile、RESULT、manifest、hash、source associationはprivate development
+workspaceに保持し、このsummary作成によって移動・改名・再採点していない。

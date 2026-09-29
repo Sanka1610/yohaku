@@ -25,13 +25,14 @@ handoff、`RESUME_VERIFIED`を推定しない。
 ## Supported / measured profiles
 
 `H-PROBE`、`H-ADAPTER`、`H-OP`は[Runtime Mapping](../runtime-mapping.md)のmapping keyであり、
-新しいSupport Profile IDではない。
+Support Profile IDやEvidence Record IDではない。Runtime / source / surface / OSとprovider /
+backend / modelは別のprofile dimensionとして保持する。
 
-| Key | Fixed profile | 位置付け | Accepted endpoint |
-|---|---|---|---|
-| `H-PROBE` | Hermes `H-CLI-01` Stage 2 Probe | Probe instrumentationによるbounded live measurement。Product adapterではない | Host / DB reflection、fresh task-state read、非重複continuationを含むProbe workflow PASS。Explicit receiptはPARTIAL、overall PARTIAL |
-| `H-ADAPTER` | `hermes-h-cli-01` Stage 4 connected adapter | Yohaku checkpoint、manual compression、handoff、receipt、resumeを接続したbounded adapter | Fixed synthetic workflowがCore `RESUME_VERIFIED`までPASS。Overall PARTIAL |
-| `H-OP` | `hermes-operational-h-cli-01` | Native Hermes CLIとstoreを所有するlifecycle-only operational profile | Install / configure後のstart、status、stop、clean stop後のfresh lifecycle。Lifecycle PASS、task / transition NOT_RUN |
+| Mapping key | Support Profile ID | Evidence Record ID | 位置付け | Accepted endpoint |
+|---|---|---|---|---|
+| `H-PROBE` | `H-CLI-01`（internal Probe profile） | Separate public IDは未割当。Stage 2 retained recordを参照 | Probe instrumentationによるbounded live measurement。Product adapterではない | Host / DB reflection、fresh task-state read、非重複continuationを含むProbe workflow PASS。Explicit receiptはPARTIAL、overall PARTIAL |
+| `H-ADAPTER` | `hermes-h-cli-01`（product registry）／retained record上は`H-CLI-01` | `H-CLI-01-STAGE4` | Yohaku checkpoint、manual compression、handoff、receipt、resumeを接続したbounded adapter | Fixed synthetic workflowがCore `RESUME_VERIFIED`までPASS。Overall PARTIAL |
+| `H-OP` | `hermes-operational-h-cli-01` | `S5-OP-HERMES` | Native Hermes CLIとstoreを所有するlifecycle-only operational profile | Install / configure後のstart、status、stop、clean stop後のfresh lifecycle。Lifecycle PASS、task / transition NOT_RUN |
 
 Stage 2 EvidenceをStage 4へ自動継承していない。Stage 4は、Stage 2で選択したRuntime pinと
 completion strategyを入力として再利用し、connected adapter、durable checkpoint / handoff、
@@ -127,10 +128,13 @@ Single foreground workのledgerから、複数tool、parallel execution、backgr
 
 ## Native identity / host-local identity
 
+Hermes native identity、Yohaku Core identity、host-local correlation identityを分ける。
+
 | 種類 | 例 | Authority |
 |---|---|---|
-| Hermes native | Native session ID、turn ID、API request ID、tool call ID、`SessionDB` row / active state | Hermes内のrequest、tool、history、storage projectionを識別する |
-| Yohaku / host-local | Boundary ID、checkpoint ID、lease ID、compression request ID、Core generation、handoff ID、adapter event sequence | Yohakuのauthority、durability、deduplication、continuation bindingを識別する |
+| Hermes native identity | Native session ID、turn ID、API request ID、tool call ID、`SessionDB` row / active state | Hermes内のrequest、tool、history、storage projectionを識別する |
+| Yohaku Core identity | Boundary ID、checkpoint ID、lease ID、compression request ID、Core generation、handoff ID、continuation permit | Core authority、durability、deduplication、state transitionを識別する |
+| Host-local correlation identity | Probe / adapter run ID、adapter event sequence、readback sequence、embedded owner ID | Native host / DB observationとCore requestをfixed owner内で対応付ける。Hermes native identityやCore authorityを置き換えない |
 
 HermesはYohaku compression request IDやCore generationをnative completion eventとして返さない。
 H-CLI-01は、一つのexclusive fresh session、一つのmanual request、ordered host instrumentation、

@@ -83,9 +83,10 @@ event、identity、storage、receipt、restart機構を、別Runtimeの名前で
 
 ## Identityとstorageの記述規則
 
-Identityは、Runtime-native identityとYohaku / host-local identityを分ける。文字列が一致
-してもauthorityが同じとは扱わず、両者の対応を固定profileのcorrelation ruleとして示す。
-Native generationが存在しない場合は、その欠落をhost-local generationで隠さない。
+Identityは、Runtime-native identity、Yohaku Core identity、host-local correlation identityを
+分ける。文字列が一致してもauthorityが同じとは扱わず、三者の対応を固定profileの
+correlation ruleとして示す。Native generationが存在しない場合は、その欠落をCore
+generationやhost-local generationで隠さない。
 
 Storageは、少なくとも次を分ける。
 

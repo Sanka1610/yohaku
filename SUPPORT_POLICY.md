@@ -39,11 +39,20 @@ Priorityからmaturityを決めず、Capability Verdictの集計だけでmaturit
 | beta | 対応範囲を固定して外部実利用を募れる。主要workflowのfield記録と問題処理の実績がある | 継続利用、障害・復旧、更新互換性の証拠を蓄積する |
 | stable | 宣言したprofileで継続利用・保守・更新を支えられる | 変更影響の検証とField Evidenceの継続reviewで維持する |
 
-制定時はCodex Referenceをexperimentalとする。これは新しい分類の初期値であり、既存の限定PASSを取り消すものでも、公開Alphaを承認するものでもない。他Runtimeはexperimentalの調査候補で、adapterは未実装・live capability受入はNOT_RUN。未実装という状態もmaturityと併記する。
+制定時はCodex Referenceをexperimentalとし、他Runtimeを未実装・live capability受入
+`NOT_RUN`の調査候補として分類した。これは制定時点の記録であり、現在の実装状態ではない。
+その後に追加したHermes / Claude Code CLIのbounded profileもexperimentalのままであり、
+各profileのEvidenceとVerdictはRuntime canonical pageで個別に示す。限定PASSをRuntime family
+全体や公開Alphaの承認へ読み替えない。
 
 その後、Hermes H-CLI-01はbounded connected adapter workflow PASS / profile PARTIALとなり、completion predicateをCoreから分離した。General Hermes adapter、Strong Transition Assurance、公開channelは未成立。更新後の実装・実測範囲は[Hermes Runtime](docs/runtimes/hermes.md)と[Runtime support](docs/runtime-support.md#target-runtime-status)を参照する。
 
-Claude Code + Ollama localは、固定version/modelの[maintainer testing profile](docs/runtime-support.md#claude-code-ollama-local-maintainer-testing-profile)として別登録した。2026-09-29時点で同一構成のbounded recoveryは成功1回・追加試行の失敗1回。歴史的workflow PASSと今回の再現確認FAILを併記し、overall PARTIAL / experimentalを維持する。手動reviewを伴う回帰診断には条件付きで使用できるが、安定した必須自動gateには採用しない。Anthropic subscription profileのEvidence・Verdictは変更しない。Profile固有の実装・測定境界は[Claude Code CLI Runtime](docs/runtimes/claude-code-cli.md)を参照する。
+Claude Code + Ollama localは、固定version / backend / modelの
+[maintainer testing profile](docs/runtimes/claude-code-cli.md#model-comparisonの扱い)として別登録した。
+2026-09-29時点で同一構成のbounded recoveryは成功1回・追加試行の失敗1回。歴史的workflow
+PASSと再現確認FAILを併記し、overall PARTIAL / experimentalを維持する。手動reviewを伴う
+回帰診断には条件付きで使用できるが、安定した必須自動gateには採用しない。Anthropic
+subscription profileのEvidence・Verdictは変更しない。
 
 Codexの既存受入はCLI `0.155.0-alpha.16.4` / WSL2 Ubuntu / Python `3.14.4`の限定profileである。Phase 14のlive信号を使った合成taskはlab tested / live-runtime、局所・合成テストはlab tested / local-syntheticとして読む。Field Evidenceの取得や現在版での再実行を示すものではない。native auto compactは1 attachmentにつき1回の範囲、native recovery途中のrestartはUNSUPPORTED、反復compactや一般の並列・外部work等は未受入である。
 

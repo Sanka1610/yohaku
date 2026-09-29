@@ -313,7 +313,8 @@ Support Profile、Evidence、Verdictを変更しない。
 作成する。現在は、本書、[Runtime Mapping](runtime-mapping.md)、
 [Transition Strategies](transition-strategies.md)、[Evidence Model](evidence-model.md)、
 [Runtime文書の構成規則](runtimes/README.md)、[Codex Runtime](runtimes/codex.md)、
-[Hermes Runtime](runtimes/hermes.md)を日本語canonicalとする。`README.md`の全面改稿や
+[Hermes Runtime](runtimes/hermes.md)、
+[Claude Code CLI Runtime](runtimes/claude-code-cli.md)を日本語canonicalとする。`README.md`の全面改稿や
 英語版の作成は、この整理に含めない。
 
 Internal research、raw Evidence、historical / frozen資料は、provenanceとsource

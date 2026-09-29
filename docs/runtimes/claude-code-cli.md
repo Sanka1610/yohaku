@@ -30,15 +30,16 @@ Codex / Hermesと同等の正式operational launcherは存在しない。Adapter
 
 ## Supported / measured profiles
 
-Keyは[Runtime Mapping](../runtime-mapping.md#fixed-profile一覧)の略称であり、Runtime family全体の
-aliasではない。
+Keyは[Runtime Mapping](../runtime-mapping.md#fixed-profile一覧)のmapping keyであり、Support
+Profile ID、Evidence Record ID、Runtime family aliasではない。Runtime version / surface /
+OSとprovider / backend / modelも、それぞれprofileを固定するdimensionでありIDではない。
 
-| Key | Profile | 実装・測定範囲 | Current claim |
-|---|---|---|---|
-| `CL-SUB-C` | `C-CLI/2.1.280/Linux/print-stream-json/command-hooks` | Anthropic subscriptionを使うexternal completion profile。一つのfresh exclusive sessionと一つのmanual `/compact` | `ManualRequest`から`ROLLOVER_OBSERVED`までlive `PASS`、overall `PARTIAL`。Recovery / `RESUME_VERIFIED`は含まない |
-| `CL-SUB-R` | 同じC-CLI surfaceのsubscription recovery capability | Same-process handoff、receipt、fresh read、continuation、Task Assessorの製品実装とoffline / local検証 | External subscription recovery acceptanceは`NOT_RUN`。Local Ollama Evidenceを継承しない |
-| `CL-LOCAL-FULL` | `C-CLI-OLLAMA-LOCAL/2.1.280/0.34.1/spark-x2.5-4b-uncensored/e1646156c204` | Spark-X2.5-4Bとfull-identity receiptによるmaintainer local recovery | `RESUME_VERIFIED`成功runとpre-adapter失敗runを保持。Repeatability `FAIL`、overall `PARTIAL` |
-| `CL-LOCAL-NONCE` | `claude-c-cli-local-nonce` / `host-nonce-v1` | Qwen3.5 9B、single owner、single pending handoff、one-time nonce receipt | Bounded workflowは`RESUME_VERIFIED`まで`PASS`、overall `PARTIAL`。Parallel / multi-pendingは`UNSUPPORTED` |
+| Mapping key | Support Profile ID | Evidence Record ID | 実装・測定範囲 | Current claim |
+|---|---|---|---|---|
+| `CL-SUB-C` | Product registryは`claude-c-cli`。Retained external profile labelは`C-CLI/2.1.280/Linux/print-stream-json/command-hooks` | `C-CLI-COMPLETION` | Anthropic subscriptionを使うexternal completion profile。一つのfresh exclusive sessionと一つのmanual `/compact` | `ManualRequest`から`ROLLOVER_OBSERVED`までlive `PASS`、overall `PARTIAL`。Recovery / `RESUME_VERIFIED`は含まない |
+| `CL-SUB-R` | Separate Support Profile IDは未割当。`claude-c-cli` surface上のrecovery capability row | Qualifying external recordはなし。Verdictは`NOT_RUN` | Same-process handoff、receipt、fresh read、continuation、Task Assessorの製品実装とoffline / local検証 | External subscription recovery acceptanceは`NOT_RUN`。Local Ollama Evidenceを継承しない |
+| `CL-LOCAL-FULL` | `C-CLI-OLLAMA-LOCAL/2.1.280/0.34.1/spark-x2.5-4b-uncensored/e1646156c204` | `C-CLI-OLLAMA-LOCAL-REPEAT-2026-09-29` | Spark-X2.5-4Bとfull-identity receiptによるmaintainer local recovery | `RESUME_VERIFIED`成功runとpre-adapter失敗runを保持。Repeatability `FAIL`、overall `PARTIAL` |
+| `CL-LOCAL-NONCE` | `claude-c-cli-local-nonce` | `C-CLI-NONCE-QWEN35-9B` | Qwen3.5 9B、single owner、single pending handoff、`host-nonce-v1` | Bounded workflowは`RESUME_VERIFIED`まで`PASS`、overall `PARTIAL`。Parallel / multi-pendingは`UNSUPPORTED` |
 
 `CL-SUB-C`のcompletion `PASS`を`CL-SUB-R`のrecoveryへ拡張しない。`CL-LOCAL-FULL`と
 `CL-LOCAL-NONCE`もreceipt方式、model、Evidence chainが異なるため、一つのlocal profileへ統合しない。
@@ -144,13 +145,19 @@ observation、current-state再検証、continuation、Task Assessorによるresu
 
 ## Native identity / host-local identity
 
-Native Hook payloadから保持するidentityはClaude Codeの`session_id`とtool eventのnative tool IDである。
+Claude Code native identity、Yohaku Core identity、host-local correlation identityを分ける。
+Native Hook payloadから保持するのはClaude Codeの`session_id`とtool eventのnative tool IDである。
 Claude Code CLIはYohaku request、generation、attachment、continuation turnをatomicなnative identity
 として提供しない。
 
-Host-local identityは、attachment ID、Yohaku compact request ID、generation、collector sequence、
-recovery request ID、continuation turn ID、logical task IDである。`ClaudeContinuationBinding.turn_id`は
-一つのrecovery inputに対してhostが生成するdispatch identityであり、native CLI turn IDではない。
+| 種類 | 例 | Authority |
+|---|---|---|
+| Claude Code native identity | Native `session_id`、tool eventのnative tool ID | Claude Code Hook / session内の対象を識別する |
+| Yohaku Core identity | Boundary ID、checkpoint ID、lease ID、compact request ID、Core generation、handoff ID、continuation permit | Core authority、durability、deduplication、state transitionを識別する |
+| Host-local correlation identity | Attachment ID、collector sequence、recovery request ID、continuation turn ID、logical task ID、runner / owner ID | Native observationとCore identityをserialized collector内で対応付ける。Claude Code native identityやCore authorityにはならない |
+
+`ClaudeContinuationBinding.turn_id`は一つのrecovery inputに対してhostが生成するdispatch identityであり、
+native CLI turn IDではない。
 
 Correlationは、fresh exclusive session、one request、trusted serialized collector、capture時のbindingに
 依存する。Native `session_id`とhost-local IDを両方照合してもauthorityは統合されず、malicious host、
