@@ -366,7 +366,8 @@ backfillは行わない。
 ## Runtime固有docsに必要なEvidence項目
 
 RuntimeまたはTask Profileの個別pageでは、個別runの羅列を避けつつ、採用Evidenceについて
-次を確認できるようにする。
+次を確認できるようにする。章順とprofile記述規則は
+[Runtime文書の構成規則](runtimes/README.md)に従う。
 
 1. Support Profile ID、CoverageProfile ID、Evidence ID、対象capability requirement
 2. Yohaku commit、adapter / collector version、Runtime version / binary / surface、OS

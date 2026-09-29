@@ -7,7 +7,7 @@ delivery、current-state observation、continuation、Known Limitationsなど、
 
 [Architecture](architecture.md)はcomponent責務とtrust boundaryを所有する。
 [Transition Strategies](transition-strategies.md)はContext Transition方式のtaxonomyと
-共通semanticsを所有する。Runtime固有contractの詳細は[Codex](reference/codex.md)、
+共通semanticsを所有する。Runtime固有contractの詳細は[Codex](runtimes/codex.md)、
 [Hermes](reference/hermes.md)、[Claude Code](reference/claude-cli.md)の各referenceに
 残す。
 

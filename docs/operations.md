@@ -147,13 +147,14 @@ result. A second preflight or run with the same output returns
 workspace and state root after maintainer review rather than deleting state or
 reusing the old output. See the [task contract](reference/document-review-report-v1.md).
 
-Codex uses a fresh per-run home, no credentials, a disabled loopback provider,
-and only initialize/thread-start requests. It never sends turn/start or compact.
-Its Companion is attached, but task hooks, work observations and recovery dispatch
-are unavailable. Project-local config/hooks are untrusted and disabled. A nonempty
+The lifecycle-only `codex-operational-0.158` profile uses a fresh per-run home,
+no credentials, a disabled loopback provider, and only initialize/thread-start
+requests. It never sends turn/start or compact. Its Companion is attached, but
+task hooks, work observations and recovery dispatch are unavailable. Project-local
+config/hooks are untrusted and disabled. A nonempty
 `/etc/codex` is rejected because system configuration has not been reviewed for
 this isolated profile. App Server startup follows the [official protocol](https://learn.chatgpt.com/docs/app-server);
-Yohaku's restrictions and acceptance are specific to the profile above.
+Yohaku's restrictions and acceptance are specific to this lifecycle-only profile.
 
 Hermes constructs the pinned native `HermesCLI`, opens its native DB and a
 Yohaku SessionStore in the same process, and leaves its lazy inference agent

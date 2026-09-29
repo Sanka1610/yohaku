@@ -50,7 +50,7 @@ the Hook command with the **absolute path to this venv's Python**:
 /absolute/path/yohaku-venv/bin/python -m yohaku.hook --socket <bridge.path>
 ```
 
-See the [Codex reference](reference/codex.md) for connection initialization, Hook
+See the canonical [Codex Runtime page](runtimes/codex.md) for connection initialization, Hook
 trust, work coverage and observer requirements. Installing the wheel does not
 start Codex or register Hooks.
 

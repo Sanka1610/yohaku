@@ -124,7 +124,7 @@ PYTHONPATH=src python3.14 -m unittest discover -s tests -p test_controller.py -v
 A live integration must supply an initialized, exclusively owned runtime
 connection, serialized event loop, trusted Hook configuration, current-state
 observers, and a task-specific resume assessor. Read the
-[Codex integration reference](docs/reference/codex.md) before constructing a host.
+[Codex Runtime page](docs/runtimes/codex.md) before constructing a host.
 The embedded adapters do not configure authentication or decide whether an
 arbitrary task has succeeded. The operational CLI launches only its explicitly
 listed lifecycle profiles.
@@ -187,12 +187,13 @@ release decision. See the [Evidence model](docs/evidence-model.md) and
 - [Runtime support and evidence scope](docs/runtime-support.md): measured profile, provenance, and strategy limits.
 - [Hermes H-CLI-01 reference](docs/reference/hermes.md): embedded host wiring, receipt and scope limits.
 - [Claude Code C-CLI reference](docs/reference/claude-cli.md): manual completion, opt-in recovery and evidence limits.
-- [Codex reference](docs/reference/codex.md): existing API, storage, Hook, recovery, and archive contracts.
+- [Runtime document structure](docs/runtimes/README.md): shared chapter order and profile documentation rules.
+- [Codex Runtime](docs/runtimes/codex.md): canonical Codex profiles, primitives, Evidence scope, and limitations.
 - [Document review report v1](docs/reference/document-review-report-v1.md): first fixed Real-task Profile and its acceptance boundary.
 - [Support maturity and release policy](SUPPORT_POLICY.md): profile maturity and release criteria.
 
 Existing README section links remain available below; detailed content is now in
-the reference document.
+the canonical Runtime documents.
 
 <a id="direction-and-support-status"></a>
 
@@ -208,12 +209,12 @@ the reference document.
 <a id="bounded-native-automatic-compaction-recovery"></a>
 <a id="focused-verification"></a>
 
-- [Controller Core](docs/reference/codex.md#controller-core).
-- [Persistence](docs/reference/codex.md#production-architecture-and-persistence).
-- [ManualCompactBackend and owner API](docs/reference/codex.md#manualcompactbackend-and-owner-api).
-- [Recovery and continuation](docs/reference/codex.md#production-recovery-and-continuation).
-- [Work-plane integration](docs/reference/codex.md#bounded-work-plane-integration).
-- [Archive and lazy rehydration](docs/reference/codex.md#archive-and-lazy-rehydration).
-- [Runtime archive adapter](docs/reference/codex.md#reference-runtime-archive-adapter).
-- [Native recovery](docs/reference/codex.md#bounded-native-automatic-compaction-recovery).
-- [Focused verification](docs/reference/codex.md#focused-verification).
+- [Controller Core](docs/runtimes/codex.md#controller-core).
+- [Persistence](docs/runtimes/codex.md#production-architecture-and-persistence).
+- [ManualCompactBackend and owner API](docs/runtimes/codex.md#manualcompactbackend-and-owner-api).
+- [Recovery and continuation](docs/runtimes/codex.md#production-recovery-and-continuation).
+- [Work-plane integration](docs/runtimes/codex.md#bounded-work-plane-integration).
+- [Archive and lazy rehydration](docs/runtimes/codex.md#archive-and-lazy-rehydration).
+- [Runtime archive adapter](docs/runtimes/codex.md#reference-runtime-archive-adapter).
+- [Native recovery](docs/runtimes/codex.md#bounded-native-automatic-compaction-recovery).
+- [Focused verification](docs/runtimes/codex.md#focused-verification).

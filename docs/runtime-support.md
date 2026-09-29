@@ -38,7 +38,7 @@ bundle; publication of reviewed, shareable evidence remains release preparation.
 
 Native recovery does not prove the proactive boundary/checkpoint/lease sequence
 was completed before native compaction. Manual and native results remain separate.
-For exact host requirements, see the [implementation reference](reference/codex.md).
+For exact host requirements, see the canonical [Codex Runtime page](runtimes/codex.md).
 
 ## Historical provenance
 
