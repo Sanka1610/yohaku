@@ -97,3 +97,21 @@ Yohaku ownerが不明状態で進めないことと、Runtime全体を強制停�
 Beta/StableのField Evidenceは、開発者、友人、外部testerの記録を条件付きで組み合わせられる。人数・利用日数だけで成熟度を決めず、採用するtask/workflow、観測期間、成功・失敗、未確認の範囲をrelease recordへ記す。Stableの宣言を別Runtimeや別surfaceへ波及させない。
 
 Release recordには、channel/version/commit、主対象profileとmaturity、必須workflowと採用Evidence、除外機能・既知の制限、残debt、費用等による未測定理由、Issue対応状況、導入/更新/復旧手順、判定者・日付を記載する。自動判定の総合PASS一つに置き換えない。本方針の制定は公開承認・公開実行ではない。
+
+## Candidate A release review fields
+
+次の表はCandidate Aに限定したrelease review用の検証対象である。Alpha候補の範囲を示し、
+現在のmaturity / channelや個別EvidenceのVerdictを昇格させない。Fieldの意味、除外コード、
+検証手順は[Candidate A review](docs/release/candidate-a.md)を参照する。
+
+<!-- candidate-a:start -->
+| field | Candidate A |
+|---|---|
+| release_candidate_id | candidate-a-pre-alpha-stage2 |
+| alpha_scope_profile_ids | codex-operational-0.158, codex-document-review-report-v1 |
+| excluded_profile_ids | codex-reference-0.155, hermes-operational-h-cli-01, hermes-h-cli-01, claude-c-cli, claude-c-cli-local-nonce |
+| excluded_runtime_families | hermes, claude |
+| maturity | experimental |
+| release_channel | undeclared |
+| known_exclusions | no-runtime-family-support, no-field-evidence, no-other-runtime-os-provider, no-general-parallel-background-external-work, no-strong-transition-assurance |
+<!-- candidate-a:end -->

@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "release_candidate_id": "candidate-a-pre-alpha-stage2",
+  "status": "review-input-not-release-approval",
+  "source_review_commit": "84b34f8eff42d5b2a46b9ce1b38913a35bd8f25b",
+  "alpha_scope_profile_ids": [
+    "codex-operational-0.158",
+    "codex-document-review-report-v1"
+  ],
+  "excluded_profile_ids": [
+    "codex-reference-0.155",
+    "hermes-operational-h-cli-01",
+    "hermes-h-cli-01",
+    "claude-c-cli",
+    "claude-c-cli-local-nonce"
+  ],
+  "excluded_runtime_families": [
+    "hermes",
+    "claude"
+  ],
+  "maturity": "experimental",
+  "release_channel": "undeclared",
+  "profiles": [
+    {
+      "mapping_key": "C-OP",
+      "support_profile_id": "codex-operational-0.158",
+      "runtime_family": "codex",
+      "runtime_exact_version": "0.158.0-alpha.2.1",
+      "surface": "dedicated App Server / stdio",
+      "task_profile_id": null,
+      "operational_launcher_support": true,
+      "task_runner_support": false,
+      "maturity": "experimental",
+      "release_channel": "undeclared",
+      "accepted_endpoint": "native-start-status-stop-fresh-lifecycle",
+      "evidence_record_id": "S5-OP-CODEX-0158",
+      "known_exclusions": [
+        "no-runtime-family-support",
+        "no-field-evidence",
+        "no-other-runtime-os-provider",
+        "no-general-parallel-background-external-work",
+        "no-strong-transition-assurance",
+        "no-inference-or-task-transition",
+        "no-reference-evidence-inheritance"
+      ]
+    },
+    {
+      "mapping_key": "C-DRR",
+      "support_profile_id": "codex-document-review-report-v1",
+      "runtime_family": "codex",
+      "runtime_exact_version": "0.158.0-alpha.2.1",
+      "surface": "dedicated App Server / dynamic task tools / manual compact",
+      "task_profile_id": "document-review-report-v1",
+      "operational_launcher_support": true,
+      "task_runner_support": true,
+      "maturity": "experimental",
+      "release_channel": "undeclared",
+      "accepted_endpoint": "RESUME_VERIFIED",
+      "evidence_record_id": "DRR-V1-CODEX-0158-LIVE-01",
+      "known_exclusions": [
+        "no-runtime-family-support",
+        "no-field-evidence",
+        "no-other-runtime-os-provider",
+        "no-general-parallel-background-external-work",
+        "no-strong-transition-assurance",
+        "one-fresh-session-one-manual-compact-one-report",
+        "no-restart-or-repeated-transition",
+        "quality-not-assessed",
+        "no-general-document-coding-shell-mcp",
+        "external-writers-not-prevented"
+      ]
+    }
+  ],
+  "evidence_index": "candidate-a-evidence.json",
+  "source_drift_review": "stage1-source-drift.json",
+  "required_artifact_checks": [
+    "candidate-a-drift",
+    "public-safe-allowlist",
+    "retained-evidence-hashes",
+    "reviewed-source-association",
+    "release-artifact-source-association",
+    "release-artifact-content-review",
+    "release-artifact-installation"
+  ],
+  "release_artifact_status": "NOT_CREATED",
+  "known_exclusions": [
+    "no-runtime-family-support",
+    "no-field-evidence",
+    "no-other-runtime-os-provider",
+    "no-general-parallel-background-external-work",
+    "no-strong-transition-assurance"
+  ]
+}

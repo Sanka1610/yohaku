@@ -145,3 +145,27 @@ document task、coding taskも対象外である。Input / output、Observer、A
 
 Raw records、CoverageProfile、RESULT、manifest、hash、source associationはprivate development
 workspaceに保持し、このsummary作成によって移動・改名・再採点していない。
+
+## Candidate A release review fields
+
+次の表はCandidate Aに限定したrelease review用の検証対象である。Alpha候補の範囲を示し、
+現在のmaturity / channelや個別EvidenceのVerdictを昇格させない。Fieldの意味、除外コード、
+検証手順は[Candidate A review](release/candidate-a.md)を参照する。
+
+<!-- candidate-a:start -->
+| field | C-OP | C-DRR |
+|---|---|---|
+| mapping_key | C-OP | C-DRR |
+| support_profile_id | codex-operational-0.158 | codex-document-review-report-v1 |
+| runtime_family | codex | codex |
+| runtime_exact_version | 0.158.0-alpha.2.1 | 0.158.0-alpha.2.1 |
+| surface | dedicated App Server / stdio | dedicated App Server / dynamic task tools / manual compact |
+| task_profile_id | none | document-review-report-v1 |
+| operational_launcher_support | true | true |
+| task_runner_support | false | true |
+| maturity | experimental | experimental |
+| release_channel | undeclared | undeclared |
+| accepted_endpoint | native-start-status-stop-fresh-lifecycle | RESUME_VERIFIED |
+| evidence_record_id | S5-OP-CODEX-0158 | DRR-V1-CODEX-0158-LIVE-01 |
+| known_exclusions | no-runtime-family-support, no-field-evidence, no-other-runtime-os-provider, no-general-parallel-background-external-work, no-strong-transition-assurance, no-inference-or-task-transition, no-reference-evidence-inheritance | no-runtime-family-support, no-field-evidence, no-other-runtime-os-provider, no-general-parallel-background-external-work, no-strong-transition-assurance, one-fresh-session-one-manual-compact-one-report, no-restart-or-repeated-transition, quality-not-assessed, no-general-document-coding-shell-mcp, external-writers-not-prevented |
+<!-- candidate-a:end -->

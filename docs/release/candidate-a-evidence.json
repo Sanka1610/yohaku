@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "purpose": "release-claim-index-only",
+  "records": [
+    {
+      "mapping_key": "C-OP",
+      "support_profile_id": "codex-operational-0.158",
+      "runtime_family": "codex",
+      "runtime_exact_version": "0.158.0-alpha.2.1",
+      "surface": "dedicated App Server / stdio",
+      "task_profile_id": null,
+      "operational_launcher_support": true,
+      "task_runner_support": false,
+      "maturity": "experimental",
+      "release_channel": "undeclared",
+      "accepted_endpoint": "native-start-status-stop-fresh-lifecycle",
+      "evidence_record_id": "S5-OP-CODEX-0158",
+      "known_exclusions": [
+        "no-runtime-family-support",
+        "no-field-evidence",
+        "no-other-runtime-os-provider",
+        "no-general-parallel-background-external-work",
+        "no-strong-transition-assurance",
+        "no-inference-or-task-transition",
+        "no-reference-evidence-inheritance"
+      ],
+      "private_source_ref": "S5-OP-CODEX-0158",
+      "sanitized_source": "not public",
+      "source_manifest_sha256": "11be26fbbf2d877dc89b0d8764594cfb679fa7405aa74343111678df0e29c3ed",
+      "artifacts": {
+        "retained-wheel": "c0b54e4d107c4b171f78eda5ca8c5bc9079445dcd59f45c9bc6c31c8ca6e3108",
+        "result": "72768d3a76154312ceaffb4061098bf9321753860a13e96ae5974c646cb88193",
+        "acceptance": "63513c3a9bf97e3f54d69f096ac59efe935372121856a2c9f05c0a866a12855a"
+      },
+      "source_commit": "92a82de662672240ca3b57bc8e498eeaf250a5f2",
+      "producer": "maintainer",
+      "execution": "native-lifecycle-no-inference",
+      "workload": "lifecycle-only",
+      "reviewer_result": "retained-bounded-PASS",
+      "public_summary": "docs/release/candidate-a.md#c-op",
+      "relates_to": [
+        "STAGE1-SOURCE-DRIFT-84B34F8"
+      ],
+      "supersedes": []
+    },
+    {
+      "mapping_key": "C-DRR",
+      "support_profile_id": "codex-document-review-report-v1",
+      "runtime_family": "codex",
+      "runtime_exact_version": "0.158.0-alpha.2.1",
+      "surface": "dedicated App Server / dynamic task tools / manual compact",
+      "task_profile_id": "document-review-report-v1",
+      "operational_launcher_support": true,
+      "task_runner_support": true,
+      "maturity": "experimental",
+      "release_channel": "undeclared",
+      "accepted_endpoint": "RESUME_VERIFIED",
+      "evidence_record_id": "DRR-V1-CODEX-0158-LIVE-01",
+      "known_exclusions": [
+        "no-runtime-family-support",
+        "no-field-evidence",
+        "no-other-runtime-os-provider",
+        "no-general-parallel-background-external-work",
+        "no-strong-transition-assurance",
+        "one-fresh-session-one-manual-compact-one-report",
+        "no-restart-or-repeated-transition",
+        "quality-not-assessed",
+        "no-general-document-coding-shell-mcp",
+        "external-writers-not-prevented"
+      ],
+      "private_source_ref": "DRR-V1-CODEX-0158-LIVE-01",
+      "sanitized_source": "not public",
+      "source_manifest_sha256": "330428bab1dade7f0f46cb60a73dda38cef59dbbe5824419f2ae5012f5924b3f",
+      "artifacts": {
+        "retained-wheel": "26f56dad8b3a832481aeb88ca7e51307312c6b7d1655b8ae5d8778673667b024",
+        "result": "af8b9c49f835ea82e5edb0cb3fd86f38676ae829d504052c618f6efd3d3c34df",
+        "acceptance": "43aa51001f8b4c4a51e7f6138017fcc480677017b56a24c36bfd3379c613e546"
+      },
+      "source_commit": "76c086cc4381af9488fb511a191b899d7279f0af",
+      "producer": "maintainer",
+      "execution": "live-runtime",
+      "workload": "nonfixture-real-task",
+      "reviewer_result": "retained-bounded-PASS",
+      "public_summary": "docs/release/candidate-a.md#c-drr",
+      "relates_to": [
+        "STAGE1-SOURCE-DRIFT-84B34F8"
+      ],
+      "supersedes": []
+    }
+  ]
+}

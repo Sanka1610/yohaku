@@ -445,3 +445,27 @@ Current public canonicalは本書
 `docs/reference/document-review-report-v1.md`は既存linkの互換性とhistorical summaryを保持する
 ため、移動・改名・削除しない。Internal contract、accepted result、source manifest、run
 Evidenceも元のpathで保持し、Evidence provenanceを変更しない。
+
+## Candidate A release review fields
+
+次の表はCandidate Aに限定したrelease review用の検証対象である。Alpha候補の範囲を示し、
+現在のmaturity / channelや個別EvidenceのVerdictを昇格させない。Fieldの意味、除外コード、
+検証手順は[Candidate A review](../release/candidate-a.md)を参照する。
+
+<!-- candidate-a:start -->
+| field | C-DRR |
+|---|---|
+| mapping_key | C-DRR |
+| support_profile_id | codex-document-review-report-v1 |
+| runtime_family | codex |
+| runtime_exact_version | 0.158.0-alpha.2.1 |
+| surface | dedicated App Server / dynamic task tools / manual compact |
+| task_profile_id | document-review-report-v1 |
+| operational_launcher_support | true |
+| task_runner_support | true |
+| maturity | experimental |
+| release_channel | undeclared |
+| accepted_endpoint | RESUME_VERIFIED |
+| evidence_record_id | DRR-V1-CODEX-0158-LIVE-01 |
+| known_exclusions | no-runtime-family-support, no-field-evidence, no-other-runtime-os-provider, no-general-parallel-background-external-work, no-strong-transition-assurance, one-fresh-session-one-manual-compact-one-report, no-restart-or-repeated-transition, quality-not-assessed, no-general-document-coding-shell-mcp, external-writers-not-prevented |
+<!-- candidate-a:end -->
