@@ -2,7 +2,7 @@
 
 本書は[Candidate A scope declaration](release/candidate-a-scope.json)が指定するprofileに限った
 更新方針です。各releaseの適用元・適用先・artifact・互換性判断は[release record](releases/RELEASE_TEMPLATE.md)
-で固定します。現在のpackage version `0.1.0`はPublished Alphaを意味せず、profile maturityは
+で固定します。現在のpackage version `0.1.0a1`はPublished Alphaを意味せず、profile maturityは
 experimental、release channelはundeclaredです。
 
 ## 更新前の判断

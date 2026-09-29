@@ -107,7 +107,7 @@ Release recordには、channel/version/commit、主対象profileとmaturity、�
 <!-- candidate-a:start -->
 | field | Candidate A |
 |---|---|
-| release_candidate_id | candidate-a-pre-alpha-stage2 |
+| release_candidate_id | yohaku-0.1.0a1-rc1 |
 | alpha_scope_profile_ids | codex-operational-0.158, codex-document-review-report-v1 |
 | excluded_profile_ids | codex-reference-0.155, hermes-operational-h-cli-01, hermes-h-cli-01, claude-c-cli, claude-c-cli-local-nonce |
 | excluded_runtime_families | hermes, claude |

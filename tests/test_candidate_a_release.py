@@ -101,6 +101,16 @@ class CandidateAReleaseTests(unittest.TestCase):
             with self.assertRaisesRegex(check.Invalid, 'SOURCE_REVIEW_REQUIRED'):
                 check.validate()
 
+    def test_rc_identity_source_changes_require_review(self):
+        original = Path.read_bytes
+        for name in ('operational_hosts.py', 'document_review_runtime.py'):
+            target = ROOT / 'src/yohaku' / name
+            def changed(path):
+                return original(path) + (b'\n# unreviewed change\n' if path == target else b'')
+            with self.subTest(name=name), patch.object(Path, 'read_bytes', changed):
+                with self.assertRaisesRegex(check.Invalid, 'SOURCE_REVIEW_REQUIRED'):
+                    check.validate()
+
     def test_duplicate_json_key_fails(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / 'record.json'

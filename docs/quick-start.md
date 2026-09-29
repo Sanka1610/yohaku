@@ -19,7 +19,7 @@ supportや文章品質の証明として扱わない。
 
 - WSL2 Linux
 - CPython `3.14.4`
-- Review済み`yohaku` `0.1.0` wheelをinstallした専用venv
+- Review済み`yohaku` `0.1.0a1` wheelをinstallした専用venv
 - `codex-cli 0.158.0-alpha.2.1`と表示するCodex binary
 
 このprofileはcredentialを読み込まず、provider request、inference、task turn、compact、handoff、resumeを
@@ -32,7 +32,7 @@ Wheelをcurrent directoryへ置いた状態から始める。既にclean install
 
 ```sh
 umask 077
-YOH_WHEEL="$(realpath ./yohaku-0.1.0-py3-none-any.whl)"
+YOH_WHEEL="$(realpath ./yohaku-0.1.0a1-py3-none-any.whl)"
 YOH_VENV="$(pwd -P)/.venv-yohaku"
 test -f "$YOH_WHEEL"
 

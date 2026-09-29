@@ -4,6 +4,10 @@
 このfileを同directory内のrelease別fileへコピーし、`TBD`をreview済み値に置き換えます。
 Public-safe ID / digest / sanitized summaryだけを記載し、private pathやraw Evidenceを含めません。
 
+Local RC validationではscope declarationの`release_candidate_id`を使用します。
+現在のlocal RC identifierは`yohaku-0.1.0a1-rc1`です。公開release名の決定ではありません。
+検証record / notesはworkspaceに保持し、RC source commit固定後はsourceを編集しません。
+
 ## Release identity
 
 | Field | Value |
@@ -18,7 +22,7 @@ Public-safe ID / digest / sanitized summaryだけを記載し、private pathやr
 | Review decision | PENDING |
 | License / distribution terms | LICENSE_DECISION_REQUIRED — 決定済みfile / termsへの公開参照 |
 
-Package `0.1.0`はPublished Alphaを意味しません。Version、profile maturity、channelをそれぞれreviewします。
+Package `0.1.0a1`はPublished Alphaを意味しません。Version、profile maturity、channelをそれぞれreviewします。
 
 ## Alpha scope
 

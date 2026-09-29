@@ -2,6 +2,7 @@
 
 from contextlib import redirect_stdout, redirect_stderr
 import json
+from importlib.metadata import version
 import os
 from pathlib import Path
 import queue
@@ -61,7 +62,7 @@ shell_snapshot = false
             text=True, start_new_session=True)
         self.reader = threading.Thread(target=self._read, daemon=True)
         self.reader.start()
-        self.call('initialize', {'clientInfo': {'name': 'yohaku_operational', 'version': '0.1.0'}})
+        self.call('initialize', {'clientInfo': {'name': 'yohaku_operational', 'version': version('yohaku')}})
         self.send({'method': 'initialized'})
         result = self.call('thread/start', {'model': 'yohaku-no-inference', 'cwd': config.workspace,
                                           'approvalPolicy': 'never', 'sandbox': 'read-only'})

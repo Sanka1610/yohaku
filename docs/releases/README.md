@@ -2,7 +2,7 @@
 
 このdirectoryにはrelease準備用templateとCandidate A checklistを置きます。現時点で完成したrelease
 recordやPublished Alphaを示すものではありません。Package version、release identifier、release channelは
-別のfieldであり、現在の`0.1.0`だけからAlpha公開を推定しません。
+別のfieldであり、現在の`0.1.0a1`だけからAlpha公開を推定しません。
 
 - [Release record template](RELEASE_TEMPLATE.md): releaseごとのcanonicalなscope / artifact / verification / support判断
 - [Release notes template](RELEASE_NOTES_TEMPLATE.md): 利用者向けの短い案内

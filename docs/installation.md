@@ -19,7 +19,7 @@ Package installation、operational lifecycle、transition、Task Profileは別�
 
 | 対象 | 現在の範囲 |
 |---|---|
-| Python package | `yohaku` `0.1.0`。Metadata上はPython `>=3.11`、runtime dependencyなし。Versionはpublished Alphaやrelease channelを意味しない |
+| Python package | `yohaku` `0.1.0a1`。Metadata上はPython `>=3.11`、runtime dependencyなし。Versionはpublished Alphaやrelease channelを意味しない |
 | Codex lifecycle | `codex-operational-0.158`。Codex `0.158.0-alpha.2.1`、WSL2 Linux、CPython `3.14.4`でno-inference lifecycleを提供 |
 | Hermes lifecycle | `hermes-operational-h-cli-01`。Hermes `0.21.0`、固定source commit、Hermes venvのCPython `3.11.16`でno-inference lifecycleを提供 |
 | Packaged real Task Profile | Codex専用の`codex-document-review-report-v1`。固定した`document-review-report-v1`だけを`run`できる |
@@ -52,7 +52,7 @@ Product checkoutからwheel candidateを作る場合は、source commitを固定
 
 ```sh
 python3.14 -m pip wheel --no-deps --wheel-dir ./dist .
-sha256sum ./dist/yohaku-0.1.0-py3-none-any.whl
+sha256sum ./dist/yohaku-0.1.0a1-py3-none-any.whl
 ```
 
 Build frontendは`setuptools>=77`を必要とし、取得時にnetworkを使う可能性がある。生成物は
@@ -165,7 +165,7 @@ formal operational launcherではない。`configure`で選択しても`prefligh
 
 ```sh
 python3.14 --version
-YOH_WHEEL="$(realpath ./yohaku-0.1.0-py3-none-any.whl)"
+YOH_WHEEL="$(realpath ./yohaku-0.1.0a1-py3-none-any.whl)"
 YOH_VENV="$(pwd -P)/.venv-yohaku"
 test -f "$YOH_WHEEL"
 test ! -e "$YOH_VENV"
@@ -179,14 +179,14 @@ python3.14 -m venv "$YOH_VENV"
 "$YOH_VENV/bin/python" -I -c 'import yohaku; from importlib.metadata import metadata; print(yohaku.__file__); print(metadata("yohaku")["Requires-Python"])'
 ```
 
-出力では、versionが`0.1.0`、`Requires-Python`が`>=3.11`、package pathが作成したvenvの
+出力では、versionが`0.1.0a1`、`Requires-Python`が`>=3.11`、package pathが作成したvenvの
 `site-packages`配下であることを確認する。WheelのSHA-256は、配布元から得た期待値と照合する。
 `profiles`の表示はcurrent registryの確認であり、各profileのlive acceptanceを再実行するcommandではない。
 
 Hermesでは新しいvenvを作らず、pinned sourceの既存venvを使う。
 
 ```sh
-YOH_WHEEL="$(realpath ./yohaku-0.1.0-py3-none-any.whl)"
+YOH_WHEEL="$(realpath ./yohaku-0.1.0a1-py3-none-any.whl)"
 HERMES_SOURCE="$(realpath /absolute/path/to/pinned-hermes-source)"
 "$HERMES_SOURCE/venv/bin/python" --version
 "$HERMES_SOURCE/venv/bin/python" -m pip install --no-index --no-deps "$YOH_WHEEL"

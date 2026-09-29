@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
@@ -103,7 +104,7 @@ def claims():
 
 
 def scope_template():
-    return dict(schema=1, release_candidate_id='candidate-a-pre-alpha-stage2',
+    return dict(schema=1, release_candidate_id='yohaku-0.1.0a1-rc1',
                 status='review-input-not-release-approval', source_review_commit=BASE,
                 alpha_scope_profile_ids=IDS, excluded_profile_ids=EXCLUDED,
                 excluded_runtime_families=['hermes', 'claude'],
@@ -248,11 +249,24 @@ def validate(root=ROOT, *, scope=None, index=None, drift=None, profiles=None, do
     for path, expected in expected_tables.items():
         text = (root / path).read_text() if documents is None else documents[path]
         require(read_table(text) == expected, 'CANONICAL_DRIFT')
+    require(tomllib.loads((root / 'pyproject.toml').read_text())['project']['version']
+            == '0.1.0a1', 'PACKAGE_VERSION_DRIFT')
     # Hash changes trigger review, not an automatic instruction to rerun live acceptance.
     for row in drift['files'] + drift['supporting_source']:
         if row['file'].startswith('src/'):
-            require(sha((root / row['file']).read_bytes()) == row['current_sha256'],
-                    'SOURCE_REVIEW_REQUIRED')
+            current = (root / row['file']).read_bytes()
+            # RC1 review allows only package identity lookup in initialize clientInfo.
+            # Keep the historical Stage 1 hashes and reject all other source changes.
+            if row['file'] in ('src/yohaku/operational_hosts.py',
+                               'src/yohaku/document_review_runtime.py'):
+                baseline = git_bytes(root, BASE, row['file'])
+                expected = baseline.replace(b'import json\n',
+                    b'import json\nfrom importlib.metadata import version\n', 1)
+                expected = expected.replace(b"'version': '0.1.0'", b"'version': version('yohaku')")
+                expected = expected.replace(b'"version": "0.1.0"', b'"version": version("yohaku")')
+                require(current == expected, 'SOURCE_REVIEW_REQUIRED')
+            else:
+                require(sha(current) == row['current_sha256'], 'SOURCE_REVIEW_REQUIRED')
     return 'PASS: Candidate A static drift / public-safe checks; release approval NOT_ASSESSED'
 
 

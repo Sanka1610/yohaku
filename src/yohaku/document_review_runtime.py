@@ -3,6 +3,7 @@
 from dataclasses import asdict
 import hashlib
 import json
+from importlib.metadata import version
 import os
 from pathlib import Path
 import queue
@@ -50,7 +51,7 @@ class AppServerConnection:
         self.reader = threading.Thread(target=self._read, daemon=True)
         self.reader.start()
         self.call("initialize", {"clientInfo": {"name": "yohaku-document-review-report-v1",
-                                                   "version": "0.1.0"},
+                                                   "version": version("yohaku")},
                                  "capabilities": {"experimentalApi": True}})
         self.send({"method": "initialized"})
 
