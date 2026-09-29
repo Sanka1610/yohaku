@@ -145,7 +145,7 @@ The report write uses exclusive creation and is never retried after an uncertain
 result. A second preflight or run with the same output returns
 `STALE_OUTPUT_PRESENT`. Interrupted task runs are inspect-only; configure a new
 workspace and state root after maintainer review rather than deleting state or
-reusing the old output. See the [task contract](reference/document-review-report-v1.md).
+reusing the old output. See the [task contract](task-profiles/document-review-report-v1.md).
 
 The lifecycle-only `codex-operational-0.158` profile uses a fresh per-run home,
 no credentials, a disabled loopback provider, and only initialize/thread-start

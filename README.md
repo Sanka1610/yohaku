@@ -112,7 +112,7 @@ editable installs are development/Probe techniques, not release installation.
 The [installation guide](docs/installation.md) covers builds, exact interpreter
 selection, basic TOML configuration, explicit enable/disable and removal.
 Installing the package does not enable the integration.
-The [document-review profile reference](docs/reference/document-review-report-v1.md)
+The [document-review profile reference](docs/task-profiles/document-review-report-v1.md)
 defines its exact input/output, tool, observer, assessor and no-retry contract.
 
 For a local developer Core check from a checkout, without provider access:
@@ -189,7 +189,7 @@ release decision. See the [Evidence model](docs/evidence-model.md) and
 - [Claude Code C-CLI reference](docs/reference/claude-cli.md): manual completion, opt-in recovery and evidence limits.
 - [Runtime document structure](docs/runtimes/README.md): shared chapter order and profile documentation rules.
 - [Codex Runtime](docs/runtimes/codex.md): canonical Codex profiles, primitives, Evidence scope, and limitations.
-- [Document review report v1](docs/reference/document-review-report-v1.md): first fixed Real-task Profile and its acceptance boundary.
+- [Document review report v1](docs/task-profiles/document-review-report-v1.md): first fixed Real-task Profile and its acceptance boundary.
 - [Support maturity and release policy](SUPPORT_POLICY.md): profile maturity and release criteria.
 
 Existing README section links remain available below; detailed content is now in

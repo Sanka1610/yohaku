@@ -417,7 +417,7 @@ This Evidence does not apply to the lifecycle-only Codex profile or historical
 Codex 0.155 profile. It does not assess report quality, external-writer exclusion,
 restart, repeated transitions, arbitrary document tasks, coding tasks, another
 Codex version, Hermes or Claude. See the
-[fixed task contract](reference/document-review-report-v1.md).
+[fixed task contract](task-profiles/document-review-report-v1.md).
 
 Historical C-CLI and its maintainer nonce profile appear in profile/status output
 with launch unsupported, overall PARTIAL and their distinct evidence provenance.
