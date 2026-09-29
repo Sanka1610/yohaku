@@ -338,9 +338,9 @@ associationを保つため原文を維持する。一律翻訳せず、公開用
 - [Runtime文書の構成規則](runtimes/README.md)はRuntime個別pageの章順と記述規則を所有する
 - [Runtime support](runtime-support.md)はcross-Runtime status summary、historical provenance、
   retained Evidenceへの公開参照を保持する
-- [Codex Runtime](runtimes/codex.md)と[Hermes Runtime](runtimes/hermes.md)は各Runtimeの
-  current public canonicalとしてprofile、primitive、Evidence scope、制限を説明する。
-  [Claude CLI reference](reference/claude-cli.md)は個別のcanonical整理まで既存contractを保持する
+- [Codex Runtime](runtimes/codex.md)、[Hermes Runtime](runtimes/hermes.md)、
+  [Claude Code CLI Runtime](runtimes/claude-code-cli.md)は各Runtimeのcurrent public canonicalとして
+  profile、primitive、Evidence scope、制限を説明する
 - [document-review profile](reference/document-review-report-v1.md)は現在のbounded
   Task Profileを定義する
 - [Operations](operations.md)と[Installation](installation.md)は、architecture acceptance

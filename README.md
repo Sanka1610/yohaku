@@ -186,7 +186,7 @@ release decision. See the [Evidence model](docs/evidence-model.md) and
 - [Evidence model](docs/evidence-model.md): Evidence, CoverageProfile, Capability Verdict, provenance, and non-inheritance rules.
 - [Runtime support and evidence scope](docs/runtime-support.md): measured profile, provenance, and strategy limits.
 - [Hermes Runtime](docs/runtimes/hermes.md): canonical Probe、adapter、operational profiles、native primitives、Evidence scope、制限。
-- [Claude Code C-CLI reference](docs/reference/claude-cli.md): manual completion, opt-in recovery and evidence limits.
+- [Claude Code CLI Runtime](docs/runtimes/claude-code-cli.md): canonical completion, recovery, receipt, Evidence scope, and limitations.
 - [Runtime document structure](docs/runtimes/README.md): shared chapter order and profile documentation rules.
 - [Codex Runtime](docs/runtimes/codex.md): canonical Codex profiles, primitives, Evidence scope, and limitations.
 - [Document review report v1](docs/reference/document-review-report-v1.md): first fixed Real-task Profile and its acceptance boundary.

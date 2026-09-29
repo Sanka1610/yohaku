@@ -96,7 +96,7 @@ stale, duplicate or inconsistent evidence. This recovery route keeps the CLI
 process alive across compaction, unlike the earlier completion-only acceptance;
 its new external live acceptance remains **NOT_RUN**. A successful later action
 alone is neither receipt nor resume proof. Overall C-CLI remains **PARTIAL**.
-See the [C-CLI reference](reference/claude-cli.md) for the exact trust and coverage
+See the canonical [Claude Code CLI Runtime page](runtimes/claude-code-cli.md) for the exact trust and coverage
 boundaries. Agent SDK/API remains a separate unimplemented profile.
 
 Hermes H-CLI-01 measured an instrumented native CLI host on Ubuntu-Hermes, version
@@ -394,7 +394,7 @@ Local tests reject missing, stale, duplicate, foreign-owner and mismatched ident
 or result evidence. Tool success does not establish semantic result incorporation;
 the fresh-read token and task assessment remain independent. This profile does not
 promote Anthropic subscription evidence or Claude Code as a whole to PASS. See the
-[nonce receipt contract](reference/claude-cli.md#opt-in-host-bound-nonce-receipt).
+[nonce receipt contract](runtimes/claude-code-cli.md#explicit-receipt).
 
 ## Operational Alpha Foundation
 

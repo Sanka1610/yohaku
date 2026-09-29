@@ -43,7 +43,7 @@ Priorityからmaturityを決めず、Capability Verdictの集計だけでmaturit
 
 その後、Hermes H-CLI-01はbounded connected adapter workflow PASS / profile PARTIALとなり、completion predicateをCoreから分離した。General Hermes adapter、Strong Transition Assurance、公開channelは未成立。更新後の実装・実測範囲は[Hermes Runtime](docs/runtimes/hermes.md)と[Runtime support](docs/runtime-support.md#target-runtime-status)を参照する。
 
-Claude Code + Ollama localは、固定version/modelの[maintainer testing profile](docs/runtime-support.md#claude-code-ollama-local-maintainer-testing-profile)として別登録した。2026-09-29時点で同一構成のbounded recoveryは成功1回・追加試行の失敗1回。歴史的workflow PASSと今回の再現確認FAILを併記し、overall PARTIAL / experimentalを維持する。手動reviewを伴う回帰診断には条件付きで使用できるが、安定した必須自動gateには採用しない。Anthropic subscription profileのEvidence・Verdictは変更しない。
+Claude Code + Ollama localは、固定version/modelの[maintainer testing profile](docs/runtime-support.md#claude-code-ollama-local-maintainer-testing-profile)として別登録した。2026-09-29時点で同一構成のbounded recoveryは成功1回・追加試行の失敗1回。歴史的workflow PASSと今回の再現確認FAILを併記し、overall PARTIAL / experimentalを維持する。手動reviewを伴う回帰診断には条件付きで使用できるが、安定した必須自動gateには採用しない。Anthropic subscription profileのEvidence・Verdictは変更しない。Profile固有の実装・測定境界は[Claude Code CLI Runtime](docs/runtimes/claude-code-cli.md)を参照する。
 
 Codexの既存受入はCLI `0.155.0-alpha.16.4` / WSL2 Ubuntu / Python `3.14.4`の限定profileである。Phase 14のlive信号を使った合成taskはlab tested / live-runtime、局所・合成テストはlab tested / local-syntheticとして読む。Field Evidenceの取得や現在版での再実行を示すものではない。native auto compactは1 attachmentにつき1回の範囲、native recovery途中のrestartはUNSUPPORTED、反復compactや一般の並列・外部work等は未受入である。
 
