@@ -1,231 +1,218 @@
 # Transition Strategies
 
-Yohaku uses **Context Transition** as the category for changing the context from
-which an Agent continues a task. A Transition Strategy defines how one source
-context becomes one target context and which Runtime-specific evidence can prove
-that change. Compaction is one family of strategies; it is not the architectural
-goal by itself.
+Yohakuでは、Agentがtaskを継続するcontextを切り替える処理を **Context Transition**
+と総称する。Transition Strategyは、一つのsource contextをどのようにtarget context
+へ移し、どのRuntime固有Evidenceで遷移を証明するかを定める。CompactionはStrategy
+の一系統であり、それ自体がアーキテクチャの目的ではない。
 
-This page owns the Strategy taxonomy and the common semantics of each method.
-The [architecture](architecture.md) owns component responsibilities and trust
-boundaries. [Runtime Mapping](runtime-mapping.md) owns fixed-profile facts,
-native primitives, implementation status, Evidence provenance, and Verdict.
+本書は、Transition Strategyのtaxonomyと、各方式に共通するsemanticsを所有する。
+[Architecture](architecture.md)はcomponent責務とtrust boundaryを所有する。
+[Runtime Mapping](runtime-mapping.md)はfixed profileの事実、native primitive、実装状態、
+Evidence provenance、Verdictを所有する。
 
-The Strategy contract does not replace a Runtime Support Profile. A strategy is
-usable only when a fixed Runtime/version/surface/backend/owner configuration
-implements its trigger, completion proof, handoff, receipt, fresh observation,
-continuation, and failure behavior. Documentation alone does not establish any
-of those capabilities.
+Strategy contractはRuntime Support Profileの代わりにならない。固定したRuntime、
+version、surface、backend、owner構成が、trigger、completion proof、handoff、receipt、
+fresh observation、continuation、failure behaviorを実装している場合に限り、その
+Strategyを利用できる。文書に記載しただけではcapabilityは成立しない。
 
-## Common Context Transition contract
+## Context Transitionの共通contract
 
-All proactive strategies follow the same safety ordering even though their
-Runtime events differ:
+ProactiveなStrategyは、Runtime eventが異なっても次の安全順序に従う。
 
 ```text
 verified semantic and execution boundary
     → durable current checkpoint
     → revision-bound one-shot authority
-    → Runtime-specific strategy trigger
-    → strategy-specific completion proof
+    → Runtime固有のStrategy trigger
+    → Strategy固有のcompletion proof
     → durable handoff delivery
     → explicit correlated receipt
-    → fresh observation of the current task state
-    → continuation of unfinished work only
-    → task-specific assessment
+    → current task stateのfresh observation
+    → 未完了workだけを継続
+    → task固有のassessment
     → RESUME_VERIFIED
 ```
 
-The implemented Core currently uses `ROLLOVER_AUTHORIZED`,
-`ROLLOVER_REQUESTED`, and `ROLLOVER_OBSERVED` for the generic transition portion
-of this flow. Those state names are compatibility vocabulary. They do not mean
-that an in-place compaction creates a new Runtime session, and they do not make
-fresh-context or session-migration support exist.
+現在のCoreは、transition部分の共通state名として`ROLLOVER_AUTHORIZED`、
+`ROLLOVER_REQUESTED`、`ROLLOVER_OBSERVED`を使う。これらは互換性のために残す実装
+語彙である。in-place compactionが新しいRuntime sessionを作るという意味ではなく、
+fresh-contextやsession migrationが実装済みという意味でもない。
 
-Every Strategy must keep these facts distinct:
+各Strategyでは、次の事実を分けて扱う。
 
-- **source context**: the context whose current work and revisions were
-  observed before the transition;
-- **target context**: the context from which continuation actually runs;
-- **generation and identity**: the native and host-local identities that bind
-  one attempt without pretending that host-local IDs are Runtime-native;
-- **durable state**: the checkpoint and handoff that survive loss of transient
-  process state;
-- **completion**: proof that the Runtime performed the requested transition,
-  not merely that it accepted a request;
-- **delivery and receipt**: evidence that recovery data was offered, followed
-  by evidence that the intended continuation received it;
-- **fresh observation**: a current read after transition, not a replay of an
-  old checkpoint; and
-- **resume correctness**: task-specific proof that only unfinished work
-  continued without stale or duplicate effects.
+- **source context**: transition前にcurrent workとrevisionを観測したcontext
+- **target context**: Agentが実際にtaskを継続するcontext
+- **generation and identity**: 一つのattemptを結び付けるnative identityとhost-local
+  identity。host-local IDをRuntime-nativeと扱わない
+- **durable state**: transient process stateを失っても残るcheckpointとhandoff
+- **completion**: Runtimeが要求を受理したことではなく、要求したtransitionを実行
+  したことを示すproof
+- **delivery and receipt**: recovery dataを提示したEvidenceと、対象continuationが受け
+  取ったEvidence
+- **fresh observation**: old checkpointの再生ではなく、transition後に取得したcurrent
+  state
+- **resume correctness**: stale effectやduplicate effectを生じさせず、未完了workだけを
+  継続したことを示すtask固有proof
 
-No Strategy converts model self-report, a successful tool return, request
-acknowledgement, handoff delivery, receipt, or an old checkpoint into a later
-proof by itself.
+Model self-report、tool returnの成功、request acknowledgement、handoff delivery、
+receipt、old checkpointのいずれも、それ単体で後続段階のproofにはならない。
 
-## Taxonomy and current status
+## Taxonomyと現在の状態
 
-| Strategy | Source → target | Trigger class | Current Yohaku status |
+| Strategy | Source → target | Triggerの種類 | 現在のYohakuでの状態 |
 |---|---|---|---|
-| Manual In-place Compaction | One owned Runtime session/context → compacted form of that same session/context | Yohaku/host/operator issues one explicit Runtime-native compact/compress request after verification | **Implemented only in bounded profiles**: Codex historical reference and `document-review-report-v1`, Hermes H-CLI-01 adapter, and Claude C-CLI completion/recovery variants. Evidence and accepted endpoints differ by profile. |
-| Native Automatic Compaction | Active Runtime context → Runtime-compacted form of the same active context | Runtime crosses its own automatic threshold before or independently of Yohaku's proactive request | **Bounded emergency-recovery implementation only** for the historical Codex Reference Scenario G. It is not the normal proactive success path. Other profiles are `NOT_RUN` or `UNIMPLEMENTED`. |
-| Fresh-context Rollover | Existing context/thread → newly created empty or minimally initialized context/thread | Yohaku/host requests a new Runtime context and transfers a durable handoff | **Design concept only**. Codex experimental `new_context` is `UNSUPPORTED` in the measured configurations. No accepted current Runtime profile implements the full path. |
-| Session Migration | Existing Runtime session/owner, possibly on one host → different session/owner, possibly on another host or Runtime | Yohaku coordinates export, destination creation, delivery, receipt, and continuation | **Future / Deferred**. No general implementation, live Evidence, or accepted profile exists. |
+| Manual In-place Compaction | 一つのowned Runtime session / context → 同じsession / contextをcompactした形 | verification後に、Yohaku / host / operatorがRuntime-native compact / compress requestを一つ明示的に発行する | **Bounded profileだけに実装済み**。Codex historical Referenceと`document-review-report-v1`、Hermes H-CLI-01 adapter、Claude C-CLI completion / recovery variantに実装がある。Evidenceとaccepted endpointはprofileごとに異なる。 |
+| Native Automatic Compaction | active Runtime context → 同じactive contextをRuntimeがcompactした形 | Runtime自身のautomatic threshold / policyが、Yohakuのproactive requestより先に、または独立して発火する | historical Codex Reference Scenario Gだけに **bounded emergency-recovery implementation** がある。通常のproactive成功経路ではない。他profileは`NOT_RUN`または`UNIMPLEMENTED`。 |
+| Fresh-context Rollover | 既存context / thread → 新しく作成した空、または最小限に初期化したcontext / thread | Yohaku / hostが新しいRuntime contextを要求し、durable handoffを移す | **Design concept only**。Codex experimental `new_context`は測定済み構成で`UNSUPPORTED`。full pathを実装したaccepted current Runtime profileはない。 |
+| Session Migration | 既存Runtime session / owner（同一hostの場合を含む）→ 別session / owner（別hostまたは別Runtimeの場合を含む） | Yohakuがexport、destination作成、delivery、receipt、continuationを調整する | **Future / Deferred**。general implementation、live Evidence、accepted profileはいずれも存在しない。 |
 
-“Implemented” in this table means that code exists for at least one bounded
-profile. It does not mean that the Strategy is shared across Runtimes or that
-every endpoint through `RESUME_VERIFIED` has live Evidence. The Runtime Mapping
-records those differences.
+ここでいう「実装済み」は、少なくとも一つのbounded profileにコードが存在することを
+表す。StrategyがRuntime間で共有されていることや、`RESUME_VERIFIED`までの全endpoint
+にlive Evidenceがあることは意味しない。差はRuntime Mappingに記録する。
 
 ## Manual In-place Compaction
 
-### Purpose and identity
+### 目的とidentity
 
-Manual In-place Compaction reduces or rewrites the Runtime's active context while
-retaining the owned session/task relationship. Yohaku does not implement the
-compressor. It verifies a safe boundary, invokes the Runtime's native operation,
-and validates the resulting lifecycle under one fixed profile.
+Manual In-place Compactionは、owned session / taskの関係を保ったまま、Runtimeの
+active contextを縮約または再構成する。Yohakuはcompressorを実装しない。安全な
+boundaryを検証し、Runtime-native operationを呼び出し、fixed profileのcontractで
+lifecycleを検証する。
 
-| Contract field | Strategy semantics |
+| 契約項目 | Strategyの意味 |
 |---|---|
-| Purpose | Proactively preserve enough context capacity while retaining a verified task boundary and a controlled continuation path. |
-| Source context | The currently owned Runtime session/context after relevant active and pending work has settled and the boundary is `VERIFIED`. |
-| Target context | The Runtime-produced compacted/compressed representation in the same logical session. The Runtime may internally create new storage records, but that does not by itself make this a fresh-context rollover. |
-| Trigger | One explicit manual compact/compress request issued by the fixed host/operator only after the checkpoint is durable and the one-shot authority is current. |
-| Generation / identity | One Core generation and request plus the strongest native session/turn/request identities the profile actually exposes. Missing native generation identity is recorded as a limit, not fabricated from host-local IDs. |
-| Durable state | A current Yohaku checkpoint before dispatch, followed by a durable handoff bound to the completed request and continuation identity. Runtime-native history remains separate. |
-| Completion proof | A Runtime-specific conjunction of correlated lifecycle and/or storage evidence. Codex, Hermes, and Claude use different predicates; request ACK, engine return, or one Hook/event is insufficient. |
-| Handoff | Created only for the completed request from durable state. Historical context is delivered as data, not restored authority. |
-| Receipt | An explicit profile-specific receipt correlated to the handoff and continuation. Receipt proves neither fresh state nor resume correctness. |
-| Fresh observation | A trusted post-transition read of the current Runtime/task/workspace state, compared with current revisions. |
-| Continuation | The owned host admits only the unfinished work allowed by the fixed Task Profile or bounded scenario. |
-| Failure / timeout | Pre-dispatch staleness is rejected or invalidated. Uncertain dispatch/completion becomes `AMBIGUOUS`. Known completion followed by failed recovery becomes `RECOVERY_REQUIRED`. Task-contract violations may be `REFUSED`. |
-| Retry policy | No blind retry after authority is consumed or dispatch may have occurred. A new request requires reconciliation or a new verified boundary, as allowed by the fixed profile. |
-| Late completion | Accepted only when the profile explicitly retains a live owner/correlation and defines reconciliation. Some bounded adapters permanently close the owner on timeout and reject all late evidence. |
-| Duplicate | Exact duplicate evidence is idempotent only where the adapter defines it. A second compact request is not inferred to be safe and is commonly rejected by the one-shot profile. |
-| Restart | Not inherited from Core persistence. Historical Codex has limited manual restart behavior; accepted Hermes and Claude adapter profiles do not establish transition restart. |
-| Current implementation status | Runtime-specific/bounded. No neutral trigger, transport, lifecycle map, receipt, continuation, or restart implementation spans all three Runtimes. |
+| 目的 | verified task boundaryと制御されたcontinuationを保ちながら、context capacityが不足する前にproactiveに余地を確保する。 |
+| Source context | 関係するactive / pending workがsettleし、boundaryが`VERIFIED`になったowned Runtime session / context。 |
+| Target context | 同じlogical session内でRuntimeが生成したcompacted / compressed representation。Runtime内部で新しいstorage recordが作られても、それだけでfresh-context rolloverにはならない。 |
+| Trigger | checkpointがdurableでone-shot authorityがcurrentであることを確認した後、fixed host / operatorがmanual compact / compress requestを一つ発行する。 |
+| Generation / identity | 一つのCore generationとrequestに、profileが実際に提供する最強のnative session / turn / request identityを組み合わせる。native generation identityがなければ制限として記録し、host-local IDから捏造しない。 |
+| Durable state | dispatch前のcurrent Yohaku checkpointと、completed request / continuation identityに結び付いたdurable handoff。Runtime-native historyとは分ける。 |
+| Completion proof | correlated lifecycle evidenceやstorage evidenceを組み合わせたRuntime固有proof。Codex、Hermes、Claudeは異なるpredicateを使う。request ACK、engine return、一つのHook / eventだけでは不十分。 |
+| Handoff | durable stateからcompleted request専用に作成する。Historical contextはdataとしてdeliveryし、authorityとして復元しない。 |
+| Receipt | handoffとcontinuationにcorrelateしたprofile固有のexplicit receipt。receiptはfresh stateもresume correctnessも証明しない。 |
+| Fresh observation | transition後にtrusted hostがcurrent Runtime / task / workspace stateを読み、current revisionと比較する。 |
+| Continuation | owned hostが、fixed Task Profileまたはbounded scenarioで許可された未完了workだけをadmitする。 |
+| Failure / timeout | Pre-dispatchのstale stateは拒否またはinvalidateする。dispatch / completionがuncertainなら`AMBIGUOUS`、completion後のrecoveryが失敗したら`RECOVERY_REQUIRED`とする。Task contract違反は`REFUSED`になり得る。 |
+| Retry policy | authorityをconsumeした後、またはdispatchされた可能性がある場合はblind retryしない。fixed profileが許す場合に限り、reconciliationまたは新しいverified boundaryからnew requestを作る。 |
+| Late completion | profileがlive owner / correlationを保持し、reconciliationを明示的に定義する場合だけ受理できる。bounded adapterによってはtimeout時にownerを永久にcloseし、以後のlate evidenceを拒否する。 |
+| Duplicate | exact duplicate evidenceをidempotentに扱えるのはadapterが定義した場合だけである。二つ目のcompact requestを安全とは推定せず、one-shot profileでは通常拒否する。 |
+| Restart | Core persistenceから自動継承しない。historical Codexにはlimited manual restart behaviorがある。accepted Hermes / Claude adapter profileはtransition restartを成立させていない。 |
+| Current implementation status | Runtime-specific / bounded。三Runtimeに共通するneutral trigger、transport、lifecycle map、receipt、continuation、restart implementationはない。 |
 
-The fixed completion examples are summarized in
-[Role to Runtime primitive mapping](runtime-mapping.md#role-to-runtime-primitive-matrix).
-Exact event ordering remains in the Runtime reference pages.
+fixed completionの例は[RoleからRuntime primitiveへの対応](runtime-mapping.md#roleからruntime-primitiveへの対応)
+にまとめる。正確なevent orderはRuntime reference pageが所有する。
 
-### Proactive success criterion
+### Proactive成功の条件
 
-A successful manual compaction is proactive only when Yohaku verified the
-boundary and durably committed the current checkpoint before authorizing the
-manual Runtime request. If the Runtime compacts first, the operation must be
-handled by the Native Automatic Compaction recovery contract below. A later
-handoff or successful continuation does not retroactively make that race a
-proactive transition.
+Manual compactionをproactive成功と呼べるのは、Yohakuがboundaryをverifyし、current
+checkpointをdurableにcommitしてからmanual Runtime requestをauthorizeした場合だけ
+である。Runtimeが先にcompactした場合は、後述するNative Automatic Compactionの
+recovery contractで扱う。後からhandoffやcontinuationが成功しても、先行raceを
+proactive transitionへ読み替えない。
 
 ## Native Automatic Compaction
 
-### Purpose and emergency character
+### 目的とemergency recovery
 
-Native Automatic Compaction covers the case where the Runtime initiates
-compaction because of its own threshold or policy. When this happens before
-Yohaku has committed a current proactive checkpoint, Yohaku has lost the normal
-authorization order. The correct objective is bounded emergency recovery, not a
-claim of normal proactive success.
+Native Automatic Compactionは、Runtime自身のthresholdやpolicyによってcompactionが
+始まる場合を扱う。Yohakuがcurrent proactive checkpointをcommitする前に発火すると、
+通常のauthorization順序は失われる。この場合の目的はbounded emergency recoveryで
+あり、通常のproactive成功ではない。
 
-| Contract field | Strategy semantics |
+| 契約項目 | Strategyの意味 |
 |---|---|
-| Purpose | Detect and reconcile a Runtime-initiated compaction that raced ahead of the proactive transition protocol, preserving safety where the fixed profile has sufficient evidence. |
-| Source context | The active Runtime turn/context at the moment native compaction begins. It may contain work newer than the last committed Yohaku checkpoint. |
-| Target context | The Runtime-compacted form of that same active native context/turn. |
-| Trigger | Runtime-owned automatic threshold/policy. Yohaku does not possess a pre-dispatch lease for this native trigger. |
-| Generation / identity | Native active-turn/session evidence plus a host recovery attachment. The native event must not be relabeled as a Yohaku manual request. |
-| Durable state | The old checkpoint remains stale historical data. A bounded emergency delta may record newly observed facts separately, but it is not promoted to a verified checkpoint or archive entry. |
-| Completion proof | A strategy-specific native sequence strong enough to distinguish completed compaction from a pre-event or partial Hook. Historical Codex Scenario G required its bounded correlated completion evidence. |
-| Handoff | Recovery handoff combines the last verified durable state with explicitly marked emergency observations under the fixed profile. Unverified delta is not silently treated as verified task state. |
-| Receipt | Explicit receipt remains necessary after delivery; emergency origin does not weaken the correlation requirement. |
-| Fresh observation | A current post-native-compaction read in the same owned recovery path is mandatory because the stored checkpoint is stale. |
-| Continuation | Only unresolved work established by the fresh observation may continue. No proactive lease is reconstructed. |
-| Failure / timeout | Missing/conflicting completion, delivery, receipt, or current-state evidence produces `AMBIGUOUS` or `RECOVERY_REQUIRED`; normal work stays suppressed. |
-| Retry policy | Do not trigger another compact merely because native completion is uncertain. Reconcile correlated evidence first; blind retry could compact twice. |
-| Late completion | May be reconciled only when the fixed adapter still owns the native session/turn and explicitly supports late evidence. Otherwise it remains closed/ambiguous. |
-| Duplicate | Duplicate native evidence must not create a second handoff or second continuation. A second native compaction is a distinct transition and needs its own supported contract. |
-| Restart | Historical Codex native-race recovery restart is `UNSUPPORTED`; no other accepted profile supplies it. |
-| Current implementation status | Bounded to historical Codex Reference Scenario G: one native auto compact, one foreground Bash operation, one active turn, and same-turn recovery. General native-auto support is not implemented. |
+| 目的 | Runtimeがproactive transition protocolより先に開始したcompactionを検出・照合し、fixed profileに十分なEvidenceがある範囲で安全にrecoveryする。 |
+| Source context | native compaction開始時のactive Runtime turn / context。最後にcommitしたYohaku checkpointより新しいworkを含む可能性がある。 |
+| Target context | 同じactive native context / turnをRuntimeがcompactした形。 |
+| Trigger | Runtime自身のautomatic threshold / policy。Yohakuはこのnative triggerに対するpre-dispatch leaseを持たない。 |
+| Generation / identity | native active-turn / session evidenceとhost recovery attachment。native eventをYohaku manual requestとして扱わない。 |
+| Durable state | old checkpointはstale historical dataのままである。新しく観測した事実をbounded emergency deltaとして別に記録できるが、verified checkpointやarchive entryへ昇格させない。 |
+| Completion proof | completed compactionをpre-eventやpartial Hookから区別できるStrategy固有native sequence。historical Codex Scenario Gではbounded correlated completion evidenceを要求した。 |
+| Handoff | last verified durable stateと、明示的に区別したemergency observationをfixed profileの規則で組み合わせる。unverified deltaをverified task stateとして黙って扱わない。 |
+| Receipt | emergency originであっても、delivery後にexplicit receiptを要求する。correlation条件を弱めない。 |
+| Fresh observation | stored checkpointがstaleであるため、同じowned recovery pathでcurrent stateを必ず読み直す。 |
+| Continuation | fresh observationで未解決と確認したworkだけを継続する。proactive leaseを再構成しない。 |
+| Failure / timeout | completion、delivery、receipt、current-state evidenceの欠落・競合は`AMBIGUOUS`または`RECOVERY_REQUIRED`とし、通常作業を止める。 |
+| Retry policy | native completionがuncertainという理由だけで別のcompactをtriggerしない。先にcorrelated evidenceを照合する。blind retryすると二重compactになる可能性がある。 |
+| Late completion | fixed adapterがnative session / turnを引き続き所有し、late evidenceを明示的に扱える場合だけreconcileできる。それ以外はclosed / ambiguousのままとする。 |
+| Duplicate | duplicate native evidenceから二つ目のhandoffやcontinuationを作らない。二回目のnative compactionは別transitionであり、固有のsupported contractが必要となる。 |
+| Restart | historical Codex native-race recoveryのrestartは`UNSUPPORTED`。他のaccepted profileにも実装はない。 |
+| Current implementation status | historical Codex Reference Scenario Gに限定する。native auto compact一回、foreground Bash operation一つ、active turn一つ、same-turn recoveryだけを扱う。general native-auto supportは未実装。 |
 
-Scenario G demonstrated one emergency path under its exact historical profile.
-It did not demonstrate proactive trigger control, a general native-auto Strategy,
-other Runtimes, restart, parallel work, repeated compaction, or current Codex
-versions.
+Scenario Gが示したのは、historical fixed profile内のemergency path一件である。
+proactive trigger control、general native-auto Strategy、別Runtime、restart、parallel work、
+repeated compaction、current Codex versionは実証していない。
 
 ## Fresh-context Rollover
 
 ### Design contract
 
-Fresh-context Rollover creates a new Runtime context or thread and resumes the
-same logical task there. Unlike in-place compaction, the target does not inherit
-the source context merely because the Runtime owns both objects. Yohaku would
-need to prove destination identity, deliver the handoff, and observe the new
-current state before continuation.
+Fresh-context Rolloverは、新しいRuntime context / threadを作り、同じlogical taskを
+そこで再開する。in-place compactionと違い、sourceとtargetを同じRuntimeが所有して
+いても、targetがsource contextを継承したとは扱えない。Yohakuはdestination identity
+を証明し、handoffをdeliveryし、continuation前にtargetのcurrent stateを観測する
+必要がある。
 
-| Contract field | Strategy semantics |
+| 契約項目 | Strategyの意味 |
 |---|---|
-| Purpose | Continue the same task in a newly created context when in-place compaction is unavailable, undesirable, or insufficient. |
-| Source context | One verified and checkpointed owned source context/thread. |
-| Target context | A distinct fresh context/thread created under the same fixed Runtime profile. |
-| Trigger | Yohaku/host requests destination creation only after source checkpoint commit and destination policy checks. |
-| Generation / identity | Source native identity, new destination native identity, one Core generation, and an explicit source-to-target binding. Host-local aliases cannot replace either native identity. |
-| Durable state | Source checkpoint, source-to-target migration record, and destination-bound handoff must survive loss of transient host state. |
-| Completion proof | Evidence that the Runtime created the intended fresh destination and that subsequent events belong to it, not merely an ACK for a create request. |
-| Handoff | Delivered in the destination recovery path under an explicit idempotency and single-admission policy; a general exactly-once guarantee is not assumed. |
-| Receipt | Explicit destination-bound receipt correlated to the handoff and generation. |
-| Fresh observation | First trusted observation of the destination's current state plus a fresh task/workspace read. |
-| Continuation | Destination owner admits unfinished work only after receipt and reconciliation; the source is no longer authorized for normal continuation. |
-| Failure / timeout | Unknown destination creation is `AMBIGUOUS`; known destination with incomplete delivery/receipt is `RECOVERY_REQUIRED`. Both source and possible destination must be reconciled before retry. |
-| Retry policy | No blind second destination creation. A retry requires proving that the first did not exist or safely adopting/retiring it under a supported protocol. |
-| Late completion | A late destination-creation result needs explicit adoption or retirement rules and destination identity proof. None are currently implemented. |
-| Duplicate | Duplicate destinations, delivery, receipts, and continuations require explicit idempotency and single-owner rules. None are currently accepted. |
-| Restart | Would require durable source/destination ownership reconciliation. `UNIMPLEMENTED`. |
-| Current implementation status | **Design concept only**. Codex experimental `new_context` was measured `UNSUPPORTED`; Hermes and Claude have no accepted fresh-context implementation or Evidence. |
+| 目的 | in-place compactionが利用できない、不適切、または不十分な場合に、新しいcontextで同じtaskを継続する。 |
+| Source context | verifyとcheckpoint commitが完了したowned source context / thread。 |
+| Target context | 同じfixed Runtime profile内で作成した、sourceとは別のfresh context / thread。 |
+| Trigger | source checkpoint commitとdestination policy checkの後、Yohaku / hostがdestination作成を要求する。 |
+| Generation / identity | source native identity、new destination native identity、一つのCore generation、明示的なsource-to-target binding。host-local aliasはどちらのnative identityの代わりにもならない。 |
+| Durable state | source checkpoint、source-to-target migration record、destination-bound handoffを、transient host state消失後も保持する必要がある。 |
+| Completion proof | create requestのACKだけでなく、意図したfresh destinationが作成され、後続eventがそのdestinationに属することを示すEvidence。 |
+| Handoff | 明示的なidempotencyとsingle-admission policyの下でdestination recovery pathへdeliveryする。一般的なexactly-once保証は仮定しない。 |
+| Receipt | handoffとgenerationにcorrelateしたexplicit destination-bound receipt。 |
+| Fresh observation | destinationのcurrent stateに対する最初のtrusted observationと、fresh task / workspace read。 |
+| Continuation | receiptとreconciliationの後に、destination ownerが未完了workだけをadmitする。sourceには通常continuationのauthorityを残さない。 |
+| Failure / timeout | destination creationが不明なら`AMBIGUOUS`、destinationは既知だがdelivery / receiptが未完了なら`RECOVERY_REQUIRED`。retry前にsourceと存在し得るdestinationの両方を照合する。 |
+| Retry policy | 二つ目のdestinationをblindに作成しない。最初のdestinationが存在しないと証明するか、supported protocolで安全にadopt / retireできる場合だけretryする。 |
+| Late completion | late destination-creation resultには、明示的なadoption / retirement ruleとdestination identity proofが必要である。現在は未実装。 |
+| Duplicate | duplicate destination、delivery、receipt、continuationには、明示的なidempotencyとsingle-owner ruleが必要である。現在はacceptedではない。 |
+| Restart | durable source / destination ownership reconciliationが必要となる。`UNIMPLEMENTED`。 |
+| Current implementation status | **Design concept only**。Codex experimental `new_context`は`UNSUPPORTED`。HermesとClaudeにはaccepted fresh-context implementationもEvidenceもない。 |
 
-This category must not inherit manual in-place compaction Evidence. Sharing the
-Core's checkpoint or handoff types would not prove destination creation,
-delivery, single ownership, or continuation.
+このcategoryにManual In-place CompactionのEvidenceを継承しない。Coreのcheckpoint型や
+handoff型を共有しても、destination creation、delivery、single ownership、continuation
+は証明できない。
 
 ## Session Migration
 
 ### Deferred contract
 
-Session Migration moves a logical task to a different Runtime session, owner,
-host, or Runtime family. It has the broadest trust and compatibility surface:
-the destination may use different native identities, storage, tools, models,
-event lifecycles, or archive semantics.
+Session Migrationは、logical taskを別のRuntime session、owner、host、またはRuntime
+familyへ移す。destinationではnative identity、storage、tool、model、event lifecycle、
+archive semanticsが異なる可能性があり、四方式の中でtrust / compatibility surfaceが
+最も広い。
 
-| Contract field | Strategy semantics |
+| 契約項目 | Strategyの意味 |
 |---|---|
-| Purpose | Transfer a verified task to a distinct session/owner while preserving durable task state, provenance, and one active continuation authority. |
-| Source context | One verified and quiescent source session with a durable exportable checkpoint. |
-| Target context | A distinct destination session whose profile and Task Profile are explicitly compatible. |
-| Trigger | A migration coordinator would gate admitted source work, create or select the destination, transfer durable data, and hand over ownership. This would not imply an atomic freeze of unobserved work. |
-| Generation / identity | Source and destination native identities, migration generation, host identities, and a durable ownership-transfer record. Cross-Runtime identity equivalence must never be inferred from similar strings. |
-| Durable state | Versioned portable checkpoint/handoff plus compatibility and provenance metadata; current Codex-shaped snapshots are not a portable migration format. |
-| Completion proof | Destination creation and ownership acceptance, source retirement, delivery/receipt, and current-state reconciliation across both trust domains. |
-| Handoff | Exported under an explicit schema and redaction policy, then durably bound to the destination profile. |
-| Receipt | Destination-native or host-mediated explicit receipt with trusted source/destination correlation. |
-| Fresh observation | Destination task/workspace observation plus proof that the source cannot continue concurrently under stale authority. |
-| Continuation | Exactly one destination owner after a completed ownership transfer. This is an intended contract, not a current exactly-once guarantee. |
-| Failure / timeout | Partial source retirement, unknown destination creation, uncertain transfer, or split ownership would require a migration-specific recovery state. |
-| Retry policy | No general policy exists. A safe design must reconcile both source and destination before any retry. |
-| Late completion | No implemented adoption, fencing, or tombstone protocol exists. |
-| Duplicate | No implemented duplicate-destination or split-brain prevention protocol exists. |
-| Restart | No portable restart/reconciliation implementation exists. |
-| Current implementation status | **Future / Deferred**. No shared migration coordinator, portable snapshot, compatibility negotiation, accepted Runtime profile, live Evidence, or Verdict exists. |
+| 目的 | durable task state、provenance、一つのactive continuation authorityを保ちながら、verified taskを別session / ownerへ移す。 |
+| Source context | durableでexport可能なcheckpointを持つ、verifiedかつquiescentなsource session。 |
+| Target context | profileとTask Profileのcompatibilityを明示的に確認した別destination session。 |
+| Trigger | migration coordinatorがadmitted source workをgateし、destinationを作成または選択してdurable dataを移し、ownershipを引き渡す。これはunobserved workのatomic freezeを意味しない。 |
+| Generation / identity | source / destination native identity、migration generation、host identity、durable ownership-transfer record。似た文字列からcross-Runtime identityの同一性を推定しない。 |
+| Durable state | versioned portable checkpoint / handoffとcompatibility / provenance metadata。現在のCodex型snapshotはportable migration formatではない。 |
+| Completion proof | destination creationとownership acceptance、source retirement、delivery / receipt、両trust domainのcurrent-state reconciliation。 |
+| Handoff | 明示的なschemaとredaction policyでexportし、destination profileへdurableに結び付ける。 |
+| Receipt | trusted source / destination correlationを持つdestination-nativeまたはhost-mediated explicit receipt。 |
+| Fresh observation | destination task / workspace observationと、sourceがstale authorityで並行継続できないことのproof。 |
+| Continuation | ownership transfer完了後のdestination ownerを一つに限定する。これは目標contractであり、現在のexactly-once保証ではない。 |
+| Failure / timeout | source retirementの一部完了、destination creation不明、transfer不明、split ownershipにはmigration固有のrecovery stateが必要となる。 |
+| Retry policy | general policyはない。安全な設計では、retry前にsourceとdestinationの両方をreconcileする必要がある。 |
+| Late completion | adoption、fencing、tombstone protocolは未実装。 |
+| Duplicate | duplicate destinationやsplit-brainを防ぐprotocolは未実装。 |
+| Restart | portable restart / reconciliation implementationはない。 |
+| Current implementation status | **Future / Deferred**。shared migration coordinator、portable snapshot、compatibility negotiation、accepted Runtime profile、live Evidence、Verdictはいずれも存在しない。 |
 
-Session Migration is not established by starting a new Runtime process, copying a
-checkpoint file, replaying a transcript, or delivering a handoff. Those actions
-omit source retirement, destination identity, receipt, freshness, ownership, and
-resume verification.
+新しいRuntime processの起動、checkpoint fileのcopy、transcriptのreplay、handoffのdelivery
+だけではSession Migrationは成立しない。source retirement、destination identity、
+receipt、freshness、ownership、resume verificationが不足するためである。
 
-## Proactive transition versus emergency recovery
+## Proactive transitionとemergency recovery
 
-The two paths have different authorization and Evidence meanings:
+両経路ではauthorizationとEvidenceの意味が異なる。
 
 ```text
 Proactive
@@ -237,76 +224,70 @@ Proactive
     → completion and recovery verification
 
 Emergency after native auto compact
-  Runtime-triggered compaction before current checkpoint
-    → detect lost proactive ordering
-    → retain old checkpoint as stale
-    → record bounded emergency observations separately
-    → prove native completion
-    → require fresh current-state recovery
-    → no reconstruction of the old authority
+  current checkpointより先にRuntime-triggered compaction
+    → proactive順序の喪失を検出
+    → old checkpointをstaleとして保持
+    → bounded emergency observationを別recordへ保存
+    → native completionを証明
+    → fresh current-state recoveryを要求
+    → old authorityを再構成しない
 ```
 
-The emergency path cannot be counted as proactive transition success. Conversely,
-failure to complete an emergency path says nothing by itself about a profile's
-separately measured manual proactive path.
+Emergency pathをproactive transition成功として計上しない。反対に、emergency pathが
+未完了でも、その事実だけで別に測定したmanual proactive pathを失敗とはしない。
 
-## Failure semantics across strategies
+## Strategy間で共通するfailure semantics
 
-The public outcome vocabulary keeps different hazards separate:
+公開するoutcome語彙では、異なるhazardを次のように分ける。
 
-| Condition | Meaning and action |
+| 条件 | 意味と動作 |
 |---|---|
-| `DEFERRED` | Relevant active/pending work prevents boundary verification. Return to normal work, then propose a new candidate. No transition request was authorized. |
-| `INVALIDATED` | Pre-dispatch boundary, revision, checkpoint, workspace, or lease is stale. Reverify from current state. |
-| `AMBIGUOUS` | Dispatch or completion may have occurred but cannot yet be proved. Suppress normal work and blind retry while correlated evidence is reconciled. |
-| `RECOVERY_REQUIRED` | Transition completion is known or retained, but delivery, receipt, fresh observation, continuation, or assessment cannot safely finish. Do not restore old authority. |
-| `REFUSED` | A fixed Task Profile or operation gate rejects known-disallowed, stale, duplicate, or undeclared work before uncertain side effects. It is not a Core state. |
+| `DEFERRED` | 関係するactive / pending workがboundary verificationを妨げている。通常作業へ戻り、new candidateを提案する。transition requestはauthorizeされていない。 |
+| `INVALIDATED` | Pre-dispatch boundary、revision、checkpoint、workspace、leaseがstaleである。current stateから再検証する。 |
+| `AMBIGUOUS` | dispatchまたはcompletionが発生した可能性はあるが、まだ証明できない。correlated evidenceを照合するまで通常作業とblind retryを止める。 |
+| `RECOVERY_REQUIRED` | transition completionは既知またはretainedだが、delivery、receipt、fresh observation、continuation、assessmentを安全に完了できない。old authorityを復元しない。 |
+| `REFUSED` | fixed Task Profileまたはoperation gateが、known-disallowed、stale、duplicate、undeclared workをuncertain side effect前に拒否した。Core stateではない。 |
 
-A Strategy may further narrow late-event and retry behavior. It may not weaken
-`AMBIGUOUS` into presumed non-execution or treat an unobserved external side
-effect as safely retryable.
+Strategyはlate-eventやretry behaviorをさらに狭く定義できる。ただし、`AMBIGUOUS`を
+「実行されなかった」とみなしたり、unobserved external side effectを安全にretry可能
+と扱ったりはできない。
 
-## Evidence isolation
+## Evidenceの分離
 
-Strategy Evidence is not polymorphic. It does not inherit across:
+Strategy Evidenceはpolymorphicではなく、次の境界を自動継承しない。
 
-- Manual In-place Compaction and Native Automatic Compaction;
-- in-place compaction, Fresh-context Rollover, and Session Migration;
-- Codex, Hermes, and Claude Code;
-- Runtime versions, CLI/API surfaces, operating systems, or owner models;
-- provider, backend, model, context configuration, or Hook configuration; or
-- lifecycle-only, transition, and Task Profiles.
+- Manual In-place CompactionとNative Automatic Compaction
+- in-place compaction、Fresh-context Rollover、Session Migration
+- Codex、Hermes、Claude Code
+- Runtime version、CLI / API surface、OS、owner model
+- provider、backend、model、context configuration、Hook configuration
+- lifecycle-only、transition、Task Profile
 
-Consequently:
+したがって、次の等式は成立しない。
 
-- Codex manual compact `PASS` is not native-auto `PASS`;
-- Claude local Ollama `PASS` is not Anthropic subscription `PASS`;
-- Hermes H-CLI-01 `PASS` is not Hermes-wide `PASS`; and
-- Runtime support is not `document-review-report-v1` or any other Task Profile
-  support.
+- Codex manual compact `PASS` = native-auto `PASS`
+- Claude local Ollama `PASS` = Anthropic subscription `PASS`
+- Hermes H-CLI-01 `PASS` = Hermes全体 `PASS`
+- Runtime support = `document-review-report-v1`または他のTask Profile support
 
-Strategies may share safety semantics—durability before authority, freshness,
-one-shot dispatch, ambiguity suppression, delivery/receipt separation, and
-resume verification. They must not share lifecycle evidence, completion
-predicates, identities, Verdicts, restart claims, or task assessment without a
-matching fixed profile and retained Evidence.
+Strategy間で共有できるのは、authority前のdurability、freshness、one-shot dispatch、
+ambiguity中のretry抑止、delivery / receiptの分離、resume verificationなどの安全
+semanticsである。Lifecycle evidence、completion predicate、identity、Verdict、restart
+claim、task assessmentは、matching fixed profileとretained Evidenceなしに共有しない。
 
-## Deferred decisions for profile-specific documents
+## Runtime固有文書で確定する事項
 
-This taxonomy intentionally leaves exact native event names, field mappings,
-timeouts, configuration, and event-order alternatives to the Runtime reference
-pages. Those pages must next make explicit:
+本taxonomyでは、正確なnative event名、field mapping、timeout、configuration、event
+orderの選択肢をRuntime reference pageへ委ねる。後続整理では、各pageで次を明示する。
 
-- which native identity fields are mandatory and which correlations are
-  host-local;
-- the full completion predicate and legal event-order variations;
-- timeout closure, late-event reconciliation, duplicate handling, and retry
-  refusal for each profile;
-- Runtime-native storage readback authority and its limits;
-- restart/reconnect ownership, if any;
-- delivery/injection and continuation primitives; and
-- the exact Task Observer and assessor boundary for task-enabled profiles.
+- 必須native identity fieldとhost-local correlation
+- completion predicate全体と合法なevent-order variation
+- profileごとのtimeout closure、late-event reconciliation、duplicate handling、retry拒否
+- Runtime-native storage readbackのauthorityと制限
+- restart / reconnect ownership
+- delivery / injectionとcontinuationのprimitive
+- task-enabled profileのTrusted Observer / Task Assessor境界
 
-The future `evidence-model.md` should define how each of those observations is
-recorded, attributed, retained, combined into a CoverageProfile, and used for a
-Verdict. It must preserve the Strategy and profile isolation rules above.
+将来の`evidence-model.md`では、各observationの記録、attribution、retention、
+CoverageProfileへの集約、Verdictへの反映方法を定義する。その際も、本書のStrategy
+分離とprofile分離を維持する。

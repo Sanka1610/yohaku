@@ -1,127 +1,127 @@
 # Architecture
 
-Yohaku is a **Proactive Context Compaction Manager**. Its internal control
-concept is **Verified Context Transition**: before a long-running agent changes
-context, Yohaku checks whether work is at a safe boundary, preserves durable
-recovery state, verifies the Runtime-specific transition, and checks the current
-task state before normal work resumes.
+Yohakuの対外的な製品カテゴリは **Proactive Context Compaction Manager**
+である。内部の中核概念には **Verified Context Transition** を置く。長時間
+動作するAgentがcontextを切り替える前に、安全なboundaryかを確認し、復旧に
+必要な状態をdurableに保存する。続いて、Runtime固有のtransitionが完了した
+ことと、通常作業を再開する前のtask stateがcurrentであることを検証する。
 
-Compaction is one Transition Strategy, not the universal architecture. Yohaku
-reuses Runtime-native compaction, compression, memory, history, and archive
-facilities when their contracts are sufficient. It does not compete on the
-compression algorithm. Its control layer is responsible for deciding and
-verifying:
+CompactionはTransition Strategyの一つであり、アーキテクチャ全体を指すもの
+ではない。Yohakuは、契約を満たす限りRuntime標準のcompaction、compression、
+memory、history、archiveを再利用する。圧縮アルゴリズム自体を競うのではなく、
+control layerとして次を管理・検証する。
 
-- when a transition may start;
-- whether the current point is a safe boundary;
-- which state must be durable before the transition;
-- whether the requested transition actually completed;
-- whether recovery observations describe the current task state; and
-- whether only unfinished work can continue without duplication.
+- transitionを開始できる時機
+- 現在地点が安全なboundaryか
+- transition前にdurableに保存すべき状態
+- 要求したtransitionが実際に完了したか
+- recovery時の観測がcurrent task stateを表しているか
+- 未完了workだけを重複なく継続できるか
 
-This page is the public source of truth for Yohaku's component responsibilities,
-control flow, and trust boundaries. It describes the current implementation as
-well as the boundaries that remain profile-specific or unimplemented. It does
-not upgrade any Runtime, Support Profile, CoverageProfile, or Evidence Verdict.
+本書は、Yohakuのcomponent責務、control flow、trust boundaryについて、公開文書
+上の正本となる。現在の実装に加えて、profile固有または未実装の境界も示す。
+本書の記述によってRuntime、Support Profile、CoverageProfile、Evidence Verdict
+を昇格させることはない。
 
-## Architectural model
+## アーキテクチャモデル
 
-Yohaku separates four kinds of responsibility:
+Yohakuの責務は、次の四層に分かれる。
 
 ```text
 Agent / Runtime
-    │ proposes boundaries and performs task work
+    │ boundaryを提案し、task workを実行する
     ▼
 Runtime integration
-    │ observes lifecycle, work and Runtime identity
-    │ performs Runtime-specific transition and delivery
+    │ lifecycle、work、Runtime identityを観測する
+    │ Runtime固有のtransitionとdeliveryを実行する
     ▼
 Verified Context Transition Core
-    │ checks boundary, freshness, authority, ambiguity,
-    │ completion, handoff and resume invariants
+    │ boundary、freshness、authority、ambiguity、
+    │ completion、handoff、resumeの不変条件を検証する
     ▼
 Durability and task integration
       checkpoints / handoffs / archive
       trusted task observer / task assessor
 ```
 
-The arrows do not imply equal trust. An Agent proposal is a candidate. Runtime
-events are evidence only within the fixed profile that defines their meaning.
-Task observers and assessors are trusted integration code. Persistent data is
-historical input until fresh observations reconcile it with the current state.
+矢印は、各層を同じ強さで信頼することを意味しない。Agentの提案はcandidateに
+すぎない。Runtime eventをEvidenceとして解釈できるのは、その意味を定義した
+fixed profile内だけである。Task observerとassessorはtrusted integration code
+として扱う。永続化済みの情報は、fresh observationによってcurrent stateと照合
+されるまでhistorical inputである。
 
-The current code is only partly Runtime-neutral. `Controller` contains shared
-state and safety gates, and `CompletionPolicy` is a narrow Runtime-specific seam.
-The durable snapshot schema, restart path, `CompanionController`, default backend,
-and several lifecycle names remain derived from the Codex reference integration.
-Hermes and Claude adapters therefore do not establish a general cross-Runtime
-host, persistence, or restart framework.
+現在のコードは、一部だけがRuntime-neutralである。`Controller`は共有stateと
+safety gateを持ち、`CompletionPolicy`は狭いRuntime固有seamを提供する。一方、
+durable snapshot schema、restart経路、`CompanionController`、既定backend、複数の
+lifecycle名はCodex Reference integrationに由来する。したがって、HermesとClaude
+のadapterが存在しても、cross-Runtimeのhost、persistence、restart frameworkが
+一般化済みとは扱わない。
 
-## Component responsibilities and implementation status
+## Componentの責務と実装状態
 
-The status labels in the following tables have a limited meaning:
+以下の表では、実装状態を次のように区別する。
 
-- **Shared implementation**: code used as a common control or data contract.
-- **Runtime-specific implementation**: code whose event, identity, transport,
-  storage, or host assumptions belong to one Runtime integration.
-- **Bounded-profile implementation**: code accepted only for a fixed Support
-  Profile, task, tool set, or workflow.
-- **Design concept only**: an architectural role exists, but no general product
-  component implements it.
-- **Future / Deferred**: deliberately outside the current implementation.
+- **Shared implementation**: 共通の制御またはdata contractとして使うコード
+- **Runtime-specific implementation**: event、identity、transport、storage、hostの
+  前提が一つのRuntime integrationに属するコード
+- **Bounded-profile implementation**: fixed Support Profile、task、tool集合、workflow
+  の範囲でのみacceptedとなるコード
+- **Design concept only**: アーキテクチャ上の役割はあるが、一般製品componentは
+  実装されていない
+- **Future / Deferred**: 現在の実装対象外として明示的に保留している
 
-A component may have more than one label when its Core decision is shared but the
-observations or I/O needed to reach that decision are Runtime- or task-specific.
+Coreの判断を共有していても、判断に必要な観測やI/OがRuntimeまたはtask固有で
+あれば、一つのcomponentに複数の状態を付ける。
 
-### Control and safety
+### 制御と安全性
 
-| Component | Responsibility | Inputs → outputs | Trust and Runtime boundary | Current status |
+| Component | 責務 | 入力 → 出力 | Trust boundaryとRuntime境界 | 現在の状態 |
 |---|---|---|---|---|
-| Semantic Boundary Policy | Distinguish a boundary candidate from a verified semantic and execution boundary. Require declared-scope evidence and quiescence before authorization. | Candidate ID, task observation, revisions, workspace revision, evidence profile → `CANDIDATE`, `VERIFIED`, `DEFERRED`, or rejection | A model or Agent may propose a candidate but cannot verify it. The task/host supplies trusted observations. Yohaku does not ship an autonomous general boundary detector. | **Shared implementation** for the Core gate; **bounded-profile implementation** for concrete observations; broader policy is **design concept only**. |
-| Core State Machine | Serialize transition decisions and preserve ordering from work through verification, checkpoint, transition, handoff, and resume. | Trusted calls and immutable observations → state changes and one-shot authorities | `Controller` performs no external I/O. Its owner must serialize every call and supply truthful observations. Existing `ROLLOVER_*` names are current implementation vocabulary, not a claim that all strategies are rollovers. | **Shared implementation** in [`controller.py`](../src/yohaku/controller.py) and [`model.py`](../src/yohaku/model.py). |
-| Revision / Freshness | Keep intent, execution, control, archive, and workspace observations distinct; reject stale evidence and prevent an old observation from authorizing current work. | Revision counters, `WorkspaceRevision`, verification evidence, fresh recovery observation → accepted current state or invalidation | Runtime and task integrations define what mutations and results they can observe. Equal counters do not compensate for missing coverage. | **Shared implementation** for values and gates; observation coverage is **Runtime-specific** or **bounded-profile**. |
-| Lease / Ambiguity handling | Bind short-lived transition authority to one boundary, checkpoint, revision set, workspace, and generation. Suppress blind retry after an uncertain dispatch or completion. | Committed checkpoint and current observation → `Lease`, one `Request`, `AMBIGUOUS`, `INVALIDATED`, or `RECOVERY_REQUIRED` | A lease is local authority, not a Runtime-wide lock. It is consumed before transport and is never restored after restart. | **Shared implementation** in the Core. Final enforcement remains limited by each Runtime's dispatch surface. |
-| Completion Policy | Validate Runtime-owned binding and evidence, decide completion from accumulated evidence, and constrain continuation identity. | Pending `Request`, Runtime binding, correlated evidence → incomplete or `ROLLOVER_OBSERVED` | The policy is trusted, fixed for a `Controller` lifetime, I/O-free, and not a transport interface. Its `kind` values are Runtime-local deduplication keys, not a common event taxonomy. | **Shared implementation** for the [`CompletionPolicy`](../src/yohaku/completion.py) seam; **Runtime-specific / bounded-profile implementations** for Codex, Hermes, and Claude. |
-| Resume Verification | Admit `RESUME_VERIFIED` only after receipt, fresh current-state reconciliation, unresolved-work checks, nonduplication, and same-task assessment. | Handoff identity, receipt, fresh revisions/workspace, task-specific proof → `RESUME_VERIFIED` or stopped recovery | Receipt alone is insufficient. The Core checks proof structure and freshness; a trusted task integration must establish the semantic facts. | **Shared implementation** for the gate; proof production is **bounded-profile implementation**. |
+| Semantic Boundary Policy | boundary candidateと、検証済みのsemantic / execution boundaryを区別する。authorization前に、宣言scopeのEvidenceとquiescenceを要求する。 | Candidate ID、task observation、revision、workspace revision、evidence profile → `CANDIDATE`、`VERIFIED`、`DEFERRED`、または拒否 | ModelやAgentはcandidateを提案できるが、検証はできない。trusted task/hostが観測を供給する。Yohakuは自律的な汎用boundary detectorを提供しない。 | Core gateは **Shared implementation**。具体的な観測は **Bounded-profile implementation**。より一般的なpolicyは **Design concept only**。 |
+| Core State Machine | work、verification、checkpoint、transition、handoff、resumeの判断を直列化し、順序を保持する。 | Trusted callとimmutable observation → state transitionとone-shot authority | `Controller`自身は外部I/Oを行わない。ownerが全callを直列化し、正しい観測を渡す必要がある。既存の`ROLLOVER_*`名は実装上の語彙であり、全Strategyがrolloverであるという意味ではない。 | [`controller.py`](../src/yohaku/controller.py)と[`model.py`](../src/yohaku/model.py)の **Shared implementation**。 |
+| Revision / Freshness | intent、execution、control、archive、workspaceの観測を分け、stale evidenceがcurrent workをauthorizeしないようにする。 | Revision counter、`WorkspaceRevision`、verification evidence、fresh recovery observation → current stateとして受理、またはinvalidate | どのmutationとresultを観測できるかはRuntime / task integrationが定める。counterが一致しても、coverage不足は補えない。 | 値とgateは **Shared implementation**。観測coverageは **Runtime-specific** または **Bounded-profile**。 |
+| Lease / Ambiguity handling | 短命なtransition authorityを一つのboundary、checkpoint、revision集合、workspace、generationへ結び付ける。dispatchやcompletionが不明な場合はblind retryを止める。 | Committed checkpointとcurrent observation → `Lease`、一つの`Request`、`AMBIGUOUS`、`INVALIDATED`、または`RECOVERY_REQUIRED` | Leaseはlocal authorityであり、Runtime-wide lockではない。transport前にconsumeし、restart後に復元しない。 | Coreの **Shared implementation**。最終的なenforcement範囲は各Runtimeのdispatch surfaceに依存する。 |
+| Completion Policy | Runtime固有bindingとEvidenceを検証し、蓄積したEvidenceからcompletionを判断する。continuation identityも制約する。 | Pending `Request`、Runtime binding、correlated evidence → incompleteまたは`ROLLOVER_OBSERVED` | Policyはtrustedで、`Controller`のlifetime中は固定し、I/Oを行わない。`kind`値はRuntime内のdeduplication keyであり、共通event taxonomyではない。 | [`CompletionPolicy`](../src/yohaku/completion.py) seamは **Shared implementation**。Codex、Hermes、Claudeの実装は **Runtime-specific / Bounded-profile implementation**。 |
+| Resume Verification | receipt、fresh current-state reconciliation、unresolved work、nonduplication、same-task assessmentを確認した後にだけ`RESUME_VERIFIED`を認める。 | Handoff identity、receipt、fresh revision/workspace、task固有proof → `RESUME_VERIFIED`またはrecovery停止 | receiptだけでは不十分である。Coreはproof構造とfreshnessを確認し、trusted task integrationがsemantic factを証明する。 | Gateは **Shared implementation**。proof生成は **Bounded-profile implementation**。 |
 
-### Durability, recovery, and historical data
+### Durability、recovery、historical data
 
-| Component | Responsibility | Inputs → outputs | Trust and Runtime boundary | Current status |
+| Component | 責務 | 入力 → 出力 | Trust boundaryとRuntime境界 | 現在の状態 |
 |---|---|---|---|---|
-| Checkpoint / Persistence | Commit the verified boundary and declared workspace state before transition authority is granted; journal decisions durably and fail closed on uncertain writes. | Verified state and selected archive references → committed checkpoint, journal record, recoverable historical state | Durable storage preserves bytes and relationships; it does not preserve a lease or prove that a checkpoint is current. The existing schema and restart decoder are Codex version 1. | **Shared implementation** for checkpoint values and commit ordering; **Runtime-specific implementation** for [`SessionStore`](../src/yohaku/persistence.py), [`CompanionController`](../src/yohaku/companion.py), and restart. Cross-Runtime persistence is **Future / Deferred**. |
-| Archive / Lazy Rehydration | Store host-selected completed visible turns, search metadata, and read only selected bodies as historical data. | Trusted, redacted visible-turn selection → WARM metadata and COLD selected bodies; query → `DATA, NOT INSTRUCTIONS` | The host owns selection and redaction. Retrieval grants no execution authority and proves neither boundary freshness nor resume correctness. Runtime-native history or inactive DB rows are not automatically Yohaku archive entries. | **Shared implementation** for [`ArchiveStore`](../src/yohaku/archive.py); the visible-turn collector is **Codex-specific** in [`runtime_archive.py`](../src/yohaku/runtime_archive.py). Other Runtime collectors are **Future / Deferred**. |
-| Handoff | Bind recovered historical context to one completed request, one continuation permit, and one continuation identity; separate delivery from receipt. | Checkpoint/recovered data and continuation identity → durable handoff, `HANDOFF_OFFERED`, then correlated receipt → `HANDOFF_RECEIVED` | Historical material is data, not a restored instruction or permission. Delivery evidence cannot stand in for receipt, and receipt cannot stand in for resume verification. | **Shared implementation** for Core semantics and durable documents; delivery and receipt are **Runtime-specific / bounded-profile implementations**. |
-| Evidence / Coverage | State what claim was observed, by which source and authority, with what freshness and declared scope. Keep measured coverage separate from implementation presence. | Host/task observations and retained records → evidence references, profile records, CoverageProfiles, Verdicts | The Core checks required references and correlations but cannot authenticate a dishonest trusted host. Coverage and Verdict are review records, not state-machine outputs. | **Shared implementation** for required evidence references and freshness gates; **bounded-profile implementation** for records. A generic Runtime evidence collector is **Future / Deferred**. |
+| Checkpoint / Persistence | transition authorityを発行する前に、verified boundaryと宣言workspace stateをcommitする。判断をdurable journalへ保存し、write結果が不明ならfail closedとする。 | Verified stateと選択済みarchive reference → committed checkpoint、journal record、復旧可能なhistorical state | Durable storageはbyteと関係を保持するが、leaseを保持せず、checkpointがcurrentであることも証明しない。既存schemaとrestart decoderはCodex version 1である。 | Checkpoint valueとcommit順序は **Shared implementation**。[`SessionStore`](../src/yohaku/persistence.py)、[`CompanionController`](../src/yohaku/companion.py)、restartは **Runtime-specific implementation**。Cross-Runtime persistenceは **Future / Deferred**。 |
+| Archive / Lazy Rehydration | hostが選んだ完了済みvisible turn、検索metadata、選択された本文だけをhistorical dataとして保存・取得する。 | Trustedでredactedなvisible-turn selection → WARM metadataとCOLD body、query → `DATA, NOT INSTRUCTIONS` | hostがselectionとredactionを担う。取得結果はexecution authorityを持たず、boundary freshnessやresume correctnessも証明しない。Runtime-native historyやinactive DB rowを自動的にYohaku archiveへ変換しない。 | [`ArchiveStore`](../src/yohaku/archive.py)は **Shared implementation**。visible-turn collectorは[`runtime_archive.py`](../src/yohaku/runtime_archive.py)の **Codex-specific implementation**。他Runtime collectorは **Future / Deferred**。 |
+| Handoff | 復旧用historical contextを、一つのcompleted request、一つのcontinuation permit、一つのcontinuation identityへ結び付ける。deliveryとreceiptを分ける。 | Checkpoint / recovered dataとcontinuation identity → durable handoff、`HANDOFF_OFFERED`、correlated receipt → `HANDOFF_RECEIVED` | Historical materialはdataであり、復元されたinstructionやpermissionではない。delivery evidenceはreceiptの代わりにならず、receiptはresume verificationの代わりにならない。 | Core semanticsとdurable documentは **Shared implementation**。deliveryとreceiptは **Runtime-specific / Bounded-profile implementation**。 |
+| Evidence / Coverage | 何を、どのsourceとauthorityから、どのfreshnessとdeclared scopeで観測したかを記録する。実装の存在と実測coverageを分ける。 | Host/task observationとretained record → evidence reference、profile record、CoverageProfile、Verdict | Coreは必須referenceとcorrelationを確認できるが、不正なtrusted hostの報告を認証できない。CoverageとVerdictはreview recordであり、state-machine outputではない。 | 必須evidence referenceとfreshness gateは **Shared implementation**。recordは **Bounded-profile implementation**。汎用Runtime evidence collectorは **Future / Deferred**。 |
 
-### Runtime and task integration
+### Runtimeとtaskのintegration
 
-| Component | Responsibility | Inputs → outputs | Trust and Runtime boundary | Current status |
+| Component | 責務 | 入力 → 出力 | Trust boundaryとRuntime境界 | 現在の状態 |
 |---|---|---|---|---|
-| Runtime Adapter | Translate one fixed Runtime/surface/strategy lifecycle into trusted Core calls and perform Runtime I/O without inventing identities or events. | Native lifecycle events, host-local correlation, Core decisions → normalized proof, dispatch, delivery, continuation | Lifecycle event names, identity strength, request semantics, Hook behavior, and storage readback remain Runtime-specific. | **Runtime-specific / bounded-profile implementations** for the Codex reference, Hermes H-CLI-01, and Claude C-CLI. There is no full common adapter interface or registry. |
-| Runtime Host / Companion | Own the Runtime connection and serialized event loop; connect observation, durable state, dispatch, timeout, and recovery. | Runtime messages and trusted callbacks → ordered Core mutations and persisted decisions | The owner is trusted to serialize and correlate observations. `RuntimeHost` and `CompanionController` remain Codex-oriented. Hermes and Claude adapters use separate bounded wiring rather than a neutral Companion. | Codex has a **Runtime-specific implementation**. Hermes/Claude connection paths are **bounded-profile implementations**. A neutral cross-Runtime host is **Future / Deferred**. |
-| Work observation / active-pending ledger | Record admitted work, active operations, completed results awaiting incorporation, and loss of observation. | Runtime tool lifecycle and trusted result incorporation → active/pending/uncertain work state | Tool taxonomy and “incorporated” have Runtime- and task-specific meanings. A successful tool result does not prove that the Agent incorporated it into task state. | Codex has a **Runtime-specific bounded ledger**; Hermes, Claude, and document review have separate **bounded-profile** ledgers. No universal ledger exists. |
-| Work-plane gate | Refuse new state-changing work while a transition barrier is active and require relevant active/pending work to settle. | Proposed operation, barrier state, observed ledger → allow, deny, `DEFERRED`, ambiguity, or recovery stop | A local gate covers only operations routed through it. It is not an atomic freeze of every Runtime tool, background process, external client, or workspace writer. | **Runtime-specific / bounded-profile implementation** for declared operations. Runtime-wide atomic freeze is not implemented. |
-| Task Profile | Bind a logical task to an allowed work plane, input/output contract, trusted observer, assessor, transition strategy, and refusal rules. | Fixed task configuration and current task state → admitted task workflow or refusal | Runtime support supplies lifecycle capability; task support supplies task semantics. Neither implies the other. | **Bounded-profile implementation** for `document-review-report-v1`; a general task framework is **design concept only**. |
-| Trusted Observer | Produce current task observations used for boundary, freshness, active/pending work, and resume checks. | Declared inputs, workspace and observed Runtime results → versioned task observation and `WorkspaceRevision` | It is trusted integration code, not model output. It can claim only its declared scope and cannot exclude an unobserved external writer. | **Bounded-profile implementation** for document review and fixture-specific integrations. No general observer exists. |
-| Task Assessor | Decide whether the permitted continuation mechanically completed the fixed task without stale, duplicate, undeclared, or pending work. | Fresh observation, continuation items, task contract → task-specific resume proof or refusal | The assessor is not a general quality oracle. It may verify mechanics while leaving content correctness and quality unassessed. | **Bounded-profile implementation**. `document-review-report-v1` assesses mechanical completion only. |
-| Operational Host / launcher | Start and own a reviewed Runtime process, isolate state, apply profile configuration, expose lifecycle status/stop, and attach task integration only when that profile supplies it. | Explicit configuration and fixed profile → owned Runtime lifecycle or task-enabled run | A lifecycle-only host deliberately has no inference, task observer, work observation, or transition authority. Starting a Runtime is not transition acceptance. | **Runtime-specific implementation** for Codex and Hermes lifecycle-only profiles; a **bounded Codex task runner** exists for document review. A Claude operational launcher is **Future / Deferred**. |
+| Runtime Adapter | 一つのfixed Runtime / surface / Strategy lifecycleをtrusted Core callへ変換し、identityやeventを捏造せずにRuntime I/Oを行う。 | Native lifecycle event、host-local correlation、Core decision → normalized proof、dispatch、delivery、continuation | Lifecycle event名、identity強度、request semantics、Hook挙動、storage readbackはRuntime固有である。 | Codex Reference、Hermes H-CLI-01、Claude C-CLIに **Runtime-specific / Bounded-profile implementation** がある。完全な共通adapter interfaceやregistryはない。 |
+| Runtime Host / Companion | Runtime connectionと直列化されたevent loopを所有し、observation、durable state、dispatch、timeout、recoveryを接続する。 | Runtime messageとtrusted callback → ordered Core mutationとpersisted decision | ownerが観測の直列化とcorrelationを担う。`RuntimeHost`と`CompanionController`はCodex指向のままである。Hermes / Claudeはneutral Companionではなく、別のbounded wiringを使う。 | Codexには **Runtime-specific implementation** がある。Hermes / Claudeのconnection pathは **Bounded-profile implementation**。neutral cross-Runtime hostは **Future / Deferred**。 |
+| Work observation / active-pending ledger | admitted work、active operation、incorporation待ちのcompleted result、observation lossを記録する。 | Runtime tool lifecycleとtrusted result incorporation → active / pending / uncertain work state | Tool taxonomyと「incorporated」の意味はRuntime / task固有である。tool resultが成功しても、Agentがtask stateへ反映したことは証明できない。 | Codexには **Runtime-specific bounded ledger** がある。Hermes、Claude、document reviewには別々の **Bounded-profile ledger** がある。universal ledgerはない。 |
+| Work-plane gate | transition barrier中の新しいstate-changing workを拒否し、関係するactive / pending workがsettleするまで待つ。 | Proposed operation、barrier state、observed ledger → allow、deny、`DEFERRED`、ambiguity、またはrecovery停止 | local gateが対象にできるのは、そこを通るoperationだけである。全Runtime tool、background process、external client、workspace writerをatomicに停止するものではない。 | 宣言したoperationに対する **Runtime-specific / Bounded-profile implementation**。Runtime-wide atomic freezeは未実装。 |
+| Task Profile | logical taskを、allowed work plane、input/output contract、Trusted Observer、Task Assessor、Transition Strategy、refusal ruleへ結び付ける。 | Fixed task configurationとcurrent task state → admitted task workflowまたは拒否 | Runtime supportはlifecycle capabilityを提供し、task supportはtask semanticsを提供する。どちらからも他方を推定できない。 | `document-review-report-v1`の **Bounded-profile implementation**。general task frameworkは **Design concept only**。 |
+| Trusted Observer | boundary、freshness、active / pending work、resume checkに使うcurrent task observationを生成する。 | Declared input、workspace、observed Runtime result → versioned task observationと`WorkspaceRevision` | model outputではなくtrusted integration codeである。宣言scope内だけを主張でき、unobserved external writerの不在は証明できない。 | document reviewとfixture固有integrationの **Bounded-profile implementation**。general observerはない。 |
+| Task Assessor | 固定taskのpermitted continuationが、stale、duplicate、undeclared、pending workを残さずmechanicalに完了したか判断する。 | Fresh observation、continuation item、task contract → task固有resume proofまたは拒否 | general quality oracleではない。mechanical completionを検証しても、content correctnessやqualityは未評価のままにできる。 | **Bounded-profile implementation**。`document-review-report-v1`が評価するのはmechanical completionだけである。 |
+| Operational Host / launcher | reviewed Runtime processを起動・所有し、stateを分離し、profile設定を適用する。status / stopを提供し、profileがtask integrationを持つ場合だけ接続する。 | Explicit configurationとfixed profile → owned Runtime lifecycleまたはtask-enabled run | lifecycle-only hostは意図的にinference、Task Observer、work observation、transition authorityを持たない。Runtimeの起動はtransition acceptanceではない。 | CodexとHermesのlifecycle-only profileに **Runtime-specific implementation** がある。document reviewには **bounded Codex task runner** がある。Claude operational launcherは **Future / Deferred**。 |
 
 ## Control flow
 
-### Normal work and boundary proposal
+### 通常作業とboundary proposal
 
 ```text
 Agent / Runtime task work
-    → Runtime-specific work observation
-    → trusted task observer
+    → Runtime固有のwork observation
+    → Trusted Observer
     → Semantic Boundary Candidate
-    → Core quiescence, freshness and evidence verification
+    → Coreによるquiescence、freshness、Evidenceの検証
 ```
 
-The Agent may identify a meaningful stopping point, but that proposal only creates
-`CANDIDATE`. The host arms the available work-plane gate, observes relevant active
-and pending work, captures the declared workspace scope, and supplies evidence.
-Only the Core can enter `VERIFIED`.
+Agentは意味のある区切りを提案できるが、その提案で確定するのは`CANDIDATE`まで
+である。hostが利用可能なwork-plane gateを有効にし、関係するactive / pending
+workを観測し、宣言workspace scopeを取得してEvidenceを渡す。Coreだけが
+`VERIFIED`へ遷移できる。
 
 ### Verified transition
 
@@ -129,215 +129,218 @@ Only the Core can enter `VERIFIED`.
 Verified Boundary (`VERIFIED`)
     → durable checkpoint
       (`CHECKPOINT_PREPARING` → `CHECKPOINT_COMMITTED`)
-    → revision-bound lease and one request
+    → revision-bound leaseと一つのrequest
       (`ROLLOVER_AUTHORIZED` → `ROLLOVER_REQUESTED`)
-    → Runtime-specific Transition Strategy
+    → Runtime固有のTransition Strategy
     → correlated completion proof (`ROLLOVER_OBSERVED`)
-    → one continuation permit and Runtime continuation identity
+    → 一つのcontinuation permitとRuntime continuation identity
     → durable handoff delivery (`HANDOFF_OFFERED`)
     → explicit receipt (`HANDOFF_RECEIVED`)
-    → fresh task/workspace observation
-    → only unfinished work continues
-    → task-specific assessor
+    → fresh task / workspace observation
+    → 未完了workだけを継続
+    → task固有のassessment
     → `RESUME_VERIFIED`
 ```
 
-The implementation retains `ROLLOVER_*` state names for compatibility even when
-the public architecture calls the larger process a Context Transition. A strategy
-may compact in place, roll into a fresh context, or migrate a session only if its
-own Runtime contract implements and verifies that path. Current acceptance of one
-strategy does not establish the others.
+公開アーキテクチャでは上位概念をContext Transitionと呼ぶが、実装は互換性の
+ため`ROLLOVER_*` state名を維持する。Strategyは、そのRuntime contractが実装・
+検証した場合に限り、in-place compaction、fresh contextへのrollover、session
+migrationを実行できる。一つのStrategyのaccepted結果から、他Strategyの対応を
+推定しない。
 
-### Unsafe or uncertain paths
+### Unsafeまたはuncertainな経路
 
-These outcomes have different meanings and must not be collapsed into one generic
-failure:
+次の結果は意味が異なるため、一つのfailureへ統合しない。
 
-| Condition | Required outcome |
+| 条件 | 必要な結果 |
 |---|---|
-| Relevant active work or pending result is observed before verification | Enter Core state `DEFERRED`, release the barrier, and return to ordinary work before a new candidate is proposed. Contract prose may describe the action as “DEFER”; the implemented state name is `DEFERRED`. |
-| Boundary, revision, workspace, lease, or pre-dispatch authority is stale | Reject or enter `INVALIDATED`; no request is sent from that authority. Reverification is required. |
-| Dispatch may have occurred but completion is missing, conflicting, late without reconciliation, or otherwise unknown | Enter `AMBIGUOUS`; suppress normal work and blind retry while correlated evidence is reconciled. |
-| Completion is known but handoff, receipt, current-state reconciliation, or resume proof cannot safely finish | Enter `RECOVERY_REQUIRED`; old authority is not restored. |
-| A fixed Task Profile rejects undeclared inputs, stale output, duplicate write, or a disallowed work item before uncertain side effects | Report `REFUSED` at the task/operation layer. `REFUSED` is not a Core `State`. If a write or result becomes uncertain, the profile may instead report `AMBIGUOUS`. |
-| Durable records are corrupt, inconsistent, or have an unknown write outcome | Stop the owner and require recovery; do not fall back silently to an older checkpoint. |
+| verification前に関係するactive workまたはpending resultを観測した | Core stateを`DEFERRED`とし、barrierを解除して通常作業へ戻る。新しいcandidateを提案してから再試行する。契約文では動作を「DEFER」と表現できるが、実装state名は`DEFERRED`である。 |
+| boundary、revision、workspace、lease、pre-dispatch authorityがstale | 拒否するか`INVALIDATED`へ遷移する。そのauthorityからrequestを送らず、current stateから再検証する。 |
+| dispatchされた可能性がある一方、completionが欠落・競合・未照合のlate eventなどで不明 | `AMBIGUOUS`へ遷移する。correlated evidenceを照合するまで通常作業とblind retryを止める。 |
+| completionは既知だが、handoff、receipt、current-state reconciliation、resume proofを安全に完了できない | `RECOVERY_REQUIRED`へ遷移する。古いauthorityは復元しない。 |
+| fixed Task Profileが、undeclared input、stale output、duplicate write、disallowed workをuncertain side effect前に拒否した | task / operation layerで`REFUSED`を返す。`REFUSED`はCoreの`State`ではない。writeやresultがuncertainになった場合は、profileが`AMBIGUOUS`を返すことがある。 |
+| Durable recordが破損・不整合、またはwrite結果が不明 | ownerを停止してrecoveryを要求する。古いcheckpointへ黙ってfallbackしない。 |
 
-## Trust boundaries
+## Trust boundary
 
 ### Model / Agent output
 
-Model output is untrusted task content. It may propose a boundary, emit a receipt
-marker required by a bounded protocol, or produce the task artifact, but its
-self-report does not prove quiescence, completion, receipt identity, or correctness.
+Model outputはuntrusted task contentである。bounded protocolが必要とするboundary
+proposal、receipt marker、task artifactを出力できるが、自己申告だけでは
+quiescence、completion、receipt identity、correctnessを証明できない。
 
 ### Yohaku trusted host
 
-The trusted host owns serialization, Runtime connection, observation adapters,
-current-state reads, and durable calls. Core safety depends on these observations
-being truthful and correctly scoped. Yohaku checks correlations and state
-invariants; it cannot cryptographically prove that host instrumentation reported
-the external Runtime faithfully.
+trusted hostはserialization、Runtime connection、observation adapter、current-state
+read、durable callを所有する。Coreの安全性は、hostが正しくscopeされた観測を
+報告することに依存する。Yohakuはcorrelationとstate invariantを検査できるが、
+host instrumentationが外部Runtimeを正確に報告したかを暗号学的には証明できない。
 
 ### Runtime lifecycle evidence
 
-Runtime events, Hooks, native history, and storage readback are accepted only under
-the Transition Strategy that defines their identity, ordering, and coverage. An
-RPC acknowledgement or successful tool return can prove a local operation result;
-it does not by itself prove transition completion or semantic incorporation.
+Runtime event、Hook、native history、storage readbackは、そのidentity、ordering、
+coverageを定義したTransition Strategy内だけで受理する。RPC acknowledgementや
+tool returnの成功から分かるのは、そのlocal operationの結果までである。それ
+だけではtransition completionやsemantic incorporationを証明できない。
 
 ### Task workspace
 
-The task workspace is current mutable state, not part of Yohaku's trusted storage.
-A `WorkspaceRevision` identifies a declared scope and mutation epoch. Profile locks
-coordinate cooperating launchers, but they do not prevent other processes,
-editors, Runtime clients, or users from writing. Detected changes invalidate stale
-evidence; unobserved changes remain a coverage limit.
+task workspaceはcurrent mutable stateであり、Yohakuのtrusted storageではない。
+`WorkspaceRevision`は宣言scopeとmutation epochを識別する。profile lockは協調する
+launcherを調整するが、他process、editor、Runtime client、userのwriteを防がない。
+検出した変更はstale evidenceをinvalidateする。観測できない変更はcoverage上の
+制限として残る。
 
 ### Persistent Yohaku storage
 
-Yohaku storage contains journals, checkpoints, handoffs, selected archive entries,
-and profile metadata. Checksums, atomic replacement, synchronization, and a local
-writer lock protect the implemented POSIX store against specified local failure
-modes. They do not make a historical checkpoint current, restore a lease, or
-exclude non-cooperating writers outside the store.
+Yohaku storageにはjournal、checkpoint、handoff、選択済みarchive entry、profile
+metadataを保存する。checksum、atomic replacement、synchronization、local writer
+lockは、実装済みPOSIX storeを宣言したlocal failure modeから保護する。ただし、
+historical checkpointをcurrentにせず、leaseを復元せず、store外の非協調writerも
+排除しない。
 
 ### Runtime-native storage
 
-Runtime-native transcripts, histories, databases, or memory stores belong to the
-Runtime trust domain. An adapter may use a fixed readback as completion evidence,
-but Yohaku does not treat the entire native store as its checkpoint, archive, or
-source of current authority. A native record must be correlated and interpreted
-under its fixed profile.
+Runtime-native transcript、history、database、memory storeはRuntime側のtrust domain
+に属する。adapterはfixed readbackをcompletion evidenceとして利用できるが、native
+store全体をYohaku checkpoint、archive、current authorityとは扱わない。native record
+はfixed profileの規則でcorrelateし、意味を解釈する必要がある。
 
 ### External writer / unobserved work
 
-An external writer or work item outside the declared observer and gate is not made
-safe by Yohaku's local state machine. A profile must disclose that limit. Yohaku
-does not infer absence from missing events when the observer lacks complete
-coverage.
+宣言したobserverとgateの外にあるexternal writerやwork itemは、Yohakuのlocal state
+machineだけでは安全にならない。profileはこの制限を開示する。observerのcoverage
+が不完全な場合、eventが存在しないことからworkの不在を推定しない。
 
-The resulting rules are strict:
+以上から、次の原則を適用する。
 
-- a model's self-report alone never verifies a boundary;
-- tool success alone never proves semantic incorporation;
-- handoff delivery alone never proves receipt;
-- receipt alone never proves resume correctness; and
-- an old checkpoint is recoverable historical data, not current state or authority.
+- modelの自己申告だけでboundaryをverifyしない
+- tool successだけでsemantic incorporationを証明しない
+- handoff deliveryだけでreceiptを証明しない
+- receiptだけでresume correctnessを証明しない
+- old checkpointをcurrent stateやauthorityとして扱わない
 
-## Shared Core and Runtime-specific responsibilities
+## Shared CoreとRuntime固有責務
 
-The following division is the architectural target and the safest current reading
-of the implementation. It is not a claim that every item already has a stable,
-Runtime-neutral interface.
+次の表は、目標とする責務分担と、現在の実装を安全に読むための区分である。全項目
+にstableなRuntime-neutral interfaceが存在するという意味ではない。
 
-| Shared safety condition or semantic | Runtime-specific responsibility | Current implementation exception |
+| Shared safety condition / semantics | Runtime固有の責務 | 現在の実装上の例外 |
 |---|---|---|
-| Boundary candidate identity and the distinction between candidate and verified boundary | Produce candidates and observe task-specific semantic completion | No autonomous general detector; the document-review observer is profile-specific. |
-| Revision monotonicity, freshness comparison, and stale-evidence rejection | Decide which Runtime events and workspace changes advance revisions | Coverage differs by Runtime and task; unobserved writers remain outside the gate. |
-| Quiescence must precede verification | Map tool taxonomy, active work, pending results, and result incorporation | Codex, Hermes, Claude, and document review use different bounded ledgers; there is no universal taxonomy. |
-| Checkpoint must be committed before authority | Implement durable commit, namespace, locking, and readback on the host platform | Current journal/restart schema and Companion are Codex version 1; Hermes/Claude do not gain Core restart from their adapters. |
-| Lease is bound to boundary, checkpoint, revisions, workspace, and generation | Revalidate at the actual dispatch point and enforce the available work gate | The local Core cannot eliminate every final-read-to-Runtime race or provide a Runtime-wide atomic freeze. |
-| Unknown execution is not non-execution; ambiguity suppresses retry | Correlate late, duplicate, conflicting, and missing native evidence | Each strategy has its own evidence shape and acceptance scope. |
-| Completion is distinct from request acceptance | Map lifecycle events and provide Runtime-specific completion proof | Only the completion predicate has a shared policy seam. Transport and lifecycle mapping are not generalized. |
-| Handoff is data-bound, durable, and separate from receipt | Deliver the handoff and produce a correlated Runtime receipt | Codex, Hermes, and Claude use different bounded delivery/receipt mechanisms. |
-| Resume requires fresh current state, nonduplication, and same-task continuation | Start or identify the continuation, perform fresh reads, and invoke a task assessor | A general assessor does not exist; current assessors are profile- or fixture-specific. |
-| Archive data grants no authority | Extract, select, redact, and identify visible turns | Only the Codex visible-turn collector is implemented as a product archive adapter. |
-| Evidence must name scope, authority, freshness, and coverage | Capture source/version/profile-specific records and native identities | Evidence records do not authenticate an external host and do not generalize beyond their fixed profile. |
+| boundary candidate identityとcandidate / verified boundaryの区別 | candidateを生成し、task固有のsemantic completionを観測する | 汎用の自律detectorはない。document-review observerはprofile固有である。 |
+| revisionの単調性、freshness比較、stale-evidence拒否 | どのRuntime eventとworkspace変更でrevisionを進めるか決める | CoverageはRuntime / taskごとに異なる。unobserved writerはgate外に残る。 |
+| quiescenceをverificationより先に確立する | tool taxonomy、active work、pending result、result incorporationを対応付ける | Codex、Hermes、Claude、document reviewは異なるbounded ledgerを使う。universal taxonomyはない。 |
+| authorityを発行する前にcheckpointをcommitする | host platform上のdurable commit、namespace、locking、readbackを実装する | 現行journal / restart schemaとCompanionはCodex version 1である。Hermes / Claude adapterからCore restartを推定しない。 |
+| leaseをboundary、checkpoint、revision、workspace、generationへ結び付ける | 実dispatch地点で再検証し、利用可能なwork gateをenforceする | local Coreはfinal readからRuntime dispatchまでの全raceを除去できず、Runtime-wide atomic freezeも提供しない。 |
+| unknown executionをnon-executionと扱わず、ambiguity中のretryを止める | late、duplicate、conflicting、missing native evidenceをcorrelateする | Evidenceの形とaccepted scopeはStrategyごとに異なる。 |
+| completionをrequest acceptanceから分離する | lifecycle eventを対応付け、Runtime固有completion proofを提供する | 共通seamがあるのはcompletion predicateだけである。transportとlifecycle mappingは一般化されていない。 |
+| handoffをdata-boundかつdurableにし、receiptと分離する | handoffをdeliveryし、correlated Runtime receiptを生成する | Codex、Hermes、Claudeは別々のbounded delivery / receipt mechanismを使う。 |
+| fresh current state、nonduplication、same-task continuationをresumeの条件にする | continuationを開始・識別し、fresh readとTask Assessorを実行する | general assessorはない。現在のassessorはprofileまたはfixture固有である。 |
+| archive dataへauthorityを与えない | visible turnをextract、select、redact、identifyする | 製品archive adapterとして実装済みなのはCodex visible-turn collectorだけである。 |
+| Evidenceにscope、authority、freshness、coverageを要求する | source / version / profile固有recordとnative identityを取得する | Evidence recordはexternal hostを認証せず、fixed profile外へ一般化できない。 |
 
-The Runtime-specific side therefore owns at least lifecycle event mapping, tool
-taxonomy, active/pending observation, work-plane enforcement, transition trigger,
-completion proof, session/request/generation identity, delivery, continuation,
-and visible-turn extraction. The Core must not manufacture a Codex-shaped event
-sequence for another Runtime merely to fit the existing snapshot schema.
+Runtime固有側は、少なくともlifecycle event mapping、tool taxonomy、active / pending
+observation、work-plane enforcement、transition trigger、completion proof、session / request /
+generation identity、delivery、continuation、visible-turn extractionを所有する。既存
+snapshot schemaへ合わせるために、Coreが他Runtime用のCodex型event列を捏造しては
+ならない。
 
-## Task Profiles: Runtime support is not task support
+## Task Profile: Runtime supportとtask supportの区別
 
-Runtime support and task support answer different questions:
+Runtime supportとtask supportは、別の問いに答える。
 
 ```text
-Runtime support  = can this fixed Runtime profile observe and control a transition?
-Task support     = can this fixed task profile determine safe boundary and completion?
+Runtime support  = fixed Runtime profileでtransitionを観測・制御できるか
+Task support     = fixed Task Profileで安全なboundaryと完了を判断できるか
 ```
 
-A lifecycle-only Runtime profile may start, stop, and preserve state while
-deliberately refusing inference and transitions because no task observer or
-assessor is installed. Conversely, a task contract cannot compensate for missing
-Runtime completion, identity, receipt, or continuation evidence.
+lifecycle-only Runtime profileは、task observerやassessorを持たないため、起動、停止、
+state保持だけを提供し、inferenceやtransitionを意図的に拒否できる。反対に、task
+contractが存在しても、Runtime completion、identity、receipt、continuation evidenceの
+不足は補えない。
 
-`document-review-report-v1` is the first packaged Task Profile and remains a
-bounded example, not a general task framework. It defines:
+`document-review-report-v1`は最初のpackaged Task Profileであり、general task
+frameworkではない。定義する範囲は次のとおりである。
 
-- an allowed work plane of two profile-owned dynamic tools,
-  `read_review_inputs` and `publish_review_report`;
-- a preflight input/output contract for declared UTF-8 Markdown/text inputs and
-  one create-only Markdown output;
-- a trusted observer for input identities, read/write lifecycle, result
-  incorporation, active/pending work, and workspace freshness;
-- a task assessor that accepts one successful fresh read and one successful
-  publish in the continuation and refuses command, file-change, MCP, duplicate,
-  stale, or pending work;
-- mechanical completion as the assessed result; and
-- fail-closed refusal for stale output, undeclared or duplicate inputs, changed
-  workspace, duplicate write, and unsupported work.
+- profile所有のdynamic toolである`read_review_inputs`と
+  `publish_review_report`だけをallowed work planeとする
+- 宣言済みUTF-8 Markdown / text inputと、一つのcreate-only Markdown outputに
+  preflight input/output contractを設ける
+- input identity、read / write lifecycle、result incorporation、active / pending work、
+  workspace freshnessをTrusted Observerが観測する
+- continuation内のfresh read一回とpublish一回だけをTask Assessorが受理し、command、
+  file change、MCP、duplicate、stale、pending workを拒否する
+- 評価対象をmechanical completionとする
+- stale output、undeclared / duplicate input、workspace変更、duplicate write、
+  unsupported workをfail closedで拒否する
 
-The profile does not assess the factual correctness, completeness, editorial
-quality, or prose quality of the report. Those qualities remain `NOT_ASSESSED`.
-Its accepted workflow cannot be generalized to arbitrary document processing,
-coding tasks, other tool sets, or other Runtimes.
+このprofileはreportの事実性、完全性、編集品質、文章品質を評価しない。これらは
+`NOT_ASSESSED`のままである。accepted workflowを任意のdocument processing、coding
+task、別tool集合、別Runtimeへ一般化しない。
 
-## Non-goals and non-guarantees
+## Non-goals / Non-guarantees
 
-Yohaku does not guarantee:
+Yohakuは次を保証しない。
 
-- correctness of an arbitrary task or task artifact;
-- writing quality, code quality, or successful review of the produced content;
-- correctness of model reasoning or model self-reports;
-- an atomic freeze of every Runtime tool, background task, process, client, or
-  external workspace writer;
-- safety or support for a profile without matching Evidence and declared
-  coverage;
-- a general exactly-once guarantee for Runtime dispatch, delivery, or external
-  side effects;
-- preservation or recovery of hidden chain-of-thought;
-- restoration of in-memory process state, database transactions, external
-  service state, or arbitrary OS processes;
-- a general task-success oracle, automatic secret classifier, or universal
-  visible-turn selector;
-- cross-Runtime restart, snapshot migration, or storage compatibility; or
-- reimplementation of a Runtime's standard compressor, memory system, or archive
-  when the native mechanism can be used under a sufficient contract.
+- 任意taskやtask artifactの正しさ
+- 文章品質、コード品質、生成内容のreview成功
+- model reasoningやmodel self-reportの正しさ
+- 全Runtime tool、background task、process、client、external workspace writerの
+  atomic freeze
+- 対応するEvidenceとdeclared coverageがないprofileの安全性またはsupport
+- Runtime dispatch、delivery、external side effectに対する一般的なexactly-once保証
+- hidden chain-of-thoughtの保存または復旧
+- in-memory process state、database transaction、external service state、任意OS process
+  の復元
+- general task-success oracle、自動secret classifier、universal visible-turn selector
+- cross-Runtime restart、snapshot migration、storage compatibility
+- native mechanismが十分なcontractを満たす場合のRuntime標準compressor、memory system、
+  archiveの再実装
 
-Fresh-context rollover and session migration remain architectural Transition
-Strategy categories rather than available general adapters. Support is declared
-only for a fixed Runtime, surface, version, strategy, backend/model, tool set, and
-owner assumption set.
+Fresh-context rolloverとsession migrationは、利用可能なgeneral adapterではなく、
+アーキテクチャ上のTransition Strategy categoryである。Supportは、fixed Runtime、
+surface、version、Strategy、backend / model、tool集合、owner assumptionの組ごとに宣言
+する。
 
-## Relationship to other public documents
+## 公開文書のlanguage policy
 
-This page owns the current public component model, responsibility boundaries,
-control flow, and trust boundaries. Other documents have narrower roles:
+Yohakuの公開文書は、日本語版をcanonicalとする。英語版を作る場合は、canonical
+日本語版から生成・更新するderived documentationとして扱い、英語版だけで仕様、
+Support Profile、Evidence、Verdictを変更しない。
 
-- the [README](../README.md) owns the product introduction and top-level current
-  status;
-- the [support policy](../SUPPORT_POLICY.md) defines Support Profiles, maturity,
-  Evidence level, Verdict, and release-channel rules;
-- [Runtime Mapping](runtime-mapping.md) owns fixed-profile facts and the mapping
-  from Yohaku roles to Runtime-specific primitives;
-- [Transition Strategies](transition-strategies.md) owns the taxonomy and common
-  semantics of manual in-place compaction, native automatic compaction,
-  fresh-context rollover, and session migration;
-- [Runtime support](runtime-support.md) retains profile status, historical
-  provenance, and known limitations pending its later profile-specific cleanup;
-- the [Codex reference](reference/codex.md), [Hermes reference](reference/hermes.md),
-  and [Claude CLI reference](reference/claude-cli.md) describe Runtime-specific
-  contracts and limits;
-- the [document-review profile](reference/document-review-report-v1.md) defines
-  the current bounded Task Profile; and
-- [Operations](operations.md) and [Installation](installation.md) describe
-  launcher behavior and setup rather than architecture acceptance.
+`README.md`は将来、日本語canonicalへ移行する。英語版のファイル名は
+`README.en.md`とする。詳細docsの英語版は、Alpha公開に必要な主要文書から段階的に
+作成する。今回のlanguage migrationは、本書、[Runtime Mapping](runtime-mapping.md)、
+[Transition Strategies](transition-strategies.md)だけを対象とし、`README.md`の全面
+改稿や英語版の作成は含まない。
 
-Source code remains authoritative for implemented behavior. Public support and
-Evidence claims remain authoritative only within the fixed profiles and records
-identified by the support documents. Historical design and acceptance material
-informed this architecture but does not override current source or enlarge a
-current profile's scope.
+Internal research、raw Evidence、historical / frozen資料は、provenanceとsource
+associationを保つため原文を維持する。一律翻訳せず、公開用のderived documentが
+必要になった場合だけ、正本と派生物の関係を明示して作成する。
+
+## 他の公開文書との関係
+
+本書は、現在の公開component model、責務境界、control flow、trust boundaryを所有
+する。他文書の責務は次のとおりである。
+
+- [README](../README.md)は製品紹介とtop-level current statusを所有する
+- [Support Policy](../SUPPORT_POLICY.md)はSupport Profile、maturity、Evidence level、
+  Verdict、release-channel ruleを定義する
+- [Runtime Mapping](runtime-mapping.md)はfixed-profile factと、Yohaku roleから
+  Runtime固有primitiveへの対応を所有する
+- [Transition Strategies](transition-strategies.md)はManual In-place Compaction、
+  Native Automatic Compaction、Fresh-context Rollover、Session Migrationのtaxonomyと
+  共通semanticsを所有する
+- [Runtime support](runtime-support.md)は、後続のprofile固有整理までprofile status、
+  historical provenance、Known Limitationsを保持する
+- [Codex reference](reference/codex.md)、[Hermes reference](reference/hermes.md)、
+  [Claude CLI reference](reference/claude-cli.md)はRuntime固有contractと制限を説明する
+- [document-review profile](reference/document-review-report-v1.md)は現在のbounded
+  Task Profileを定義する
+- [Operations](operations.md)と[Installation](installation.md)は、architecture acceptance
+  ではなくlauncher behaviorとsetupを説明する
+
+実装済みbehaviorの正本はsource codeである。公開supportとEvidence claimは、support
+文書が識別するfixed profileとrecordの範囲でのみ正本となる。historical designと
+acceptance資料は本Architectureの入力であるが、current sourceを上書きせず、current
+profileのscopeも拡張しない。
