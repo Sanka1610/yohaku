@@ -2,8 +2,9 @@
 
 本書は、Codex、Hermes、Claude Code CLIについて、公開済みのfixed profile、Evidence、
 accepted endpoint、Verdict、maturity、Known Limitationsを一覧できるsummaryである。最終横断
-review日は2026-09-29。公開中の全Support Profileは`experimental`で、release channelは
-`undeclared`である。
+review日は2026-10-01。Candidate Aの2 Support Profileは`alpha`、Product release channelは
+`Alpha`である。Publicationは`BLOCKED_EXTERNAL`。Hermes / Claude / Historical Referenceは
+Alpha scope外で、maturityは`experimental`を維持する。
 
 Runtime固有contractは[Codex](runtimes/codex.md)、[Hermes](runtimes/hermes.md)、
 [Claude Code CLI](runtimes/claude-code-cli.md)を正本とする。Profile比較は
@@ -25,8 +26,8 @@ surface / OS、provider / backend / modelはprofile dimensionであり、どのI
 |---|---|---|---|---|
 | `C-REF-M` | `codex-reference-0.155` | `PHASE14`配下のmanual records | Scenarioごとのoriginal Verdict。Accepted recoveryは`RESUME_VERIFIED`、Phase 14 overall `PARTIAL` | experimental。Historical Codex `0.155`だけ |
 | `C-REF-A` | `codex-reference-0.155` | `PHASE14` Scenario G | Same-turn `RESUME_VERIFIED`、Scenario G `PASS`。Phase 14 overall `PARTIAL` | experimental。Native-auto一回のemergency recoveryだけ |
-| `C-OP` | `codex-operational-0.158` | `S5-OP-CODEX-0158` | Native lifecycle `PASS`。Task / transition `NOT_RUN` | experimental。No inference / lifecycle-only |
-| `C-DRR` | `codex-document-review-report-v1` | `DRR-V1-CODEX-0158-LIVE-01` | Fixed workflow `PASS`、`RESUME_VERIFIED`。Overall product coverage `PARTIAL` | experimental。Task Profile `document-review-report-v1`だけ。Quality `NOT_ASSESSED` |
+| `C-OP` | `codex-operational-0.158` | `S5-OP-CODEX-0158` | Native lifecycle `PASS`。Task / transition `NOT_RUN` | alpha。No inference / lifecycle-only |
+| `C-DRR` | `codex-document-review-report-v1` | `DRR-V1-CODEX-0158-LIVE-01` | Fixed workflow `PASS`、`RESUME_VERIFIED`。Overall product coverage `PARTIAL` | alpha。Task Profile `document-review-report-v1`だけ。Quality `NOT_ASSESSED` |
 | `H-PROBE` | `H-CLI-01` internal Probe | Separate public Evidence Record ID未割当。Stage 2 retained record | Bounded Probe workflow `PASS`、explicit receipt `PARTIAL`、overall `PARTIAL` | experimental。Product adapterやlauncherではない |
 | `H-ADAPTER` | Product registry `hermes-h-cli-01`。Historical retained label `H-CLI-01` | `H-CLI-01-STAGE4` | Fixed connected workflow `PASS`、Core `RESUME_VERIFIED`、overall `PARTIAL` | experimental。One fixture tool / one compression / one owner |
 | `H-OP` | `hermes-operational-h-cli-01` | `S5-OP-HERMES` | Native lifecycle `PASS`。Task / tool / transition `NOT_RUN` | experimental。No inference / lifecycle-only |
@@ -110,8 +111,8 @@ non-editable installできる。これはtransition acceptanceとは別のinstal
 
 ## Operational lifecycle foundation
 
-これはRelease Alphaまたはprofile maturityの宣言ではない。公開中の全Support Profileは
-`experimental`、release channelは`undeclared`のままである。
+以下のlifecycle Evidenceとmaturity / release判断は別である。2026-10-01のStage 5 reviewに基づき、
+Candidate Aだけを`alpha`、Product release channelを`Alpha`へ昇格した。公開は未完了である。
 
 Codex `0.158.0-alpha.2.1`とpinned Hermes `0.21.0`には、no-inference lifecycle profileが
 ある。Native start / status / stop / clean stop後のfresh lifecycleはlab-testedである。
@@ -131,7 +132,7 @@ document task、coding taskも対象外である。Input / output、Observer、A
 
 ## Known Limitations
 
-- 全profileのmaturityはexperimental、release channelはundeclared
+- Candidate Aだけalpha / Product channel Alpha。PublicationはBLOCKED_EXTERNAL、他profileはexperimental
 - Runtime family全体のsupportとStrong Transition Assuranceは未成立
 - Hook fault時のRuntime-wide fail-closedとatomic work freezeは未受入
 - Parallel、background、detached、subagent、external writerの一般coverageはない
@@ -163,8 +164,8 @@ workspaceに保持し、このsummary作成によって移動・改名・再採�
 | task_profile_id | none | document-review-report-v1 |
 | operational_launcher_support | true | true |
 | task_runner_support | false | true |
-| maturity | experimental | experimental |
-| release_channel | undeclared | undeclared |
+| maturity | alpha | alpha |
+| release_channel | Alpha | Alpha |
 | accepted_endpoint | native-start-status-stop-fresh-lifecycle | RESUME_VERIFIED |
 | evidence_record_id | S5-OP-CODEX-0158 | DRR-V1-CODEX-0158-LIVE-01 |
 | known_exclusions | no-runtime-family-support, no-field-evidence, no-other-runtime-os-provider, no-general-parallel-background-external-work, no-strong-transition-assurance, no-inference-or-task-transition, no-reference-evidence-inheritance | no-runtime-family-support, no-field-evidence, no-other-runtime-os-provider, no-general-parallel-background-external-work, no-strong-transition-assurance, one-fresh-session-one-manual-compact-one-report, no-restart-or-repeated-transition, quality-not-assessed, no-general-document-coding-shell-mcp, external-writers-not-prevented |

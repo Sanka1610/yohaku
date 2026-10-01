@@ -17,8 +17,8 @@ Yohakuは、次の流れを一つのtransitionとして扱います。
 
 ## Current status
 
-- 公開中の全Support Profileのmaturityは`experimental`です。
-- Release channelは`undeclared`です。
+- Candidate A（Codex lifecycle / fixed document-review）のSupport Profile maturityは`alpha`、release channelは`Alpha`です。
+- Publicationは`BLOCKED_EXTERNAL`です。Hermes / Claude / Historical ReferenceはAlpha support外で、maturityは`experimental`です。
 - 公開scopeは、Runtime、version、surface、environment、taskを固定したbounded profileに限られます。
 - Strong Transition Assuranceは成立していません。
 - Field Evidenceはありません。
@@ -54,7 +54,7 @@ Profileごとの固定条件、Evidence provenance、Capability Verdictは、Doc
 
 ## Major limitations
 
-- 実装とEvidenceはexperimentalで、固定したRuntime、version、surface、environmentだけを対象とします。
+- SupportとEvidenceは、固定したRuntime、version、surface、environmentだけを対象とします。
 - Runtime-wide atomic freezeとexternal writer exclusionは成立していません。
 - Parallel、background、detached、subagentのcoverageは限定されています。
 - 受け入れ済みの汎用的なrestart recoveryとpower-loss recoveryはありません。

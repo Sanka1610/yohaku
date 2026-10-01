@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "record_id": "STAGE5-CANDIDATE-A-PROMOTION",
+  "rc_identifier": "yohaku-0.1.0a1-rc3",
+  "baseline_source_commit": "baf0d6dc7c91131bd7e9f7866efb7843e8049d6a",
+  "review_date": "2026-10-01",
+  "reviewer": "codex-source-review",
+  "stage5_decision": {
+    "profile_promotion": "ELIGIBLE",
+    "release_channel_promotion": "ELIGIBLE",
+    "publication": "BLOCKED_EXTERNAL"
+  },
+  "alpha_scope_profile_ids": [
+    "codex-operational-0.158",
+    "codex-document-review-report-v1"
+  ],
+  "excluded_profile_ids": [
+    "codex-reference-0.155",
+    "hermes-operational-h-cli-01",
+    "hermes-h-cli-01",
+    "claude-c-cli",
+    "claude-c-cli-local-nonce"
+  ],
+  "excluded_runtime_families": [
+    "hermes",
+    "claude"
+  ],
+  "source_association": "reviewed Python member hashes; final commit fixed in RC build record",
+  "reviewed_python_sha256": {
+    "src/yohaku/__init__.py": "012c2225fb51063f72d2cd84ea31f80f2d3312a74a653a4078d50cdebee44c91",
+    "src/yohaku/__main__.py": "935a1c1166b0c1ea35a82256345000bf2c73ded718d77773bc27a71ecce28f7d",
+    "src/yohaku/archive.py": "7358fba0a7fd97965c8f10a79ba8c36beb41431e8bee18afeeafd745c931ff24",
+    "src/yohaku/claude.py": "fb4c7b676597398f133c9bbcf8ef4eb7ce43df70aaa76b685699a247bec46476",
+    "src/yohaku/claude_adapter.py": "6c193ddeb8f89408842a1593010815fb63c185431143d546a8b20d77547c8b2c",
+    "src/yohaku/claude_recovery.py": "3525fd30ef8801394e9c72c31812dfe569557671a3c4822eec828c0457d3439e",
+    "src/yohaku/cli.py": "04eaaffd00e3d0b69921743767512f8e404a97a25ed02d1ec84be16c1d12e9f7",
+    "src/yohaku/codec.py": "662b68ae7653a161be4eeba0f0de34e0661f7a18b1ff32463396e18f76ad9700",
+    "src/yohaku/codex.py": "3f19a2674f42cf40d2a38e816e1ae6f3bc0979e446b87ec7f1da2520dc03fd4c",
+    "src/yohaku/companion.py": "7781895c700d08c4cc619c7dea86f0ff5e1482fe4150c02540d7eb7f23fa65f9",
+    "src/yohaku/completion.py": "3b600ae9d4597296b6992b3fa8a4a2b887b479a50a56603530c0a1b97646c736",
+    "src/yohaku/config.py": "a9b4881e402a7888eea4e66aefb1c06a138918ffd921ee2da3f1c23e4e37f423",
+    "src/yohaku/controller.py": "bf4cd9cd5f08c0d24c28077815cad9981c5f7fcb3cb81824e87ceb0bd2ef3b78",
+    "src/yohaku/document_review.py": "2079355ae1d5ada7ad48bc64c91ae3448f99ab6eb6bc6a83adea8d05fb112ce9",
+    "src/yohaku/document_review_runtime.py": "09303f5a0e3db85ff21562184e5c65b4b623a052398eaf3f5104a4055f6c5717",
+    "src/yohaku/hermes.py": "398d4c78067cc3d545b165a9e742e6abeab29af37c5912aba89e8e4801801188",
+    "src/yohaku/hermes_adapter.py": "db2f02d0b95a78c9ad29302f781fc01b86e164692e4a94185634ea8f4c50a46d",
+    "src/yohaku/hook.py": "3ef43174c3a145aceed25ae3b8dc05208be22126e1aae06b28ade7e50013a5de",
+    "src/yohaku/manual.py": "775fee1d8b350d4fbf05f166c7de36804a196d49d6dfb62880c442ea08c58425",
+    "src/yohaku/model.py": "bb14b7e7203cfc6eaa703be9d1893d1c94fab5faa3a0bfbf44472cff34a7a098",
+    "src/yohaku/native.py": "d903e919ec92a55455aed4e0276df1ff7f7b751915c4b3b32060d629151da578",
+    "src/yohaku/operational.py": "d69b5022c1b4532c821af5db637d7a66da9877ee932c5dea3fed0df0216b772a",
+    "src/yohaku/operational_hosts.py": "4729ba2d12f7631470cbd76e6ea8a09e26b03ab37c836398be27e98efa712e42",
+    "src/yohaku/persistence.py": "f41689b0edcce3c6090337baeaa5a3c3f4528c56780699acb0feceeabff64ad7",
+    "src/yohaku/profiles.py": "c7ef6d6ddf1a26388cbbd054247e980c53220c897c3ad429a73207499c6a193f",
+    "src/yohaku/recovery.py": "91aa71bb07939d69deca279decdd165e80347b2d670cfefd89b43e543d1c53aa",
+    "src/yohaku/runtime.py": "0b3677ccbb9fb759b880a6aad2eea9cc4289eaffddd39669e43fbc589b5672c8",
+    "src/yohaku/runtime_archive.py": "ac476406c90d9fcf52edd43e022fb7c9b57d81c312bf2573efae08f12b7b682a",
+    "src/yohaku/work.py": "8dcd8724f6efaa89f9937bc052c8801bee67aa0ae955e5bf52602542fc5e31aa"
+  },
+  "changed_python_files": [
+    "src/yohaku/profiles.py"
+  ],
+  "classifications": [
+    "maturity metadata",
+    "release channel metadata",
+    "promotion review metadata",
+    "checker / validation",
+    "public documentation",
+    "release draft"
+  ],
+  "semantic_areas": {
+    "transition authority / dispatch": "UNCHANGED",
+    "completion predicate": "UNCHANGED",
+    "handoff": "UNCHANGED",
+    "receipt": "UNCHANGED",
+    "fresh observation": "UNCHANGED",
+    "continuation": "UNCHANGED",
+    "write path": "UNCHANGED",
+    "Task Assessor": "UNCHANGED",
+    "credential admission": "UNCHANGED",
+    "operational readiness semantics": "UNCHANGED"
+  },
+  "decision": "NO_NEW_PROVIDER_ACCEPTANCE_REQUIRED",
+  "provider_acceptance": "NOT_RUN",
+  "historical_evidence_state": "experimental / undeclared; retained unchanged",
+  "current_release_claim": "Candidate A alpha / product Alpha; publication BLOCKED_EXTERNAL",
+  "relates_to": [
+    "STAGE1-SOURCE-DRIFT-84B34F8",
+    "RC2-LICENSE-SOURCE-DRIFT"
+  ],
+  "supersedes": []
+}

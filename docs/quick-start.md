@@ -4,7 +4,8 @@
 手順である。Installation、Python / platform要件、Runtime差、uninstallは
 [Installation](installation.md)を先に確認する。
 
-二つの例は別profileである。
+二つの例はCandidate Aの別Support Profileであり、maturityはalpha、Product channelはAlphaである。
+PublicationはBLOCKED_EXTERNALで、以下は公開artifactの取得案内ではない。Hermes / ClaudeはAlpha scope外である。
 
 - Lifecycle-only: Codexをno-inferenceでstart / status / stopする。Taskもtransitionも実行しない
 - Real-task: Codex専用`document-review-report-v1`を一回だけ`run`する

@@ -21,6 +21,7 @@ class CandidateAReleaseTests(unittest.TestCase):
         cls.scope = check.load_json(ROOT / check.DATA / 'candidate-a-scope.json')
         cls.index = check.load_json(ROOT / check.DATA / 'candidate-a-evidence.json')
         cls.drift = check.load_json(ROOT / check.DATA / 'stage1-source-drift.json')
+        cls.promotion = check.load_json(ROOT / check.DATA / 'promotion-source-review.json')
         cls.documents = {p: (ROOT / p).read_text() for p in check.DOCS + [check.TASK_DOC, check.POLICY]}
 
     def test_current_candidate_a(self):
@@ -32,7 +33,7 @@ class CandidateAReleaseTests(unittest.TestCase):
                  'mapping_key': 'C-REF-M', 'runtime_family': 'hermes', 'surface': 'CLI',
                  'task_profile_id': 'different-task', 'operational_launcher_support': False,
                  'task_runner_support': False, 'accepted_endpoint': 'ROLLOVER_OBSERVED',
-                 'maturity': 'alpha', 'release_channel': 'Alpha', 'known_exclusions': []}
+                 'maturity': 'experimental', 'release_channel': 'undeclared', 'known_exclusions': []}
         for field, value in cases.items():
             with self.subTest(field=field):
                 scope = deepcopy(self.scope)
@@ -69,8 +70,8 @@ class CandidateAReleaseTests(unittest.TestCase):
             check.validate(scope=scope)
 
     def test_registry_drift(self):
-        for key, value in [('runtime_version', '0.159'), ('maturity', 'alpha'),
-                           ('release_channel', 'Alpha'), ('entrypoint', 'start'),
+        for key, value in [('runtime_version', '0.159'), ('maturity', 'experimental'),
+                           ('release_channel', 'undeclared'), ('entrypoint', 'start'),
                            ('known_limitations', []), ('evidence_id', 'missing')]:
             with self.subTest(field=key):
                 profiles = deepcopy(check.PROFILES)
@@ -83,7 +84,7 @@ class CandidateAReleaseTests(unittest.TestCase):
             with self.subTest(path=path):
                 docs = dict(self.documents)
                 before, block = docs[path].split('<!-- candidate-a:start -->')
-                docs[path] = before + '<!-- candidate-a:start -->' + block.replace('experimental', 'alpha')
+                docs[path] = before + '<!-- candidate-a:start -->' + block.replace('alpha', 'experimental')
                 with self.assertRaises(check.Invalid):
                     check.validate(documents=docs)
 
@@ -91,6 +92,37 @@ class CandidateAReleaseTests(unittest.TestCase):
         docs = {p: text + '\nEditorial clarification outside the checked fields.\n'
                 for p, text in self.documents.items()}
         self.assertTrue(check.validate(documents=docs).startswith('PASS:'))
+
+    def test_historical_evidence_state_is_not_current_release_claim(self):
+        self.assertEqual(self.scope['maturity'], 'alpha')
+        self.assertEqual(self.scope['release_channel'], 'Alpha')
+        for row in self.index['records']:
+            self.assertEqual(row['maturity'], 'experimental')
+            self.assertEqual(row['release_channel'], 'undeclared')
+        index = deepcopy(self.index)
+        index['records'][0]['maturity'] = 'alpha'
+        with self.assertRaises(check.Invalid):
+            check.validate(index=index)
+
+    def test_excluded_profiles_cannot_be_promoted(self):
+        for name in check.EXCLUDED:
+            with self.subTest(profile=name):
+                profiles = deepcopy(check.PROFILES)
+                profiles[name]['maturity'] = 'alpha'
+                with self.assertRaisesRegex(check.Invalid, 'EXCLUDED_PROFILE_DRIFT'):
+                    check.validate(profiles=profiles)
+
+    def test_promotion_review_and_source_hashes_are_fixed(self):
+        for field in ('review_date', 'semantic_areas', 'reviewed_python_sha256'):
+            promotion = deepcopy(self.promotion)
+            if field == 'semantic_areas':
+                promotion[field]['completion predicate'] = 'CHANGED'
+            elif field == 'reviewed_python_sha256':
+                promotion[field]['src/yohaku/profiles.py'] = '0' * 64
+            else:
+                promotion[field] = '2026-09-29'
+            with self.subTest(field=field), self.assertRaises(check.Invalid):
+                check.validate(promotion=promotion)
 
     def test_unreviewed_source_requires_review(self):
         original = Path.read_bytes
@@ -153,7 +185,8 @@ class CandidateAReleaseTests(unittest.TestCase):
             for label, original, template in [
                     ('scope', self.scope, check.scope_template()),
                     ('index', self.index, check.index_template()),
-                    ('drift', self.drift, check.drift_template(ROOT))]:
+                    ('drift', self.drift, check.drift_template(ROOT)),
+                    ('promotion', self.promotion, check.promotion_template(ROOT))]:
                 with self.subTest(field=name, record=label):
                     data = deepcopy(original)
                     data[name] = value

@@ -11,12 +11,12 @@ COMMON_LIMITS = [MISSING_TASK, 'No task input, automatic transition or RESUME_VE
 
 def _profile(runtime, version, surface, *, launch=False, evidence='lab tested / historical synthetic',
              verdict='PARTIAL', limitations=(), transition=False, transition_reason=MISSING_TASK,
-             **extra):
+             maturity='experimental', release_channel='undeclared', reviewed='2026-09-29', **extra):
     return dict(runtime=runtime, runtime_version=version, surface=surface,
                 operational_platform='WSL2 Linux',
                 operational_python='3.11.16' if runtime == 'hermes' else '3.14.4',
-                reviewed='2026-09-29',
-                maturity='experimental', release_channel='undeclared', launch_supported=launch,
+                reviewed=reviewed,
+                maturity=maturity, release_channel=release_channel, launch_supported=launch,
                 evidence_level=evidence, verdict=verdict, transition_available=transition,
                 transition_reason=transition_reason,
                 known_limitations=([] if transition else COMMON_LIMITS) + list(limitations), **extra)
@@ -25,6 +25,7 @@ def _profile(runtime, version, surface, *, launch=False, evidence='lab tested / 
 PROFILES = {
     'codex-document-review-report-v1': _profile('codex', '0.158.0-alpha.2.1',
         'dedicated App Server / dynamic task tools / manual compact',
+        maturity='alpha', release_channel='Alpha', reviewed='2026-10-01',
         launch=True, evidence='lab / live-runtime / real task', verdict='PASS',
         evidence_scope=('One dedicated workspace, two declared public-document inputs, one manual '
                         'compact and one create-only Markdown report; overall product coverage PARTIAL'),
@@ -36,6 +37,7 @@ PROFILES = {
                      'A directory lock excludes cooperating launchers; external writers are detected, not prevented',
                      'No coverage for general document tasks, coding, shell, MCP or other Runtimes']),
     'codex-operational-0.158': _profile('codex', '0.158.0-alpha.2.1', 'dedicated App Server / stdio',
+        maturity='alpha', release_channel='Alpha', reviewed='2026-10-01',
         launch=True, evidence='lab tested / native lifecycle / no inference', verdict='PASS',
         evidence_scope='Operational lifecycle only; real-task transition NOT_RUN',
         evidence_id='S5-OP-CODEX-0158', reference_profile='codex-reference-0.155',

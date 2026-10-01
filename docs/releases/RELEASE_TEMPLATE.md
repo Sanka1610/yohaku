@@ -5,7 +5,7 @@
 Public-safe ID / digest / sanitized summaryだけを記載し、private pathやraw Evidenceを含めません。
 
 Local RC validationではscope declarationの`release_candidate_id`を使用します。
-現在のlocal RC identifierは`yohaku-0.1.0a1-rc2`です。公開release名の決定ではありません。
+現在のlocal RC identifierは`yohaku-0.1.0a1-rc3`です。公開release名の決定ではありません。
 検証record / notesはworkspaceに保持し、RC source commit固定後はsourceを編集しません。
 
 ## Release identity
@@ -14,7 +14,7 @@ Local RC validationではscope declarationの`release_candidate_id`を使用し�
 |---|---|
 | Yohaku release identifier | TBD |
 | Package version | TBD — release identifier / channelと別field |
-| Release channel | TBD — 承認された値。現在はundeclared |
+| Release channel | Alpha — current channel。Publication BLOCKED_EXTERNAL |
 | Source commit | TBD — full commit、clean source |
 | Tag | TBD — 対象commitとの対応を確認 |
 | Review date | TBD |

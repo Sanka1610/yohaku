@@ -1,8 +1,8 @@
 # Candidate A release review
 
-Candidate AのAlpha候補は`codex-operational-0.158`（C-OP）と
-`codex-document-review-report-v1`（C-DRR）だけである。現在は両profileとも
-`experimental`、release channelは`undeclared`であり、公開承認は成立していない。
+Candidate AのAlpha scopeは`codex-operational-0.158`（C-OP）と
+`codex-document-review-report-v1`（C-DRR）だけである。Stage 5 review（2026-10-01）に基づき
+両Support Profileは`alpha`、Product release channelは`Alpha`。Publicationは`BLOCKED_EXTERNAL`である。
 Hermes / Claude Code CLIはexperimental / measured Evidenceとして保持し、Alpha候補の
 support scopeへ含めない。
 
@@ -18,10 +18,22 @@ support scopeへ含めない。
    `84b34f8eff42d5b2a46b9ce1b38913a35bd8f25b`の差分とreview decisionを確認する。
 5. Static checkがreview済みsourceとcurrent implementation、およびcanonical文書の検証表を照合する。
 
-Declarationの`alpha_scope_profile_ids`は将来のAlpha候補範囲を意味する。
+Declarationの`alpha_scope_profile_ids`はcurrent Alpha scopeを意味する。公開済みの宣言ではない。
 `release_candidate_id`はreview用識別子であり、package versionではない。後続release reviewでは
 declaration、canonical検証表、registry、checkerのallowlistを同じ変更内でreviewする。
 既存indexやsource-drift recordは新しいacceptanceの結果で上書きせず、新recordを追加する。
+
+## Current promotionとhistorical Evidence
+
+Stage 5 decisionはprofile promotion / release channel promotionがELIGIBLE、publicationが
+BLOCKED_EXTERNAL。Review日、scope、explicit exclusionsはcurrent declarationへ反映した。
+Historical indexのexperimental / undeclaredは当時のstateであり、current alpha / Alphaへ書き換えない。
+Checkerはcurrent claimsとHistorical Evidence stateを別に照合する。
+[Promotion source review](promotion-source-review.json)はRC2 baseline commitとcurrent Python member
+hashesを固定し、変更はprofiles.pyのmaturity / channel / review metadataだけとする。
+Declarationのsource_review_commitは比較基準のRC2であり、final RC3 commitはbuild recordへ固定する。
+Self-referenceを避けるため、tracked reviewへそのfile自身を含むfuture commitを埋め込まない。
+10 semantic areasはUNCHANGED、NO_NEW_PROVIDER_ACCEPTANCE_REQUIRED。元のEvidenceを再採点しない。
 
 ## Static check
 

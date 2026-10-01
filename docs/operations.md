@@ -286,7 +286,8 @@ migration、clean stopの代用にしない。
 
 ## 現在の公開範囲
 
-全profileのmaturityは`experimental`、release channelは`undeclared`である。現在の文書は、
+Candidate Aの2 Support Profileは`alpha`、Product release channelは`Alpha`である。Publicationは
+`BLOCKED_EXTERNAL`。Hermes / Claude / Historical ReferenceはAlpha scope外で`experimental`を維持する。現在の文書は、
 Runtime family全体、Strong Transition Assurance、general exactly-once、field acceptance、
 power-loss recoveryを宣言しない。個別profileのaccepted scopeとKnown Limitationsは
 [Runtime support summary](runtime-support.md)で確認する。

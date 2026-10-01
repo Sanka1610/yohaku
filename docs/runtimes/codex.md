@@ -394,12 +394,15 @@ associationは[Runtime support](../runtime-support.md)とprivate Evidence index�
 
 ## Verdict / maturity
 
+Stage 5 review（2026-10-01）でCandidate Aだけをalphaへ昇格した。Product channelはAlpha、
+publicationはBLOCKED_EXTERNAL。Historical Reference、Hermes、ClaudeをAlpha scopeへ含めない。
+
 | Key | Capability Verdict / coverage | Maturity | Release channel |
 |---|---|---|---|
 | `C-REF-M` | Original scenario Verdictを維持。Historical Phase 14 overall `PARTIAL` | experimental | undeclared |
 | `C-REF-A` | Scenario G `PASS`、Historical Phase 14 overall `PARTIAL` | experimental | undeclared |
-| `C-OP` | Lifecycle `PASS`、task transition `NOT_RUN` | experimental | undeclared |
-| `C-DRR` | Fixed workflow `PASS`、overall product coverage `PARTIAL`、quality `NOT_ASSESSED` | experimental | undeclared |
+| `C-OP` | Lifecycle `PASS`、task transition `NOT_RUN` | alpha | Alpha |
+| `C-DRR` | Fixed workflow `PASS`、overall product coverage `PARTIAL`、quality `NOT_ASSESSED` | alpha | Alpha |
 
 Lifecycle PASS、bounded workflow PASS、maturity、release channelは別のclaimである。この表は
 既存VerdictやCoverageProfileを再採点しない。
@@ -457,8 +460,8 @@ record、CoverageProfile、source associationは移動・改名せず、既存ha
 | task_profile_id | none | document-review-report-v1 |
 | operational_launcher_support | true | true |
 | task_runner_support | false | true |
-| maturity | experimental | experimental |
-| release_channel | undeclared | undeclared |
+| maturity | alpha | alpha |
+| release_channel | Alpha | Alpha |
 | accepted_endpoint | native-start-status-stop-fresh-lifecycle | RESUME_VERIFIED |
 | evidence_record_id | S5-OP-CODEX-0158 | DRR-V1-CODEX-0158-LIVE-01 |
 | known_exclusions | no-runtime-family-support, no-field-evidence, no-other-runtime-os-provider, no-general-parallel-background-external-work, no-strong-transition-assurance, no-inference-or-task-transition, no-reference-evidence-inheritance | no-runtime-family-support, no-field-evidence, no-other-runtime-os-provider, no-general-parallel-background-external-work, no-strong-transition-assurance, one-fresh-session-one-manual-compact-one-report, no-restart-or-repeated-transition, quality-not-assessed, no-general-document-coding-shell-mcp, external-writers-not-prevented |

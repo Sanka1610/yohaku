@@ -23,4 +23,5 @@ Distribution licenseは[Apache License 2.0](../../LICENSE)（SPDX: `Apache-2.0`�
 Package metadataはPEP 639の`project.license`と`project.license-files`で宣言しています。
 Stage 3由来の`LICENSE_DECISION_REQUIRED`は、exact RC artifactのSPDX metadataとLICENSE fileの
 一致を検証したrelease recordで解消します。`REPOSITORY_SETTING_REQUIRED`とpublic Issue受付の
-実用性確認、maturity / release channel review、公開工程は独立した未完了条件です。
+実用性確認と公開工程は未完了です。Stage 5に基づくCandidate A alpha / Product Alphaへの昇格は
+current declarationに記録し、公開済みとは表示しません。

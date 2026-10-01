@@ -1,8 +1,8 @@
 {
   "schema": 1,
-  "release_candidate_id": "yohaku-0.1.0a1-rc2",
-  "status": "review-input-not-release-approval",
-  "source_review_commit": "84b34f8eff42d5b2a46b9ce1b38913a35bd8f25b",
+  "release_candidate_id": "yohaku-0.1.0a1-rc3",
+  "status": "promoted-local-candidate-not-publication-approval",
+  "source_review_commit": "baf0d6dc7c91131bd7e9f7866efb7843e8049d6a",
   "alpha_scope_profile_ids": [
     "codex-operational-0.158",
     "codex-document-review-report-v1"
@@ -18,8 +18,8 @@
     "hermes",
     "claude"
   ],
-  "maturity": "experimental",
-  "release_channel": "undeclared",
+  "maturity": "alpha",
+  "release_channel": "Alpha",
   "profiles": [
     {
       "mapping_key": "C-OP",
@@ -30,8 +30,8 @@
       "task_profile_id": null,
       "operational_launcher_support": true,
       "task_runner_support": false,
-      "maturity": "experimental",
-      "release_channel": "undeclared",
+      "maturity": "alpha",
+      "release_channel": "Alpha",
       "accepted_endpoint": "native-start-status-stop-fresh-lifecycle",
       "evidence_record_id": "S5-OP-CODEX-0158",
       "known_exclusions": [
@@ -53,8 +53,8 @@
       "task_profile_id": "document-review-report-v1",
       "operational_launcher_support": true,
       "task_runner_support": true,
-      "maturity": "experimental",
-      "release_channel": "undeclared",
+      "maturity": "alpha",
+      "release_channel": "Alpha",
       "accepted_endpoint": "RESUME_VERIFIED",
       "evidence_record_id": "DRR-V1-CODEX-0158-LIVE-01",
       "known_exclusions": [
@@ -71,8 +71,17 @@
       ]
     }
   ],
+  "promotion_review_date": "2026-10-01",
+  "stage5_decision": {
+    "profile_promotion": "ELIGIBLE",
+    "release_channel_promotion": "ELIGIBLE",
+    "publication": "BLOCKED_EXTERNAL"
+  },
+  "publication": "BLOCKED_EXTERNAL",
+  "source_review_basis": "RC2 baseline commit and reviewed current Python member hashes",
   "evidence_index": "candidate-a-evidence.json",
-  "source_drift_review": "stage1-source-drift.json",
+  "source_drift_review": "promotion-source-review.json",
+  "historical_source_drift_review": "stage1-source-drift.json",
   "required_artifact_checks": [
     "candidate-a-drift",
     "public-safe-allowlist",

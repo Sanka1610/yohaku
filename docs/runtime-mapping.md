@@ -34,7 +34,7 @@ task supportを分ける。
 |---|---|---|---|---|
 | `C-REF-M` | `codex-reference-0.155` | `PHASE14`配下のmanual record | historical proactive manual path、archive、Core persistence behavior | Reference integration実装済み。retained local / syntheticとbounded live Runtime Evidenceあり。historical Phase 14 overall **PARTIAL**。 |
 | `C-REF-A` | `codex-reference-0.155` | `PHASE14` Scenario G | 同じSupport Profileのnative race recovery。proactive transition成功ではない | Bounded emergency implementationとEvidenceあり。Scenario G **PASS**、historical Phase 14 overall **PARTIAL**。 |
-| `C-OP` | `codex-operational-0.158` | `S5-OP-CODEX-0158` | inferenceやtask transitionを含まないcurrent-version owned App Server lifecycle | Operational lifecycle実装・測定済み **PASS**。task transition **NOT_RUN**。experimental。 |
+| `C-OP` | `codex-operational-0.158` | `S5-OP-CODEX-0158` | inferenceやtask transitionを含まないcurrent-version owned App Server lifecycle | Operational lifecycle実装・測定済み **PASS**。task transition **NOT_RUN**。alpha（Candidate A）。 |
 | `C-DRR` | `codex-document-review-report-v1`。Task Profile IDは`document-review-report-v1` | `DRR-V1-CODEX-0158-LIVE-01` | current versionで、一つのmanual compactと一つのreportを含むreal document-review workflow | Bounded implementation。lab / live-Runtime / nonfixture real-task Evidence。profile **PASS**、overall product coverage **PARTIAL**、quality `NOT_ASSESSED`。 |
 | `H-PROBE` | `H-CLI-01`（internal Probe profile） | Separate public ID未割当。Stage 2 retained recordを参照 | connected adapter実装前のfixed native CLI workflowに対するcapability observation | Probe packageと測定workflowのみ。bounded workflow **PASS**、overall **PARTIAL**。adapterやoperational hostではない。 |
 | `H-ADAPTER` | Product registryは`hermes-h-cli-01`。Historical retained labelは`H-CLI-01` | `H-CLI-01-STAGE4` | 一つのfixed toolと一つのmanual compressionを扱うembedded adapter path | Bounded adapter実装済み。live synthetic Evidenceあり。accepted bounded workflow **PASS**、overall **PARTIAL**。 |
@@ -106,7 +106,7 @@ Evidence claimは別である。共通するprofile factを一度だけ示し、
 | Provider / backend / model | inference無効。loopback provider / model設定は意図的にtaskを実行できない。 |
 | Implementation status | Runtime-specific operational launcher、Companion、storeを実装済み。Task Observer、inference、tool、compact trigger、continuationは有効化しない。 |
 | Evidence provenance / level | `S5-OP-CODEX-0158`、native lifecycle、no inference |
-| Verdict / maturity | Lifecycle **PASS**、task transition `NOT_RUN`、experimental、release undeclared。 |
+| Verdict / maturity | Lifecycle **PASS**、task transition `NOT_RUN`、alpha、Product channel Alpha。Publication BLOCKED_EXTERNAL。 |
 | Transition Strategy | `NOT_RUN`。lifecycle-only profileではStrategyを有効化しない。 |
 | Lifecycle observation | dedicated App Server connectionによるowned startup、fresh thread、status、shutdown |
 | Work taxonomy; active / pending / incorporated | task workをadmitしない。このprofileのtask-work値はすべて`UNSUPPORTED`。 |
@@ -132,7 +132,7 @@ Evidence claimは別である。共通するprofile factを一度だけ示し、
 | Provider / backend / model | retained run configurationで固定したが、public Evidenceは再利用可能なprovider / model claimを成立させないため`UNKNOWN`。 |
 | Implementation status | Bounded Task Profileとtask-enabled runnerを実装済み。general task frameworkではない。 |
 | Evidence provenance / level | `DRR-V1-CODEX-0158-LIVE-01`、lab / live-Runtime / nonfixture real task |
-| Verdict / maturity | fixed workflow / profile **PASS**、overall product coverage **PARTIAL**、experimental。文章・事実品質は`NOT_ASSESSED`。 |
+| Verdict / maturity | fixed workflow / profile **PASS**、overall product coverage **PARTIAL**、alpha（current Codex binding）、Product channel Alpha。文章・事実品質は`NOT_ASSESSED`。 |
 | Transition Strategy | 一つのfresh session内でManual In-place Compactionを一回実行する。 |
 | Lifecycle observation | owned App Server lifecycle、正確なdynamic-tool event、manual compact lifecycle |
 | Work taxonomy | `read_review_inputs`と`publish_review_report`だけをadmitする。shell、file change、MCP、undeclared、stale、duplicate、追加workは拒否する。 |
@@ -490,8 +490,8 @@ Installation、operation command、storage layoutは、それぞれの専用文�
 | task_profile_id | none | document-review-report-v1 |
 | operational_launcher_support | true | true |
 | task_runner_support | false | true |
-| maturity | experimental | experimental |
-| release_channel | undeclared | undeclared |
+| maturity | alpha | alpha |
+| release_channel | Alpha | Alpha |
 | accepted_endpoint | native-start-status-stop-fresh-lifecycle | RESUME_VERIFIED |
 | evidence_record_id | S5-OP-CODEX-0158 | DRR-V1-CODEX-0158-LIVE-01 |
 | known_exclusions | no-runtime-family-support, no-field-evidence, no-other-runtime-os-provider, no-general-parallel-background-external-work, no-strong-transition-assurance, no-inference-or-task-transition, no-reference-evidence-inheritance | no-runtime-family-support, no-field-evidence, no-other-runtime-os-provider, no-general-parallel-background-external-work, no-strong-transition-assurance, one-fresh-session-one-manual-compact-one-report, no-restart-or-repeated-transition, quality-not-assessed, no-general-document-coding-shell-mcp, external-writers-not-prevented |

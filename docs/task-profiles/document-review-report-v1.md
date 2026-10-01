@@ -53,7 +53,7 @@ receiptを補えない。現在acceptedなのは、次のTask ProfileとRuntime 
 | Evidence provenance | `DRR-V1-CODEX-0158-LIVE-01`、lab / live-Runtime / nonfixture real task |
 | Accepted endpoint | Core `RESUME_VERIFIED`かつmechanical completion `PASS` |
 | Capability Verdict | 固定workflowは`PASS`。製品全体のcoverageは`PARTIAL` |
-| Maturity / release channel | `experimental` / `undeclared` |
+| Support Profile maturity / Product release channel | `alpha` / `Alpha`（current Codex bindingのみ。Publication `BLOCKED_EXTERNAL`） |
 | Content quality | `NOT_ASSESSED` |
 
 Profile workspace lockが排除するのは、同じlockに協調するlauncherの並行実行だけである。
@@ -414,8 +414,9 @@ allowlistへ修正した後、最終run `befe25e2f8f249309a72753d94c4f570`をacc
 
 Duplicate checkでは同じrunを再要求し、`STALE_OUTPUT_PRESENT`で`REFUSED`となった。Output
 hashとstatは変化していない。Accepted endpointは`RESUME_VERIFIED`であるが、Verdict `PASS`は
-この一つのfixed workflowだけに適用する。製品全体のcoverageは`PARTIAL`、maturityは
-`experimental`、Field Evidenceはない。
+この一つのfixed workflowだけに適用する。製品全体のcoverageは`PARTIAL`、受入当時のmaturityは
+`experimental`、Field Evidenceはない。Stage 5に基づくcurrent Codex Support Profileのmaturityは
+`alpha`である。Cross-Runtime Task Profile maturityは設けず、元のEvidenceは変更しない。
 
 Retained Evidenceは`DRR-V1-CODEX-0158-LIVE-01`で索引し、private maintainer workspaceに
 保持している。公開側のEvidence規則とRuntime scopeは[Evidence Model](../evidence-model.md)、
@@ -463,8 +464,8 @@ Evidenceも元のpathで保持し、Evidence provenanceを変更しない。
 | task_profile_id | document-review-report-v1 |
 | operational_launcher_support | true |
 | task_runner_support | true |
-| maturity | experimental |
-| release_channel | undeclared |
+| maturity | alpha |
+| release_channel | Alpha |
 | accepted_endpoint | RESUME_VERIFIED |
 | evidence_record_id | DRR-V1-CODEX-0158-LIVE-01 |
 | known_exclusions | no-runtime-family-support, no-field-evidence, no-other-runtime-os-provider, no-general-parallel-background-external-work, no-strong-transition-assurance, one-fresh-session-one-manual-compact-one-report, no-restart-or-repeated-transition, quality-not-assessed, no-general-document-coding-shell-mcp, external-writers-not-prevented |

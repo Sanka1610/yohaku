@@ -5,7 +5,9 @@ operational CLIのJSON configを作成する。この経路が現在の推奨ins
 PackageをinstallしただけではRuntime integrationは有効にならず、RuntimeやTask Profileも
 acceptedにならない。
 
-公開中の全Support Profileはexperimentalであり、release channelは未宣言である。現在利用できるのは、固定した
+Candidate Aの2 Support Profileはalpha、Product release channelはAlphaである。Publicationは
+BLOCKED_EXTERNALで、公開artifact URLは未確定。Hermes / Claude / Historical ReferenceはAlpha scope外の
+experimental profileである。現在利用できるのは、固定した
 Runtime versionとprofileに対するbounded supportである。一般的な「installすると任意のRuntime、
 task、compactionを自動管理するplugin」ではない。
 
@@ -372,7 +374,7 @@ Evidenceのauthorityと公開境界は[Evidence Model](evidence-model.md)、bund
 
 ## Known Limitations
 
-- 全profileのmaturityはexperimental、release channelはundeclared
+- Candidate Aだけalpha / Product channel Alpha。PublicationはBLOCKED_EXTERNAL、他profileはexperimental
 - Package publishingとinstallerは提供していない。一般利用者はreview済みwheelを別途必要とする
 - Operational hostはWSL2 Linuxとprofile固定Python / Runtime versionに限定される
 - Windows native、他OS、network filesystem、power loss、backup restore、cross-host migrationは未受入

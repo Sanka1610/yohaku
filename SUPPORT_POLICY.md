@@ -58,9 +58,21 @@ subscription profileのEvidence・Verdictは変更しない。
 
 Historical Codex Referenceの既存受入はCLI `0.155.0-alpha.16.4` / WSL2 Ubuntu / Python `3.14.4`の限定profileである。Phase 14のlive信号を使った合成taskはlab tested / live-runtime、局所・合成テストはlab tested / local-syntheticとして読む。Field Evidenceの取得や現在版での再実行を示すものではない。native auto compactは1 attachmentにつき1回の範囲、native recovery途中のrestartはUNSUPPORTED、反復compactや一般の並列・外部work等は未受入である。
 
-Codex `0.158.0-alpha.2.1`の`document-review-report-v1`は、2026-09-29に別Support Profileとして追加した。専有workspace、明示入力2点、manual compact 1回、create-only Markdown report 1点に限定した非fixture実taskで`RESUME_VERIFIED`へ到達した。固定workflowのCapability VerdictはPASSだが、文章品質はNOT_ASSESSED、profile maturityはexperimental、製品全体のcoverageはPARTIAL、release channelはundeclaredとする。この結果を一般文書task、coding task、別Runtime、Field Evidenceへ適用しない。
+Codex `0.158.0-alpha.2.1`の`document-review-report-v1`は、2026-09-29に別Support Profileとして追加した。専有workspace、明示入力2点、manual compact 1回、create-only Markdown report 1点に限定した非fixture実taskで`RESUME_VERIFIED`へ到達した。固定workflowのCapability VerdictはPASSだが、文章品質はNOT_ASSESSED、受入当時のprofile maturityはexperimental、製品全体のcoverageはPARTIAL、release channelはundeclaredとする。この結果を一般文書task、coding task、別Runtime、Field Evidenceへ適用しない。
 
 重大な回帰やRuntime仕様変更が判明した場合は、該当version/profileの推奨を停止し、必要ならmaturityを下げる。旧versionの証拠を消さず、新versionは影響確認が済むまで未確認として扱う。
+
+## Candidate A current promotion
+
+2026-10-01のStage 5 Product Alpha Promotion Reviewは、Candidate A profile promotionとrelease channel
+promotionをELIGIBLEと判定した。Stage 5.1では`codex-operational-0.158`と
+`codex-document-review-report-v1`だけをalpha、Product release channelをAlphaへ反映する。
+Current declarationは[Candidate A scope](docs/release/candidate-a-scope.json)、source associationは
+[promotion source review](docs/release/promotion-source-review.json)に固定する。
+Hermes / Claude / Historical Referenceとその他のprofileはAlpha scope外で、experimentalを維持する。
+C-DRRの昇格はcurrent Codex bindingだけであり、cross-Runtime Task Profile maturityではない。
+Historical Evidence / Verdict / CoverageProfileは不変。Issue intake public usability未検証により
+publicationはBLOCKED_EXTERNALであり、Alpha channelの値から公開済みとは判断しない。
 
 ## Evidence / Coverage / Verdictとの関係
 
@@ -107,11 +119,11 @@ Release recordには、channel/version/commit、主対象profileとmaturity、�
 <!-- candidate-a:start -->
 | field | Candidate A |
 |---|---|
-| release_candidate_id | yohaku-0.1.0a1-rc2 |
+| release_candidate_id | yohaku-0.1.0a1-rc3 |
 | alpha_scope_profile_ids | codex-operational-0.158, codex-document-review-report-v1 |
 | excluded_profile_ids | codex-reference-0.155, hermes-operational-h-cli-01, hermes-h-cli-01, claude-c-cli, claude-c-cli-local-nonce |
 | excluded_runtime_families | hermes, claude |
-| maturity | experimental |
-| release_channel | undeclared |
+| maturity | alpha |
+| release_channel | Alpha |
 | known_exclusions | no-runtime-family-support, no-field-evidence, no-other-runtime-os-provider, no-general-parallel-background-external-work, no-strong-transition-assurance |
 <!-- candidate-a:end -->
