@@ -33,6 +33,7 @@ REGISTRY_LIMITS = [
     '1b743f492ea437e6986b2874c029f407e9a6c8d56bd71c6a96bb4a47ec218856',
 ]
 HASH = '<sha256>'
+LICENSE_SHA256 = 'cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30'
 DOCS = ['docs/runtime-support.md', 'docs/runtime-mapping.md', 'docs/runtimes/codex.md']
 TASK_DOC = 'docs/task-profiles/document-review-report-v1.md'
 POLICY = 'SUPPORT_POLICY.md'
@@ -104,7 +105,7 @@ def claims():
 
 
 def scope_template():
-    return dict(schema=1, release_candidate_id='yohaku-0.1.0a1-rc1',
+    return dict(schema=1, release_candidate_id='yohaku-0.1.0a1-rc2',
                 status='review-input-not-release-approval', source_review_commit=BASE,
                 alpha_scope_profile_ids=IDS, excluded_profile_ids=EXCLUDED,
                 excluded_runtime_families=['hermes', 'claude'],
@@ -249,8 +250,11 @@ def validate(root=ROOT, *, scope=None, index=None, drift=None, profiles=None, do
     for path, expected in expected_tables.items():
         text = (root / path).read_text() if documents is None else documents[path]
         require(read_table(text) == expected, 'CANONICAL_DRIFT')
-    require(tomllib.loads((root / 'pyproject.toml').read_text())['project']['version']
-            == '0.1.0a1', 'PACKAGE_VERSION_DRIFT')
+    project = tomllib.loads((root / 'pyproject.toml').read_text())['project']
+    require(project['version'] == '0.1.0a1', 'PACKAGE_VERSION_DRIFT')
+    require(project.get('license') == 'Apache-2.0'
+            and project.get('license-files') == ['LICENSE'], 'PACKAGE_LICENSE_DRIFT')
+    require(sha((root / 'LICENSE').read_bytes()) == LICENSE_SHA256, 'LICENSE_TEXT_DRIFT')
     # Hash changes trigger review, not an automatic instruction to rerun live acceptance.
     for row in drift['files'] + drift['supporting_source']:
         if row['file'].startswith('src/'):

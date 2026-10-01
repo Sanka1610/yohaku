@@ -5,7 +5,7 @@
 Public-safe ID / digest / sanitized summaryだけを記載し、private pathやraw Evidenceを含めません。
 
 Local RC validationではscope declarationの`release_candidate_id`を使用します。
-現在のlocal RC identifierは`yohaku-0.1.0a1-rc1`です。公開release名の決定ではありません。
+現在のlocal RC identifierは`yohaku-0.1.0a1-rc2`です。公開release名の決定ではありません。
 検証record / notesはworkspaceに保持し、RC source commit固定後はsourceを編集しません。
 
 ## Release identity
@@ -20,7 +20,11 @@ Local RC validationではscope declarationの`release_candidate_id`を使用し�
 | Review date | TBD |
 | Reviewer | TBD — 公開用識別子 |
 | Review decision | PENDING |
-| License / distribution terms | LICENSE_DECISION_REQUIRED — 決定済みfile / termsへの公開参照 |
+| License / distribution terms | Apache-2.0 / [LICENSE](../../LICENSE) — exact artifact metadata / LICENSE memberの検証: PENDING |
+
+`LICENSE_DECISION_REQUIRED`は、exact artifactの`License-Expression: Apache-2.0`、
+`License-File: LICENSE`、LICENSE memberと標準本文の一致を検証したRC recordで解消します。
+License方針の確定だけではartifact integrationの検証完了を意味しません。
 
 Package `0.1.0a1`はPublished Alphaを意味しません。Version、profile maturity、channelをそれぞれreviewします。
 

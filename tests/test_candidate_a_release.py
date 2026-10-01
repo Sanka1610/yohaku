@@ -111,6 +111,27 @@ class CandidateAReleaseTests(unittest.TestCase):
                 with self.assertRaisesRegex(check.Invalid, 'SOURCE_REVIEW_REQUIRED'):
                     check.validate()
 
+    def test_license_metadata_drift_is_rejected(self):
+        original = Path.read_text
+        target = ROOT / 'pyproject.toml'
+        for before, after in [('license = "Apache-2.0"', 'license = "MIT"'),
+                              ('license-files = ["LICENSE"]', 'license-files = []')]:
+            def changed(path, *args, **kwargs):
+                data = original(path, *args, **kwargs)
+                return data.replace(before, after) if path == target else data
+            with self.subTest(field=before), patch.object(Path, 'read_text', changed):
+                with self.assertRaisesRegex(check.Invalid, 'PACKAGE_LICENSE_DRIFT'):
+                    check.validate()
+
+    def test_modified_license_text_is_rejected(self):
+        original = Path.read_bytes
+        target = ROOT / 'LICENSE'
+        def changed(path):
+            return original(path) + (b'changed license text' if path == target else b'')
+        with patch.object(Path, 'read_bytes', changed):
+            with self.assertRaisesRegex(check.Invalid, 'LICENSE_TEXT_DRIFT'):
+                check.validate()
+
     def test_duplicate_json_key_fails(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / 'record.json'

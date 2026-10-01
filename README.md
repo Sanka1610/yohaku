@@ -85,3 +85,5 @@ Wheelの確認からuninstallまでの手順は[Installation](docs/installation.
 ## Documentation
 
 詳細は[Documentation Index](docs/index.md)から目的に応じて選んでください。Architecture、Runtime support、Task Profiles、Operations、Evidence、development documentationへの入口をまとめています。日本語文書が現在のpublic canonicalです。
+
+Distribution licenseは[Apache License 2.0](LICENSE)（SPDX: `Apache-2.0`）です。

@@ -19,7 +19,8 @@ file hashを固定し、その内容を採用します。Profile / Runtime / end
 手入力して維持しません。後続reviewでscopeまたはmaturity / channelを変更する場合は、declaration、
 registry、canonical検証表、checkerの整合も同じ変更でreviewします。
 
-Stage 3時点のrelease blockerは`LICENSE_DECISION_REQUIRED`と`REPOSITORY_SETTING_REQUIRED`です。
-Local checkoutには明確なLICENSE / COPYING /利用条件がなく、pyprojectにもlicense宣言がありません。
-Templateは配布許諾を新設しません。Maintainerが利用条件を決定し、package metadata、配布物、release record、
-READMEの説明が一致することをrelease前に確認してください。Public Issue受付の設定・確認も別途必要です。
+Distribution licenseは[Apache License 2.0](../../LICENSE)（SPDX: `Apache-2.0`）です。
+Package metadataはPEP 639の`project.license`と`project.license-files`で宣言しています。
+Stage 3由来の`LICENSE_DECISION_REQUIRED`は、exact RC artifactのSPDX metadataとLICENSE fileの
+一致を検証したrelease recordで解消します。`REPOSITORY_SETTING_REQUIRED`とpublic Issue受付の
+実用性確認、maturity / release channel review、公開工程は独立した未完了条件です。

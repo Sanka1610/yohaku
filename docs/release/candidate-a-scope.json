@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "release_candidate_id": "yohaku-0.1.0a1-rc1",
+  "release_candidate_id": "yohaku-0.1.0a1-rc2",
   "status": "review-input-not-release-approval",
   "source_review_commit": "84b34f8eff42d5b2a46b9ce1b38913a35bd8f25b",
   "alpha_scope_profile_ids": [

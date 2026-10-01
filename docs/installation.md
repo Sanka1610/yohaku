@@ -13,6 +13,9 @@ task、compactionを自動管理するplugin」ではない。
 path、前提条件、Runtime選択、storage、uninstall、安全なtroubleshootingを説明する。CLIの
 状態遷移と拒否条件は[Operations](operations.md)が正本である。
 
+Distribution licenseは[Apache License 2.0](../LICENSE)（SPDX: `Apache-2.0`）です。
+配布物のlicense metadataとLICENSE fileも、対象RCのrelease recordで確認してください。
+
 ## 現在利用できる範囲
 
 Package installation、operational lifecycle、transition、Task Profileは別のclaimである。

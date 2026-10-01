@@ -15,7 +15,7 @@ commit / hashをrecordへ固定し、これらの一覧をchecklistへ手入力�
 - [ ] `MATURITY_CHANNEL` — Maturity / channel reviewは現在PENDING。変更案または維持判断の承認記録がある。
 - [ ] `SOURCE_FIXED` — Exact source commitを固定し、clean状態とsource associationを確認した。
 - [ ] `VERSION_FIXED` — Package version、release identifier、release channelを別々に確定した。
-- [ ] `TERMS_RESOLVED` — License / termsを解決した。現在のblockerは`LICENSE_DECISION_REQUIRED`。
+- [ ] `TERMS_RESOLVED` — Apache-2.0 / LICENSEをexact artifactで検証し、recordで`LICENSE_DECISION_REQUIRED`を解消した。
 - [ ] `ISSUE_INTAKE` — Public Issue intakeが利用可能。現在のblockerは`REPOSITORY_SETTING_REQUIRED`。
 
 ## Exact artifact and verification
