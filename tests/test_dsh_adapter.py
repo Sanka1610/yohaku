@@ -92,7 +92,7 @@ class DshAdapterTests(unittest.TestCase):
         s = self.adapter.core.snapshot
         document = HandoffDocument('stock-handoff', s.request, self.cp.revisions,
             self.cp.workspace, '/bounded-workspace', RecoveredData('bounded-task',
-                ('work completed',), 'receipt only', (), 'no continuation', ('task.json',)))
+                ('work completed',), 'bounded task', ('remaining bounded work',), 'bounded next action', ('task.json',)))
         with self.assertRaises(TransitionError):
             self.adapter.offer_handoff(document, observe=lambda: self.current)
         self.assertEqual(self.adapter.core.snapshot.state, State.ROLLOVER_OBSERVED)
@@ -211,8 +211,22 @@ class ReceiptHost(Host):
 
     def authorize_receipt(self, candidate, fresh):
         self.authorizations = getattr(self, 'authorizations', 0) + 1
-        return self.mutate_receipt(dict(binding=candidate, freshRevision=fresh['revision'],
+        self.receipt = self.mutate_receipt(dict(binding=candidate, freshRevision=fresh['revision'],
             authorization='one-shot', result='http-accepted', profile=DSH_RECEIPT_PROFILE))
+        return self.receipt
+
+    def post_receipt(self):
+        self.post_reads = getattr(self, 'post_reads', 0) + 1
+        return self.mutate_post(dict(sessionId=self.session_id, seq=20, terminalSeq=19,
+            status='idle', settled=True, nextTurn=[], nextStep=[],
+            lastTurnEnd={'turn': 2, 'reason': {'kind': 'completed'}},
+            current=encode(self.current), messages=[{'id': self.delivery['messageId'],
+                'content': [{'type': 'text', 'text': self.document.render()}]}],
+            handoffId=self.delivery['handoffId'], messageId=self.delivery['messageId'],
+            receiptBinding=self.receipt['binding'], receiptFreshRevision=self.receipt['freshRevision'],
+            revision=f'local-owner:{self.post_reads + 1}', phase='post-receipt-idle'))
+
+    mutate_post = staticmethod(lambda observation: observation)
 
     mutate_receipt = staticmethod(lambda proof: proof)
 
@@ -231,7 +245,8 @@ class DshReceiptAdapterTests(unittest.TestCase):
         s = self.adapter.core.snapshot
         document = HandoffDocument('handoff-fixture', s.request, self.cp.revisions,
             self.cp.workspace, '/bounded-workspace', RecoveredData('bounded-task',
-                ('work completed',), 'receipt only', (), 'no continuation', ('task.json',)))
+                ('work completed',), 'bounded task', ('remaining bounded work',), 'bounded next action', ('task.json',)))
+        self.host.document = document
         return self.adapter.offer_handoff(document, observe=lambda: self.current)
 
     def test_delivery_remains_offered_and_receipt_is_one_shot(self):
@@ -272,6 +287,115 @@ class DshReceiptAdapterTests(unittest.TestCase):
             self.adapter.receive_handoff(observe=lambda: self.current)
         self.assertEqual(self.adapter.core.snapshot.state, State.RECOVERY_REQUIRED)
         self.assertIsNone(self.adapter.core.snapshot.receipt_evidence)
+
+    def received(self):
+        self.offer()
+        self.adapter.receive_handoff(observe=lambda: self.current)
+
+    def qualify(self, reassess=None):
+        return self.adapter.qualify_resume(observe=lambda: self.current,
+            reassess=reassess or (lambda document, current: document.recovered.next_action_candidate))
+
+    def test_fresh_unresolved_work_stops_without_second_core_authority(self):
+        self.received()
+        before = self.adapter.core.snapshot
+        result = self.qualify()
+        self.assertTrue(result['unresolved_work'])
+        self.assertFalse(result['continuation_authorized'])
+        self.assertEqual(self.adapter.core.snapshot, before)
+        self.assertEqual(self.host.post_reads, 2)
+        self.assertTrue(before.barrier_requested)
+        with self.assertRaises(TransitionError):
+            self.adapter.core.claim_continuation()
+        with self.assertRaises(TransitionError):
+            self.qualify()
+        self.assertFalse(self.adapter.receive_handoff(observe=lambda: self.current))
+        self.assertEqual(self.host.starts, 1)
+        self.assertEqual(self.adapter.core.snapshot, before)
+
+    def test_already_completed_work_never_authorizes_continuation(self):
+        self.received()
+        result = self.qualify(lambda document, current: None)
+        self.assertFalse(result['unresolved_work'])
+        self.assertEqual(result['stop_reason'], 'no unresolved work')
+        self.assertEqual(self.adapter.core.snapshot.state, State.HANDOFF_RECEIVED)
+
+    def test_changed_task_and_workspace_revision_fail_closed(self):
+        self.received()
+        self.current = replace(self.current, execution_revision=2,
+            workspace=WorkspaceRevision(2, 'changed', ('task.json',)))
+        with self.assertRaises(TransitionError):
+            self.qualify()
+        self.assertTrue(self.host.invalidated)
+        self.assertEqual(self.adapter.core.snapshot.state, State.RECOVERY_REQUIRED)
+        self.assertEqual(self.host.starts, 1)
+
+    def reject_post(self, change):
+        self.received()
+        self.host.mutate_post = lambda observation: dict(observation, **change)
+        with self.assertRaises(TransitionError):
+            self.qualify()
+        self.assertEqual(self.host.starts, 1)
+        self.assertEqual(self.adapter.core.snapshot.state, State.RECOVERY_REQUIRED)
+
+    def test_changed_historical_action_does_not_dispatch(self):
+        self.received()
+        with self.assertRaises(TransitionError):
+            self.qualify(lambda document, current: 'a different historical action')
+        self.assertEqual(self.host.starts, 1)
+
+    def test_uncertain_post_receipt_read_stops_without_retry(self):
+        self.received()
+        calls = []
+        def unavailable():
+            calls.append(True)
+            raise OSError('independent read unavailable')
+        self.host.post_receipt = unavailable
+        with self.assertRaises(OSError):
+            self.qualify()
+        with self.assertRaises(TransitionError):
+            self.qualify()
+        self.assertEqual(calls, [True])
+        self.assertEqual(self.host.starts, 1)
+        self.assertEqual(self.adapter.core.snapshot.state, State.RECOVERY_REQUIRED)
+
+    def test_state_change_during_reassessment_stops(self):
+        self.received()
+        def reassess(document, current):
+            self.host.current = replace(current, execution_revision=2)
+            return document.recovered.next_action_candidate
+        with self.assertRaises(TransitionError):
+            self.qualify(reassess)
+        self.assertEqual(self.adapter.core.snapshot.state, State.RECOVERY_REQUIRED)
+
+    def test_old_durable_handoff_is_not_reused(self):
+        self.received()
+        with patch.object(self.store, 'read_handoff', return_value=replace(self.host.document,
+                recovered=replace(self.host.document.recovered, next_action_candidate='old action'))):
+            with self.assertRaises(TransitionError):
+                self.qualify()
+        self.assertFalse(hasattr(self.host, 'post_reads'))
+
+
+# Each negative gets its own fresh owner/store; no restart or restored authority.
+for _name, _change in {
+        'wrong_session': dict(sessionId='foreign'),
+        'old_handoff': dict(handoffId='old'),
+        'old_message': dict(messageId='old-message'),
+        'gate_revision': dict(revision='local-owner:1'),
+        'pre_receipt_seq': dict(seq=16, terminalSeq=15),
+        'gate_phase': dict(phase='receipt-gate'),
+        'running_agent': dict(status='running', settled=False),
+        'pending_turn': dict(nextTurn=['pending']),
+        'pending_step': dict(nextStep=['pending']),
+        'missing_projection': dict(messages=[]),
+        'foreign_receipt': dict(receiptBinding={}),
+        'wrong_terminal': dict(lastTurnEnd={'turn': 3, 'reason': {'kind': 'completed'}}),
+        'wrong_task': dict(current={'logical_task_id': 'foreign'}),
+    }.items():
+    def _test(self, change=_change):
+        self.reject_post(change)
+    setattr(DshReceiptAdapterTests, 'test_post_receipt_rejects_' + _name, _test)
 
 
 if __name__ == '__main__':

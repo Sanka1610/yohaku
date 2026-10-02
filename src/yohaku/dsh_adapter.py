@@ -356,8 +356,73 @@ class DshAdapter:
                     or evidence['profile'] != DSH_RECEIPT_PROFILE):
                 raise TransitionError('qualified current-attempt receipt proof mismatch')
             ref = self._record('receipt_received', evidence=evidence)
-            return self.core.receive_handoff(h, injection_evidence=self.injection_ref,
-                                             receipt_evidence=ref)
+            received = self.core.receive_handoff(h, injection_evidence=self.injection_ref,
+                                                 receipt_evidence=ref)
+            self.receipt = evidence
+            return received
         except BaseException:
             self._stop_receipt('DSH receipt uncertain; no retry or continuation')
+            raise
+
+    def qualify_resume(self, *, observe, reassess):
+        """Re-read settled state and reassess historical work; grants no dispatch.
+
+        R4-I consumed the existing Core permit on receipt inspection. A separate
+        post-receipt turn has no Core authority or ResumeProof turn binding.
+        Stop at HANDOFF_RECEIVED rather than rebinding or fabricating a proof.
+        reassess(document, current) returns the still-unresolved historical next
+        action, or None when that work is already complete, from trusted reads.
+        """
+        s = self.core.snapshot
+        if (self.stopped or s.state != State.HANDOFF_RECEIVED or not s.receipt_evidence
+                or not hasattr(self, 'receipt') or hasattr(self, 'resume_qualification')):
+            raise TransitionError('one received handoff required for resume qualification')
+        try:
+            document = self.store.read_handoff(s.handoff.handoff_id)
+            if (document.request != s.request or document.workspace != self.current.workspace
+                    or document.revisions != s.checkpoint.revisions
+                    or document.recovered.logical_task_id != self.current.logical_task_id
+                    or sha256(document.render().encode()).hexdigest() != self.delivery['handoffHash']):
+                raise TransitionError('old or changed handoff')
+            native = self.host.post_receipt()
+            self._idle(native)
+            current = observe()
+            binding = self.receipt['binding']
+            messages = [m for m in native['messages'] if m['id'] == self.delivery['messageId']]
+            if (native['phase'] != 'post-receipt-idle' or current != self.current
+                    or native['current'] != encode(current)
+                    or native['handoffId'] != s.handoff.handoff_id
+                    or native['messageId'] != self.delivery['messageId']
+                    or native['receiptBinding'] != binding
+                    or native['receiptFreshRevision'] != self.receipt['freshRevision']
+                    or native['revision'] == native['receiptFreshRevision']
+                    or native['seq'] <= native['terminalSeq']
+                    or native['terminalSeq'] < binding['nativeSeq']
+                    or f"{native['sessionId']}:{native['lastTurnEnd']['turn']}" != s.handoff.continuation_turn_id
+                    or native['lastTurnEnd']['reason'].get('kind') != 'completed'
+                    or len(messages) != 1
+                    or messages[0]['content'] != [{'type': 'text', 'text': document.render()}]):
+                raise TransitionError('stale post-receipt task, revision or Session')
+            ref = self._record('post_receipt_observed', observation=native)
+            next_action = reassess(document, current)
+            if (next_action is not None and (not isinstance(next_action, str) or not next_action
+                    or not document.recovered.unresolved
+                    or next_action != document.recovered.next_action_candidate)):
+                raise TransitionError('historical next action changed or unresolved work unknown')
+            after = self.host.post_receipt()
+            comparable = {k: v for k, v in after.items() if k != 'revision'}
+            if (observe() != current or comparable != {k: v for k, v in native.items() if k != 'revision'}
+                    or after['revision'] == native['revision']):
+                raise TransitionError('post-receipt state changed during reassessment')
+            result = dict(fresh_state='PASS', unresolved_work=next_action is not None,
+                historical_next_action_reevaluated=True, current=encode(current),
+                observation_ref=ref, continuation_authorized=False,
+                stop_reason=('existing Core permit consumed by receipt inspection; '
+                             'handoff turn binds receipt, not a new post-receipt turn'
+                             if next_action is not None else 'no unresolved work'))
+            self._record('resume_qualification_stopped', **result)
+            self.resume_qualification = result
+            return result
+        except BaseException:
+            self._stop_receipt('DSH post-receipt reconciliation failed; no continuation')
             raise

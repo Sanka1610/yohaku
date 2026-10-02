@@ -39,7 +39,7 @@ async function fixture(extraFields = {}) {
   prepared.catch(() => {});
   const claims = await host.gateReady.promise;
   const fresh = await host.fresh_receipt();
-  return { host, signal, prepared, claims, fresh, current, listeners, agent };
+  return { host, signal, prepared, claims, fresh, current, listeners, agent, log, message };
 }
 
 test('authorization precedes HTTP acceptance; receipt uses no model output', async () => {
@@ -142,3 +142,67 @@ test('body and payload divergence invalidate the held candidate', async () => {
     await f.host.dispose();
   }
 });
+
+async function acceptedIdle() {
+  const f = await fixture();
+  const receipt = f.host.authorize_receipt(f.claims, f.fresh);
+  await (await f.prepared).accept();
+  await receipt;
+  f.signal.abort(); // Stock owner releases the native request signal on settle.
+  f.host.receiptTarget = { turn: 2 };
+  const end = { type: 'turn/end', seq: 1, data: { turn: 2, reason: { kind: 'completed' } } };
+  f.log.push(end);
+  f.agent.session.seq = 2;
+  f.agent.session.deriveMessages = () => [f.message];
+  f.agent.inbox = { nextTurn: [], nextStep: [] };
+  f.agent.whenIdle = async () => { f.agent.status = 'idle'; };
+  for (const fn of f.listeners.get('agent/assistant-stream')) {
+    fn({ agent: f.agent, frame: { type: 'end', revision: 1, attemptId: 's-1:2' } });
+  }
+  for (const fn of f.listeners.get('session/event')) fn(f.agent.session, end);
+  return f;
+}
+
+test('accepted receipt settles before new current/projection/readback observations', async () => {
+  const f = await acceptedIdle();
+  assert.equal(f.host.stopped, false);
+  const post = await f.host.post_receipt();
+  assert.equal(post.phase, 'post-receipt-idle');
+  assert.equal(post.status, 'idle');
+  assert.equal(post.terminalSeq, 1);
+  assert.notEqual(post.revision, f.fresh.revision);
+  assert.deepEqual(post.messages, [f.message]);
+  assert.deepEqual(post.current, f.current);
+  assert.equal(f.host.actualAttempts, 1);
+  await f.host.dispose();
+});
+
+test('post-receipt read cannot use a held unaccepted gate', async () => {
+  const f = await fixture();
+  await assert.rejects(f.host.post_receipt(), /accepted receipt/);
+  await f.host.dispose();
+  await assert.rejects(f.prepared);
+});
+
+for (const mode of ['duplicate terminal', 'aborted terminal', 'pending inbox', 'foreign Session',
+    'wrong projection', 'another attempt', 'retry after receipt']) {
+  test(mode + ' cannot authorize post-receipt continuation', async () => {
+    const f = await acceptedIdle();
+    if (mode === 'duplicate terminal') f.log.push({ ...f.log[1], seq: 2 });
+    if (mode === 'aborted terminal') f.log[1].data.reason = { kind: 'aborted' };
+    if (mode === 'pending inbox') f.agent.inbox.nextStep.push({ id: 'pending' });
+    if (mode === 'foreign Session') f.agent.session.id = 'foreign';
+    if (mode === 'wrong projection') f.agent.session.deriveMessages = () => [];
+    if (mode === 'another attempt') {
+      for (const fn of f.listeners.get('agent/assistant-stream')) {
+        fn({ agent: f.agent, frame: { type: 'start', revision: 2, attemptId: 's-1:3' } });
+      }
+    }
+    if (mode === 'retry after receipt') {
+      for (const fn of f.listeners.get('session/event')) fn(f.agent.session, { type: 'llm/retry-started' });
+    }
+    await assert.rejects(f.host.post_receipt());
+    assert.equal(f.host.actualAttempts, 1);
+    await f.host.dispose();
+  });
+}

@@ -138,13 +138,15 @@ export class DshNativeHost {
         if (this.candidate) this.invalidate_receipt('another native attempt');
         this.latestStart = structuredClone(frame);
       }
-      if (frame.type === 'end' && this.candidate?.binding.nativeAttemptId === frame.attemptId) {
+      if (frame.type === 'end' && this.candidate?.binding.nativeAttemptId === frame.attemptId
+          && !this.candidate.accepted) {
         this.invalidate_receipt('native attempt ended');
       }
     }));
     this.disposers.push(this.ctx.on('session/event', (session, event) => {
       if (session.id === this.session_id && this.delivery
-          && (event.type.startsWith('llm/retry') || event.type === 'turn/end')) {
+          && (event.type.startsWith('llm/retry')
+            || (event.type === 'turn/end' && !this.candidate?.accepted))) {
         this.invalidate_receipt(event.type);
       }
     }));
@@ -299,7 +301,10 @@ export class DshNativeHost {
       const c = { binding, body: request.body, signal: request.signal, release: deferred(),
         invalid: false, authorized: false, accepted: false };
       this.candidate = c;
-      const onAbort = () => this.invalidate_receipt('abort');
+      // DSH disposes the request signal after a successful native attempt too.
+      // After HTTP acceptance, the fresh terminal/readback check decides whether
+      // the task state is usable; abort must still invalidate an unreleased gate.
+      const onAbort = () => { if (!c.accepted) this.invalidate_receipt('abort'); };
       request.signal.addEventListener('abort', onAbort, { once: true });
       this.disposers.push(() => request.signal.removeEventListener('abort', onAbort));
       if (request.signal.aborted) onAbort();
@@ -355,6 +360,35 @@ export class DshNativeHost {
     c.authorized = true;
     c.release.resolve();
     return this.receiptDone.promise;
+  }
+
+  async post_receipt() {
+    // A gate direct read cannot establish settled post-receipt task state.
+    if (!this.receiptEvidence || !this.candidate?.accepted || this.stopped) {
+      throw new Error('accepted receipt required before post-receipt observation');
+    }
+    const native = await this.observe();
+    const fresh = await this._directRead();
+    const messages = structuredClone(this.agent.session.deriveMessages());
+    const ends = fresh.readbackEvents.filter(e => e.type === 'turn/end'
+      && e.data.turn === this.receiptTarget.turn);
+    const members = messages.filter(m => m.id === this.delivery.messageId);
+    if (native.status !== 'idle' || !native.settled || native.nextTurn.length || native.nextStep.length
+        || fresh.status !== 'idle' || fresh.seq !== native.seq
+        || native.lastTurnEnd.turn !== this.receiptTarget.turn
+        || ends.length !== 1 || ends[0].seq < this.candidate.binding.nativeSeq
+        || ends[0].data.reason?.kind !== 'completed'
+        || !same(native.lastTurnEnd, ends[0].data)
+        || !same(members, [this.handoffMessage]) || this.agent.session.seq !== fresh.seq
+        || this.stopped) {
+      throw new Error('post-receipt Session, projection or terminal state mismatch');
+    }
+    return structuredClone({ ...native, current: fresh.current, messages,
+      handoffId: this.delivery.handoffId, messageId: this.delivery.messageId,
+      receiptBinding: this.receiptEvidence.binding,
+      receiptFreshRevision: this.receiptEvidence.freshRevision,
+      revision: `${this.epoch}:${++this.freshRevision}`, terminalSeq: ends[0].seq,
+      phase: 'post-receipt-idle' });
   }
 
   invalidate_receipt(reason) {

@@ -80,8 +80,26 @@ one-shot authorization後にcurrent attemptだけをreleaseします。
 Abort、identity / hash mismatch、stale observation、retry開始、owner loss、host disposal、
 profile逸脱ではcandidateを失効させて停止します。Late authorizationは再開できません。
 Receipt metadataはadapter decision recordに閉じ込め、native log全体を複製しません。
-Receipt後に新しいturnを自動起動しません。`HANDOFF_RECEIVED`後のtask continuation
-と`RESUME_VERIFIED`は未評価です。
+Receipt後に新しいturnを自動起動しません。`post_receipt()`はHTTP acceptance後に
+`whenIdle()`を待ち、正常な`turn/end`一件、empty inbox、独立readback、fresh
+`deriveMessages()`、同じSessionとhandoff、current task / workspaceを照合します。
+Gate中のdirect readをpost-receipt observationとして再利用しません。HTTP acceptance後の
+request signal破棄はreceiptを取り消しませんが、error / abort terminal、retry、別attempt、
+owner lossはresume qualificationを通過できません。
+
+`qualify_resume(observe=..., reassess=...)`はdurable handoffを再読し、post-receipt stateと
+declared workspace scopeを照合します。Trusted `reassess(document, current)`は実際のtask
+readからhistorical unresolved workを再評価し、まだ必要なら`next_action_candidate`、
+完了済みなら`None`を返します。別action、unknown、revision変更、pending workでは停止します。
+再評価後にも新しいobservationを取り、stateが変わっていないことを確認します。
+
+R4-Rのloopback mechanical qualificationはfresh stateと未完了作業の確認まで`PASS`、
+resume chain全体は`PARTIAL`です。既存Coreのone-shot `claim_continuation()`はR4-Iの
+receipt inspection turnに消費済みで、handoffの`continuation_turn_id`もそのturnに固定されます。
+Receipt後の別turnへauthorityや`ResumeVerification`を接続する既存semanticがないため、
+`HANDOFF_RECEIVED`とbarrierを維持して停止します。Qualificationはdispatchを許可せず、
+二回目のqualificationも拒否します。Task continuationとtask assessmentは`NOT_RUN`、
+`ResumeProof`は作成せず、`RESUME_VERIFIED`は未成立です。Core変更はありません。
 
 Receiptはstock pi-ai / OpenAI-compatible経路、他provider adapter、追加extension fields、
 file / image / tool projections、retry、restart、parallel / background / subagentでは
