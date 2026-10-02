@@ -18,7 +18,7 @@ Shared Coreは、Runtimeから独立して表現できる安全semanticsを所�
 | Dispatch、completion、side effectが不明なら`AMBIGUOUS`として通常作業とblind retryを止める | Timeout、transport error、late event、duplicate、observation lossをRuntime固有に検出・相関する |
 | Durable handoff、deliveryとreceiptの分離、fresh observation、resume gateを要求する | HandoffをRuntimeへdelivery / injectionし、profile固有のexplicit receiptとfresh readを観測する |
 | Duplicate completion / receiptから新しいauthorityを作らない | Native duplicateを同定し、二重dispatchや二重continuationを起こさない |
-| `ResumeProof`のidentity、freshness、nonduplication、same-task整合性を検査する | Trusted Observer / Task Assessorからprofileに必要な観測とproofを受け取る |
+| `ResumeVerification`のidentity、revision、workspaceと再開条件を検査する | Trusted Observer / Task Assessorの観測とRuntime固有の根拠から、freshness、nonduplication、same-task整合性を検証する |
 
 Coreは外部I/Oを行わず、Runtime eventの真正性を独力で証明しない。Adapterを含むtrusted hostが、
 native eventのcapture、順序、coverage、correlationを正しく報告する必要がある。一方、AdapterはCoreの
@@ -176,7 +176,7 @@ handoff delivery / injection
 
 各段階は、直前の段階を含意しない。
 
-Coreは既存のearly claim → bound offer → receipt → verifyを維持する。Receiptとtaskが別interactionの場合は、durable document作成後に`offer_handoff(None, handoff_id=..., expected_snapshot=...)`で明示的に未束縛のofferを作る。`Handoff.continuation_turn_id == ""`はtask identity未確定を意味し、receiptはpermitを消費しない。
+Coreは二つのcontinuation binding方式を扱う。Codex / Hermesの既存early-bound経路はearly claim → bound offer → receipt → verifyを維持する。DSH / OpenCodeのlate-bound経路ではreceiptとtaskを別interactionに分け、durable document作成後に`offer_handoff(None, handoff_id=..., expected_snapshot=...)`で明示的に未束縛のofferを作る。`Handoff.continuation_turn_id == ""`はtask identity未確定を意味し、receiptはpermitを消費しない。
 
 この経路では、adapterがreceiptのsuccessful settlement、fresh task/workspace観測、未完了workの再評価と最終照合を行い、`reconcile_resume_context()`後のSnapshotを`claim_continuation(expected_snapshot=...)`へ渡す。Claim直後のSnapshotを保持し、actual native task identityを観測してから`bind_continuation(binding, expected_snapshot=...)`へ渡す。Coreはcurrent Request/Handoff/revisionと一件のclaimを照合する。Native identityの実観測と意味的freshnessの確認はtrusted adapterの責務である。
 
@@ -197,13 +197,13 @@ Adapterはclaimを送信前に、binding確定をtask effect前に既存のappen
 - `RESUME_VERIFIED`は、上記をtrusted adapterが検証し、既存`ResumeVerification`をCoreが受理したstateである。Content qualityや
   general semantic understandingまで自動的に評価しない。
 
-`recovery.py`の`ResumeProof`はsuccessful tool observationを照合する既存helper型である。
+Codex / Hermesはtrusted task assessor → `recovery.py`のtool-oriented `ResumeProof` → `ResumeVerification` → `Controller.verify_resume()`という既存経路を維持する。
 Text-only Runtimeは、固有のcompletion evidence、独立したfresh state、bounded task assessmentを
 adapter内で照合・保存してから`ResumeVerification`を構成できる。正しいHandoffと消費済みclaim、
 bound continuation、current revision / workspace、same-taskとnonduplicationの検証は省略しない。
 Assistant text、receipt、host readをtool observationへ読み替えない。
 保存失敗やsend/completion uncertaintyではCore検証へ進まず、最終Snapshotも再確認する。
-DSHの具体的な条件と保存順序は[DSH Runtime](../runtimes/dsh.md)に記載する。
+DSH / OpenCodeではtrusted Runtime adapterがこの検証を所有する。具体的な条件と保存順序は[DSH Runtime](../runtimes/dsh.md)と[OpenCode Runtime](../runtimes/opencode.md)に記載する。
 
 Receiptのwire protocolはRuntime / profile固有でよい。Modelに不要なopaque identity一式を転記させる
 必要はない。Claude Code CLIの`host-nonce-v1` profileでは、trusted hostがfull identity tupleを保持し、
@@ -211,7 +211,7 @@ modelにはhandoff固有のone-time nonceだけを返させる。Hostはnonceと
 request、generation、continuation、tool lifecycleを照合する。この設計は、model-visible fieldを減らせる
 profile固有例であり、nonce方式を共通仕様にするものではない。
 
-OpenCodeの限定receiptも既存HandoffDocumentとCoreの`receive_handoff()`へ接続します。Receiptの根拠とhostの構成条件は[OpenCode](../runtimes/opencode.md)を参照してください。両RuntimeともR3 completion predicateとCoreは変更していません。各profileのcontinuation対応範囲はRuntime pageに記載します。
+OpenCodeの限定profileも既存HandoffDocumentとCoreの`receive_handoff()`へ接続し、別inputのlate-bound continuation、final fresh state、Runtime固有recordを経て`RESUME_VERIFIED`まで確認しています。Receiptの根拠とhostの構成条件は[OpenCode](../runtimes/opencode.md)を参照してください。両RuntimeともR3 completion predicateを維持し、Coreのlate-binding対応以外にadapter固有のCore変更はありません。
 
 Receipt submissionやcontinuation dispatchのoutcomeが不明なら、nonceやpermitを再発行せず
 `AMBIGUOUS`として停止する。Outcomeは確定しているが、後続のrecovery chainを安全に完了できない場合は
