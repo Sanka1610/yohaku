@@ -8,13 +8,15 @@ All owner calls must be serialized.
 """
 
 from dataclasses import asdict, dataclass
+from copy import deepcopy
 from hashlib import sha256
+from pathlib import Path
 
 from .codec import encode
 from .controller import Controller, TransitionError
-from .model import BoundaryVerification, ContinuationBinding, Request, State
+from .model import BoundaryVerification, ContinuationBinding, Request, ResumeVerification, State
 from .recovery import CurrentContext, HandoffDocument
-from .persistence import _sync_directory
+from .persistence import _read, _sync_directory
 
 DSH_VERSION = "0.2.0-rc.2"
 DSH_RECEIPT_PROFILE = "messages-plain-text-owner-no-retry"
@@ -451,7 +453,7 @@ class DshAdapter:
                 raise TransitionError('task handoff changed')
             claim = self.core.claim_continuation(expected_snapshot=qualified)
             claimed = self.core.snapshot
-            self._record('task_claimed', claim_id=claim, handoff=asdict(claimed.handoff),
+            claim_ref = self._record('task_claimed', claim_id=claim, handoff=asdict(claimed.handoff),
                          current=encode(current), revisions=asdict(claimed.revisions),
                          next_action=action, observation=fresh_post)
             if observe() != current or self.core.snapshot != claimed:
@@ -487,14 +489,14 @@ class DshAdapter:
                 raise TransitionError('current state changed after task binding')
             authorization = dict(claimId=claim, handoffId=handoff.handoff_id,
                 turnId=binding.turn_id, bindingRecord=ref, controlRevision=bound.revisions.control_revision)
-            self._record('task_release_authorized', authorization=authorization, fresh=final)
+            release_ref = self._record('task_release_authorized', authorization=authorization, fresh=final)
             if self.core.snapshot != bound or observe() != current:
                 raise TransitionError('task release state changed')
             accepted = self.host.authorize_task(candidate, final, authorization)
             if (accepted['binding'] != candidate or accepted['freshRevision'] != final['revision']
                     or accepted['result'] != 'http-accepted'):
                 raise TransitionError('task dispatch outcome uncertain')
-            self._record('task_http_accepted', evidence=accepted)
+            dispatch_ref = self._record('task_http_accepted', evidence=accepted)
             native = self.host.post_task()
             self._idle(native)
             end = native['lastTurnEnd']
@@ -508,9 +510,117 @@ class DshAdapter:
                 raise TransitionError('task terminal or final current state mismatch')
             result = dict(continuation_completed='PASS', native=native,
                           resume_proof='BLOCKED_BY_EXISTING_CONTRACT', resume_verified='NOT_REACHED')
-            self._record('task_completed', **result)
+            completion_ref = self._record('task_completed', **result)
+            self._completed_task = (bound, deepcopy(native), dict(claim=claim_ref,
+                binding=ref, release=release_ref, dispatch=dispatch_ref, completion=completion_ref))
             self.task_result = result
             return result
         except BaseException:
             self._stop_receipt('DSH task dispatch/binding/completion uncertain; no retry')
+            raise
+
+    def verify_finalized(self, *, observe):
+        """Verify only the bounded FINALIZED-once text task under the owned profile.
+
+        Native terminal/readback and dispatch provenance authorize assessment;
+        model text alone never authorizes Core verification. Calls are serialized.
+        """
+        s = self.core.snapshot
+        if (self.stopped or s.state != State.HANDOFF_RECEIVED
+                or not hasattr(self, '_completed_task') or hasattr(self, 'resume_verification')):
+            raise TransitionError('one completed bound continuation required')
+        try:
+            bound, completed, refs = self._completed_task
+            current, action, _, _ = self._qualified
+            document = self.store.read_handoff(s.handoff.handoff_id)
+            if (s != bound or not s.receipt_evidence or not s.continuation_request_id
+                    or not s.handoff.continuation_turn_id
+                    or document.request != s.request or document.workspace != current.workspace
+                    or document.revisions != s.checkpoint.revisions
+                    or document.recovered.logical_task_id != current.logical_task_id
+                    or document.recovered.unresolved != ('FINALIZE',)
+                    or action != 'Produce FINALIZED exactly once after current task reconciliation.'
+                    or document.recovered.next_action_candidate != action
+                    or sha256(document.render().encode()).hexdigest() != self.delivery['handoffHash']
+                    or observe() != current
+                    or (s.revisions.intent_revision, s.revisions.execution_revision, s.workspace) !=
+                       (current.intent_revision, current.execution_revision, current.workspace)):
+                raise TransitionError('final task, handoff or Core revision mismatch')
+            records = {key: _read(Path(ref))['payload'] for key, ref in refs.items()}
+            candidate = records['binding']['candidate']
+            binding = records['binding']['binding']
+            authorization = records['release']['authorization']
+            if (tuple(records[k]['kind'] for k in refs) != ('task_claimed', 'task_bound',
+                    'task_release_authorized', 'task_http_accepted', 'task_completed')
+                    or list(refs.values()) != sorted(set(refs.values()))
+                    or records['claim']['claim_id'] != s.continuation_request_id
+                    or binding != asdict(ContinuationBinding(s.continuation_request_id,
+                        s.thread_id, s.handoff.continuation_turn_id))
+                    or records['binding']['handoff'] != asdict(s.handoff)
+                    or authorization != dict(claimId=s.continuation_request_id,
+                        handoffId=s.handoff.handoff_id, turnId=s.handoff.continuation_turn_id,
+                        bindingRecord=refs['binding'], controlRevision=s.revisions.control_revision)
+                    or records['dispatch']['evidence']['binding'] != candidate
+                    or records['dispatch']['evidence']['result'] != 'http-accepted'
+                    or records['dispatch']['evidence']['freshRevision'] !=
+                       records['release']['fresh']['revision']
+                    or records['completion']['native'] != completed
+                    or candidate['sessionId'] != s.thread_id
+                    or candidate['handoffId'] != s.handoff.handoff_id
+                    or candidate['claimId'] != s.continuation_request_id
+                    or candidate['turnId'] != s.handoff.continuation_turn_id
+                    or candidate['turnId'] == self.delivery['turnId']):
+                raise TransitionError('missing or foreign completion provenance')
+            final = self.host.final_task()
+            self._idle(final)
+            c = final['completion']
+            if ({k: v for k, v in final.items() if k not in ('revision', 'completion')} !=
+                    {k: v for k, v in completed.items() if k != 'revision'}
+                    or final['revision'] == completed['revision']
+                    or final['phase'] != 'post-task-idle' or final['taskBinding'] != candidate
+                    or final['lastTurnEnd'] != {'turn': candidate['turn'], 'reason': {'kind': 'completed'}}
+                    or c['readbackSessionId'] != s.thread_id or c['readbackSeq'] != final['seq']
+                    or c['terminalSeq'] != final['terminalSeq']
+                    or not c['turnStartSeq'] <= candidate['nativeSeq'] <= c['outputSeq'] < c['terminalSeq'] < final['seq']
+                    or any(c[key] != 1 for key in ('taskInputs', 'taskTurns', 'taskRequests', 'nativeCalls'))
+                    or observe() != current or self.core.snapshot != s):
+                raise TransitionError('stale or incomplete final native observation')
+            observation_ref = self._record('final_task_observed', observation=final)
+            outputs = [m for m in final['messages'] if m['id'] == c['outputMessageId']]
+            if (len(outputs) != 1 or outputs[0]['role'] != 'assistant'
+                    or outputs[0]['content'] != c['outputContent']
+                    or c['outputContent'] != [{'type': 'text', 'text': 'FINALIZED'}]
+                    or c['finalizedCount'] != 1):
+                raise TransitionError('bounded FINALIZED-once assessment failed')
+            assessment = dict(task='FINALIZED exactly once', result='PASS', nonduplication='PASS',
+                              observation_ref=observation_ref)
+            assessment_ref = self._record('bounded_task_assessed', **assessment)
+            record = dict(session_id=s.thread_id, handoff_id=s.handoff.handoff_id,
+                claim_id=s.continuation_request_id, continuation_turn_id=s.handoff.continuation_turn_id,
+                records=refs, terminal=final['lastTurnEnd'], terminal_seq=final['terminalSeq'],
+                observation_ref=observation_ref, observation_revision=final['revision'],
+                current=encode(current), revisions=asdict(s.revisions), assessment_ref=assessment_ref,
+                assessment=assessment)
+            proof_ref = self._record('resume_verified_evidence', **record)
+            # Persistence/assessment can take time. Reuse the same host predicate
+            # once more, then compare everything except its read revision.
+            reread = self.host.final_task()
+            if (reread['revision'] == final['revision']
+                    or {k: v for k, v in reread.items() if k != 'revision'} !=
+                       {k: v for k, v in final.items() if k != 'revision'}
+                    or self.core.snapshot != s or observe() != current
+                    or self.store.read_handoff(s.handoff.handoff_id) != document
+                    or _read(Path(proof_ref))['payload'] != dict(kind='resume_verified_evidence', **record)):
+                raise TransitionError('final consistency check failed')
+            self.store._ready()
+            evidence = ResumeVerification(s.handoff.handoff_id, s.handoff.continuation_turn_id,
+                current.intent_revision, current.execution_revision, current.workspace, proof_ref,
+                current_intent_reconciled=True, current_workspace_checked=True, unresolved_checked=True,
+                historical_next_action_reevaluated=True, completed_work_not_repeated=True,
+                historical_instructions_not_reexecuted=True, same_task_continued=True)
+            self.core.verify_resume(evidence)
+            self.resume_verification = evidence
+            return evidence
+        except BaseException:
+            self._stop_receipt('DSH final resume verification failed; no retry')
             raise

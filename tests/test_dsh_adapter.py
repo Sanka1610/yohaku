@@ -252,10 +252,20 @@ class ReceiptHost(Host):
         return dict(binding=candidate, freshRevision=fresh['revision'], result='http-accepted')
 
     def post_task(self):
+        self.final_reads = getattr(self, 'final_reads', 0) + 1
         return dict(sessionId=self.session_id, seq=30, terminalSeq=29, status='idle', settled=True,
             nextTurn=[], nextStep=[], lastTurnEnd={'turn': 3, 'reason': {'kind': 'completed'}},
             current=encode(self.current), taskBinding=self.task_candidate,
+            revision=f'final:{self.final_reads}', phase='post-task-idle',
+            messages=[dict(id='output', role='assistant', content=[{'type': 'text', 'text': 'FINALIZED'}])],
             handoffId=self.delivery['handoffId'], claimId=self.task_candidate['claimId'])
+
+
+    def final_task(self):
+        return dict(self.post_task(), completion=dict(readbackSessionId=self.session_id,
+            readbackSeq=30, turnStartSeq=21, terminalSeq=29, outputSeq=25,
+            outputMessageId='output', outputContent=[{'type': 'text', 'text': 'FINALIZED'}],
+            finalizedCount=1, taskInputs=1, taskTurns=1, taskRequests=1, nativeCalls=1))
 
 
 class DshReceiptAdapterTests(unittest.TestCase):
@@ -269,7 +279,8 @@ class DshReceiptAdapterTests(unittest.TestCase):
         s = self.adapter.core.snapshot
         document = HandoffDocument('handoff-fixture', s.request, self.cp.revisions,
             self.cp.workspace, '/bounded-workspace', RecoveredData('bounded-task',
-                ('work completed',), 'bounded task', ('remaining bounded work',), 'bounded next action', ('task.json',)))
+                ('work completed',), 'bounded task', getattr(self, 'unresolved', ('remaining bounded work',)),
+                getattr(self, 'action', 'bounded next action'), ('task.json',)))
         self.host.document = document
         return self.adapter.offer_handoff(document, observe=lambda: self.current)
 
@@ -543,3 +554,157 @@ for _name, _change in {
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class DshFinalVerificationTests(unittest.TestCase):
+    host_type = ReceiptHost
+    setUp = DshAdapterTests.setUp
+    compact = DshAdapterTests.compact
+    offer = DshReceiptAdapterTests.offer
+    received = DshReceiptAdapterTests.received
+    qualify = DshReceiptAdapterTests.qualify
+    unresolved = ('FINALIZE',)
+    action = 'Produce FINALIZED exactly once after current task reconciliation.'
+
+    def completed(self):
+        self.received()
+        self.qualify()
+        self.adapter.continue_task(observe=lambda: self.current)
+
+    def verify(self):
+        return self.adapter.verify_finalized(observe=lambda: self.current)
+
+    def rejected(self):
+        with patch.object(self.adapter.core, 'verify_resume') as verify:
+            with self.assertRaises((TransitionError, OSError)):
+                self.verify()
+            verify.assert_not_called()
+        self.assertFalse(hasattr(self.adapter, 'resume_verification'))
+        self.assertNotEqual(self.adapter.core.snapshot.state, State.RESUME_VERIFIED)
+
+    def test_complete_chain_record_order_and_second_verify(self):
+        import json
+        from pathlib import Path
+        self.completed()
+        verify = self.adapter.core.verify_resume
+        def checked(evidence):
+            record = json.loads(Path(evidence.evidence_ref).read_text())['payload']
+            self.assertEqual(record['claim_id'], self.adapter.core.snapshot.continuation_request_id)
+            self.assertEqual(record['continuation_turn_id'], 'dsh-fixture:3')
+            self.assertEqual(record['assessment']['nonduplication'], 'PASS')
+            kinds = [json.loads(p.read_text())['payload']['kind'] for p in sorted(self.adapter.records.iterdir())]
+            self.assertEqual(kinds[-4:], ['task_completed', 'final_task_observed',
+                'bounded_task_assessed', 'resume_verified_evidence'])
+            verify(evidence)
+        with patch.object(self.adapter.core, 'verify_resume', side_effect=checked) as call:
+            evidence = self.verify()
+            call.assert_called_once()
+        self.assertEqual(self.adapter.core.snapshot.state, State.RESUME_VERIFIED)
+        self.assertFalse(self.adapter.core.snapshot.barrier_requested)
+        self.assertEqual(self.host.final_reads, 3)
+        with self.assertRaises(TransitionError):
+            self.verify()
+        with self.assertRaises(TransitionError):
+            self.adapter.core.verify_resume(evidence)
+        self.assertEqual(self.host.task_sends, 1)
+
+    def test_receipt_evidence_cannot_verify_resume(self):
+        self.received()
+        self.rejected()
+
+    def test_receipt_record_cannot_replace_completion_record(self):
+        self.completed()
+        self.adapter._completed_task[2]['completion'] = self.adapter.core.snapshot.receipt_evidence
+        self.rejected()
+
+    def test_foreign_handoff_and_claim_in_final_observation(self):
+        self.completed()
+        original = self.host.final_task
+        with patch.object(self.host, 'final_task', side_effect=lambda: dict(original(),
+                handoffId='foreign', claimId='foreign')):
+            self.rejected()
+
+    def test_model_self_report_without_native_completion_cannot_verify(self):
+        self.received()
+        self.adapter.task_result = dict(continuation_completed='PASS', text='FINALIZED')
+        self.rejected()
+
+    def test_send_uncertainty_never_creates_or_calls_verification(self):
+        self.received()
+        self.qualify()
+        with patch.object(self.host, 'authorize_task', side_effect=OSError('send uncertain')):
+            with self.assertRaises(OSError):
+                self.adapter.continue_task(observe=lambda: self.current)
+        self.rejected()
+
+    def test_changed_workspace_before_verification(self):
+        self.completed()
+        self.current = replace(self.current, workspace=WorkspaceRevision(2, 'changed', ('task.json',)))
+        self.rejected()
+
+    def test_verification_record_save_failure(self):
+        self.completed()
+        write = self.store._write
+        def fail(path, payload):
+            if payload['kind'] == 'resume_verified_evidence':
+                raise OSError('record save failure')
+            return write(path, payload)
+        with patch.object(self.store, '_write', side_effect=fail):
+            self.rejected()
+        self.assertTrue(self.adapter.stopped)
+
+    def test_core_verify_failure_safely_stops(self):
+        self.completed()
+        with patch.object(self.adapter.core, 'verify_resume', side_effect=TransitionError('Core rejects')) as call:
+            with self.assertRaises(TransitionError):
+                self.verify()
+            call.assert_called_once()
+        self.assertEqual(self.adapter.core.snapshot.state, State.RECOVERY_REQUIRED)
+        self.assertTrue(self.adapter.stopped)
+
+    def test_core_revision_changes_during_record_write(self):
+        self.completed()
+        write = self.adapter._record
+        def change(kind, **payload):
+            ref = write(kind, **payload)
+            if kind == 'resume_verified_evidence':
+                self.adapter.core.update_revisions(archive_changed=True)
+            return ref
+        with patch.object(self.adapter, '_record', side_effect=change):
+            self.rejected()
+
+
+def _final_negative(name, mutate, *, reread=False):
+    def test(self):
+        self.completed()
+        original = self.host.final_task
+        calls = 0
+        def changed():
+            nonlocal calls
+            calls += 1
+            final = original()
+            if not reread or calls == 2:
+                mutate(final, self)
+            return final
+        with patch.object(self.host, 'final_task', side_effect=changed):
+            self.rejected()
+    setattr(DshFinalVerificationTests, 'test_final_' + name, test)
+
+
+for _name, _mutate in {
+    'wrong_bound_turn': lambda f, t: f['taskBinding'].update(turnId='foreign:3'),
+    'foreign_session': lambda f, t: f.update(sessionId='foreign'),
+    'stale_observation': lambda f, t: f.update(revision=t.adapter._completed_task[1]['revision']),
+    'failed_terminal': lambda f, t: f['lastTurnEnd'].update(reason={'kind': 'error'}),
+    'incomplete_terminal': lambda f, t: f.update(lastTurnEnd={}),
+    'duplicate_continuation': lambda f, t: f['completion'].update(taskRequests=2),
+    'duplicate_output': lambda f, t: f['completion'].update(finalizedCount=2),
+    'task_mismatch': lambda f, t: f['current'].update(logical_task_id='foreign'),
+    'readback_mismatch': lambda f, t: f['completion'].update(readbackSessionId='foreign'),
+    'missing_assessment': lambda f, t: f['completion'].update(outputContent=[{'type': 'text', 'text': 'done'}]),
+    'pending_inbox': lambda f, t: f.update(nextTurn=['pending']),
+    'active_task': lambda f, t: f.update(status='running'),
+}.items():
+    _final_negative(_name, _mutate)
+_final_negative('stale_reread', lambda f, t: f.update(revision=f"final:{t.host.final_reads - 1}"), reread=True)
+_final_negative('changed_after_record', lambda f, t: f.update(seq=f['seq'] + 1), reread=True)

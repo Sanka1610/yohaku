@@ -213,10 +213,12 @@ async function taskHeld() {
   f.host.delivery.handoffHash = hash(f.message.content[0].text);
   f.host.receiptStarted = true;
   f.host.createUserMessage = data => ({ id: 'task-input', ...data });
-  f.agent.session.deriveMessages = () => f.log.filter(e => e.type === 'user/message').map(e => e.data);
+  f.agent.session.deriveMessages = () => f.log.filter(e => ['user/message', 'assistant/message'].includes(e.type))
+    .map(e => e.type === 'assistant/message' ? e.data.message : e.data);
   f.dispatches = 0;
   f.agent.followup = message => {
     f.agent.status = 'running';
+    f.log.push({ type: 'turn/start', seq: f.log.length, data: { turn: 3 } });
     f.log.push({ type: 'user/message', seq: f.log.length, data: message });
     f.agent.session.seq = f.log.length;
     for (const fn of f.listeners.get('agent/assistant-stream')) {
@@ -234,6 +236,8 @@ async function taskHeld() {
     };
     f.execution = (async () => {
       for await (const item of f.listeners.get('llm/stream')[0](options, next)) void item;
+      f.log.push({ type: 'assistant/message', seq: f.log.length, data: { turn: 3, step: 1,
+        message: { id: 'task-output', role: 'assistant', content: [{ type: 'text', text: 'FINALIZED' }] } } });
       const end = { type: 'turn/end', seq: f.log.length, data: { turn: 3, reason: { kind: 'completed' } } };
       f.log.push(end);
       f.agent.session.seq = f.log.length;
@@ -296,3 +300,39 @@ test('duplicate task terminal is not a completed new continuation', async () => 
   assert.equal(f.dispatches, 1);
   await f.host.dispose();
 });
+
+
+test('final evidence derives bound output and counts from independent readback', async () => {
+  const f = await taskHeld();
+  await f.host.authorize_task(f.taskClaims, f.taskFresh, f.bound);
+  const final = await f.host.final_task();
+  assert.equal(final.completion.readbackSessionId, 's-1');
+  assert.equal(final.completion.taskRequests, 1);
+  assert.equal(final.completion.finalizedCount, 1);
+  assert.deepEqual(final.completion.outputContent, [{ type: 'text', text: 'FINALIZED' }]);
+  const reread = await f.host.final_task();
+  assert.notEqual(final.revision, reread.revision);
+  assert.deepEqual({ ...final, revision: null }, { ...reread, revision: null });
+  await f.host.dispose();
+});
+
+for (const mode of ['readback failure', 'missing output', 'foreign output turn', 'projection mismatch',
+  'duplicate turn', 'failed terminal', 'duplicate request', 'uncertain candidate']) {
+  test('final evidence refuses ' + mode, async () => {
+    const f = await taskHeld();
+    await f.host.authorize_task(f.taskClaims, f.taskFresh, f.bound);
+    await f.execution;
+    const output = f.log.find(e => e.type === 'assistant/message');
+    if (mode === 'readback failure') f.host.ctx.sessionPersistence.open = async () => { throw new Error('unavailable'); };
+    if (mode === 'missing output') f.log.splice(f.log.indexOf(output), 1);
+    if (mode === 'foreign output turn') output.data.turn = 2;
+    if (mode === 'projection mismatch') f.agent.session.deriveMessages = () =>
+      f.log.filter(e => e.type === 'user/message').map(e => e.data);
+    if (mode === 'duplicate turn') f.log.push({ type: 'turn/start', seq: f.log.length, data: { turn: 4 } });
+    if (mode === 'failed terminal') f.log.findLast(e => e.type === 'turn/end').data.reason.kind = 'error';
+    if (mode === 'duplicate request') f.host.actualAttempts++;
+    if (mode === 'uncertain candidate') f.host.candidate.invalid = true;
+    await assert.rejects(f.host.final_task());
+    await f.host.dispose();
+  });
+}

@@ -461,7 +461,11 @@ export class DshNativeHost {
     return this._authorizeAttempt(binding, fresh, this.taskDone);
   }
 
-  async post_task() {
+  async final_task() {
+    return this.post_task(true);
+  }
+
+  async post_task(verification = false) {
     if (!this.taskEvidence || !this.task || !this.candidate?.accepted || this.stopped) {
       throw new Error('accepted task request required');
     }
@@ -481,7 +485,31 @@ export class DshNativeHost {
         || !same(messages.filter(m => m.id === this.task.message.id), [this.task.message])
         || !same(fresh.current, this.task.current) || this.actualAttempts !== 2 || this.nativeCalls !== 2
         || this.agent.session.seq !== fresh.seq) throw new Error('task terminal/readback mismatch');
+    let completion;
+    if (verification) {
+      const events = fresh.readbackEvents;
+      const starts = events.filter(e => e.type === 'turn/start' && e.data.turn >= binding.turn);
+      const outputs = events.filter(e => e.type === 'assistant/message' && e.data.turn === binding.turn);
+      if (this.candidate.invalid || !this.candidate.authorized
+          || !same(this.candidate.binding, binding) || this.taskEvidence.result !== 'http-accepted'
+          || starts.length !== 1 || starts[0].data.turn !== binding.turn
+          || outputs.length !== 1 || outputs[0].data.step !== binding.step
+          || outputs[0].seq < binding.nativeSeq || outputs[0].seq >= ends[0].seq
+          || !same(messages.filter(m => m.id === outputs[0].data.message.id), [outputs[0].data.message])) {
+        throw new Error('final task completion evidence mismatch');
+      }
+      completion = { readbackSessionId: fresh.sessionId, readbackSeq: fresh.seq,
+        turnStartSeq: starts[0].seq, terminalSeq: ends[0].seq,
+        outputSeq: outputs[0].seq, outputMessageId: outputs[0].data.message.id,
+        outputContent: outputs[0].data.message.content,
+        finalizedCount: events.filter(e => e.type === 'assistant/message').reduce((count, e) =>
+          count + e.data.message.content.filter(b => b.type === 'text')
+            .reduce((n, b) => n + b.text.split('FINALIZED').length - 1, 0), 0),
+        taskInputs: inputs.length, taskTurns: starts.length,
+        taskRequests: this.actualAttempts - 1, nativeCalls: this.nativeCalls - 1 };
+    }
     return structuredClone({ ...native, current: fresh.current, messages,
+      ...(completion ? { completion } : {}),
       handoffId: this.task.handoffId, claimId: this.task.claimId, taskBinding: binding,
       terminalSeq: ends[0].seq, revision: `${this.epoch}:${++this.freshRevision}`, phase: 'post-task-idle' });
   }
