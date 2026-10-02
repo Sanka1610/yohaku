@@ -7,6 +7,7 @@ All gate decisions are serialized with the owner. No proof survives restart.
 
 import base64
 from contextlib import closing
+from copy import deepcopy
 from dataclasses import asdict
 from hashlib import sha256
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -21,7 +22,8 @@ from uuid import uuid4
 
 from .controller import Controller, TransitionError
 from .codec import encode
-from .model import ContinuationBinding, State
+from .model import ContinuationBinding, ResumeVerification, State
+from .persistence import _read
 from .opencode import OpenCodeNativeCompletionPolicy
 from .opencode_adapter import OpenCodeAdapter
 from .recovery import CurrentContext, HandoffDocument
@@ -216,7 +218,8 @@ class OpenCodeReceiptAdapter(OpenCodeAdapter):
                 self.task_claim_snapshot = self.core.snapshot
                 self.task_text = text
                 self.deadline = time.monotonic() + ttl
-                self._record("continuation_claimed", permit=permit, snapshot=encode(self.task_claim_snapshot))
+                self.task_claim_ref = self._record("continuation_claimed", permit=permit,
+                    snapshot=encode(self.task_claim_snapshot))
                 admission = self._api("POST", "/api/session/" + self.core.snapshot.thread_id + "/prompt",
                                       {"text": text})["data"]
                 if (admission.get("sessionID") != self.core.snapshot.thread_id
@@ -380,7 +383,7 @@ class OpenCodeReceiptAdapter(OpenCodeAdapter):
                 return False
 
     def complete_continuation(self):
-        """Observe completion without claiming ResumeProof compatibility."""
+        """Observe the actual task terminal, separately from final verification."""
         with self.host.lock:
             c = self.task_candidate
             if (not c or not c["sealed"] or hasattr(self, "task_completion")):
@@ -391,7 +394,7 @@ class OpenCodeReceiptAdapter(OpenCodeAdapter):
                 observation = self._task_final()
                 self.task_completion = self._record("continuation_completed", current=asdict(observation[0]),
                     state=observation[1], sqlite_rows=observation[2], native_id=self.task_input_id,
-                    host_local_attempt_id=c["id"], resume_proof="BLOCKED_BY_EXISTING_CONTRACT")
+                    host_local_attempt_id=c["id"])
                 return observation[1]
             except Exception:
                 self._invalidate("continuation completion uncertain; no retry")
@@ -428,10 +431,137 @@ class OpenCodeReceiptAdapter(OpenCodeAdapter):
                     execution_revision=current.execution_revision, workspace=current.workspace)
                 self.task_final_observation = self._record("task_final_observed", current=asdict(current),
                     state=state, sqlite_rows=rows, snapshot=encode(self.core.snapshot),
-                    resume_proof="BLOCKED_BY_EXISTING_CONTRACT", resume_verified="NOT_REACHED")
+                    resume_verified="NOT_REACHED")
                 return state
             except Exception:
                 self._invalidate("final task observation uncertain; no retry")
+                raise
+
+    def _resume_records(self):
+        """Read only this owner's persisted task chain, never receipt substitutes."""
+        c, s = self.task_candidate, self.core.snapshot
+        if (not c or c.get("purpose") != "task" or not c["valid"]
+                or not c["authorized"] or not c["sealed"]
+                or c["native_id"] != self.task_input_id or self.task_input_id == self.native_id
+                or c["id"] == self.candidate["id"]
+                or c["body_sha256"] == self.candidate["body_sha256"]
+                or s.handoff != c["binding_snapshot"].handoff
+                or s.continuation_request_id != self.task_claim_snapshot.continuation_request_id
+                or not s.continuation_request_id
+                or self.store.read_handoff(self.document.handoff_id) != self.document):
+            raise TransitionError("resume requires the same consumed claim and actual task binding")
+        refs = (self.task_claim_ref, c["observation_ref"], c["binding_ref"],
+                c["authorization_ref"], c["seal_ref"], self.task_completion,
+                self.task_final_observation)
+        kinds = ("continuation_claimed", "task_terminal_observed", "continuation_bound",
+                 "task_attempt_authorized", "task_terminal_sealed", "continuation_completed",
+                 "task_final_observed")
+        records = []
+        sequences = []
+        for ref, kind in zip(refs, kinds):
+            path = Path(ref)
+            if path.parent != self.records:
+                raise TransitionError("foreign resume record")
+            record = _read(path)["payload"]
+            if record["kind"] != kind or record["session_id"] != s.thread_id:
+                raise TransitionError("foreign or receipt resume evidence")
+            records.append(record)
+            sequences.append(int(path.stem))
+        claim, observed, bound, authorized, sealed, completed, final = records
+        if (sequences != sorted(set(sequences))
+                or claim["snapshot"] != encode(self.task_claim_snapshot)
+                or claim["permit"] != s.continuation_request_id
+                or bound["snapshot"] != encode(c["binding_snapshot"])
+                or bound["binding"] != asdict(self.receipt_policy.delivery)
+                or bound["binding"] != dict(request_id=s.continuation_request_id,
+                                            thread_id=s.thread_id, turn_id=self.task_input_id)
+                or any(r["native_id"] != self.task_input_id or r["host_local_attempt_id"] != c["id"]
+                       for r in (observed, authorized, sealed, completed))
+                or any(r["terminal_body_hash"] != c["body_sha256"] for r in (observed, sealed))
+                or authorized["binding_ref"] != c["binding_ref"]
+                or sealed["binding_ref"] != c["binding_ref"]
+                or sealed["authorization_ref"] != c["authorization_ref"]
+                or final["snapshot"] != encode(s)
+                or completed["state"] != final["state"]
+                or completed["sqlite_rows"] != final["sqlite_rows"]):
+            raise TransitionError("task evidence chain changed or binding was not persisted before release")
+        return refs, records
+
+    def verify_resume(self, *, assess):
+        """Verify one bounded text task using a trusted host assessor.
+
+        assess(document, current, state) freshly reads task state and provider
+        observations. Its concrete counts/identities are checked here alongside
+        native terminal and independent API/SQLite reads. It is not model input.
+        The owner must exclude external mutation throughout this locked call.
+        """
+        with self.host.lock:
+            if (self.stopped or self.core.snapshot.state != State.HANDOFF_RECEIVED
+                    or not hasattr(self, "task_final_observation")
+                    or hasattr(self, "resume_verification_attempted")):
+                raise TransitionError("one unverified final task observation required")
+            self.resume_verification_attempted = True
+            try:
+                refs, records = self._resume_records()
+                snapshot = self.core.snapshot
+                current, state, rows = before = self._task_final()
+                final = records[-1]
+                if (final["current"] != encode(current) or final["state"] != state
+                        or final["sqlite_rows"] != [list(row) for row in rows]
+                        or current.intent_revision != self.task_claim_snapshot.revisions.intent_revision
+                        or current.workspace.relevant_scope != self.task_claim_snapshot.workspace.relevant_scope
+                        or current.intent_revision != snapshot.revisions.intent_revision
+                        or current.execution_revision != snapshot.revisions.execution_revision
+                        or current.workspace != snapshot.workspace):
+                    raise TransitionError("stale final API/SQLite/task revision")
+                assessment = deepcopy(assess(self.document, current, deepcopy(state)))
+                c = self.task_candidate
+                attempt = dict(native_id=self.task_input_id, host_local_attempt_id=c["id"],
+                               body_sha256=c["body_sha256"])
+                if (not isinstance(assessment, dict) or assessment.get("status") != "PASS"
+                        or assessment.get("current") != encode(current)
+                        or assessment.get("task_input_id") != self.task_input_id
+                        or assessment.get("terminal_id") != state["context"][-2]["id"]
+                        or assessment.get("provider_attempts") != [attempt]
+                        or not assessment.get("task_observation_ref")
+                        or any(type(assessment.get(key)) is not int or assessment[key] != count
+                               for key, count in (("stage_one_count", 1), ("receipt_count", 1),
+                                                  ("stage_two_count", 1), ("tool_execution_count", 0)))):
+                    raise TransitionError("bounded task assessment lacks matching task/provider evidence")
+                if (self._task_final() != before or self.core.snapshot != snapshot
+                        or self._resume_records() != (refs, records)):
+                    raise TransitionError("task state changed during assessment")
+                record = dict(handoff_id=snapshot.handoff.handoff_id,
+                    receipt_input_id=self.native_id, task_input_id=self.task_input_id,
+                    continuation_claim=snapshot.continuation_request_id,
+                    claim_ref=refs[0], task_observation_ref=refs[1], binding_ref=refs[2],
+                    task_authorization_ref=refs[3], task_seal_ref=refs[4], completion_ref=refs[5],
+                    final_observation_ref=refs[6], task_attempt=attempt,
+                    terminal_id=state["context"][-2]["id"], current=encode(current),
+                    assessment=assessment, nonduplication="PASS")
+                ref = self._record("runtime_resume_verification", **record)
+                saved = _read(Path(ref))["payload"]
+                if (saved != dict(kind="runtime_resume_verification", session_id=snapshot.thread_id,
+                                  observed=saved["observed"], **record)
+                        or assess(self.document, current, deepcopy(state)) != assessment
+                        or self._task_final() != before or self.core.snapshot != snapshot
+                        or self._resume_records() != (refs, records)):
+                    raise TransitionError("resume evidence changed after persistence")
+                evidence = ResumeVerification(snapshot.handoff.handoff_id, self.task_input_id,
+                    current.intent_revision, current.execution_revision, current.workspace, ref,
+                    current_intent_reconciled=True, current_workspace_checked=True,
+                    unresolved_checked=self.resume_qualification["unresolved_work"],
+                    historical_next_action_reevaluated=self.resume_qualification["historical_next_action_reevaluated"],
+                    completed_work_not_repeated=True, historical_instructions_not_reexecuted=True,
+                    same_task_continued=True)
+                self.core.verify_resume(evidence)
+                self._record("resume_verified", verification=encode(evidence), state=self.core.snapshot.state.value)
+                self.resume_verification = evidence
+                return evidence
+            except Exception:
+                # Never repair a rejected Core state or retry this verification.
+                self.stopped = True
+                self._invalidate("resume verification failed; no retry", stop=False)
                 raise
 
     def offer_receipt(self, document):

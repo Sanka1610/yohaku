@@ -79,7 +79,8 @@ class OpenCodeAdapter:
                                          observed=time.time(), **data))
         except Exception:
             self.stopped = True
-            self.core.fail("OpenCode evidence write uncertain")
+            if self.core.snapshot.state != State.RESUME_VERIFIED:
+                self.core.fail("OpenCode evidence write uncertain")
             raise
         return str(path)
 
