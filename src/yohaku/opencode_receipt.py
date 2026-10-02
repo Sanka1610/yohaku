@@ -193,7 +193,95 @@ class OpenCodeReceiptAdapter(OpenCodeAdapter):
             super().close()
 
     def continue_task(self, text):
-        raise TransitionError("R4 receipt attachment ends at HANDOFF_RECEIVED")
+        raise TransitionError("receipt consumed Core permit; separate continuation has no authority")
+
+    def _post_receipt(self):
+        """New API/SQLite/current reads after settlement; no cached gate proof."""
+        self._receipt_ready()
+        s, c = self.core.snapshot, self.candidate
+        document = self.store.read_handoff(s.handoff.handoff_id)
+        if (document != self.document or document.request != s.request
+                or document.revisions != s.checkpoint.revisions or document.workspace != s.workspace
+                or document.cwd != self.directory or s.handoff.continuation_turn_id != self.native_id
+                or self.receipt_policy.delivery is None
+                or s.continuation_request_id != self.receipt_policy.delivery.request_id
+                or not c or not c["valid"] or not c["authorized"] or not c["sealed"]):
+            raise TransitionError("old handoff or replaced receipt attempt")
+        current = self.observe_current()
+        expected = CurrentContext(document.recovered.logical_task_id,
+            s.revisions.intent_revision, s.revisions.execution_revision, s.workspace)
+        before = self.current_state()
+        with closing(sqlite3.connect(self.db_path.as_uri() + "?mode=ro", uri=True)) as db:
+            # One independent read transaction covers transcript and both queues.
+            db.execute("BEGIN")
+            rows = db.execute("select id,type,seq,time_updated,data from session_message "
+                "where session_id=? order by seq", (s.thread_id,)).fetchall()
+            pending = db.execute("select id from session_pending where session_id=?",
+                                 (s.thread_id,)).fetchall()
+            inbox = db.execute("select id from session_inbox where session_id=?",
+                               (s.thread_id,)).fetchall()
+        state = self.current_state()
+        compact = [r for r in rows if r[0] == s.binding.native_id]
+        native = [dict(json.loads(r[4]), id=r[0], type=r[1]) for r in rows
+                  if compact and r[2] >= compact[0][2]]
+        tail = state["context"][len(self.admitted_context):]
+        if (current != expected or self.observe_current() != current or state != before
+                or not self._settled(state) or state["active"] or pending or inbox
+                or len(compact) != 1 or native != state["context"]
+                or state["context"][:len(self.admitted_context)] != self.admitted_context
+                or len(tail) != 3 or tail[0].get("id") != self.native_id
+                or tail[0].get("type") != "user" or tail[0].get("text") != self.payload
+                or sha256(tail[0]["text"].encode()).hexdigest() != self.payload_hash
+                or tail[1].get("type") != "assistant" or tail[1].get("finish") != "stop"
+                or tail[2].get("type") != "idle" or tail[2].get("outcome") != "succeeded"
+                or state["session"].get("model") != c["model"]):
+            raise TransitionError("stale post-receipt task, context, queues or Session")
+        self._no_tools(state)
+        return current, state, rows
+
+    def qualify_resume(self, *, reassess):
+        """Reconcile fresh settled state, then stop without a second Core permit.
+
+        The trusted bounded-task observer reads actual task state and returns the
+        still-required next action, or None if complete. Historical text alone
+        is insufficient. This assessment is not ResumeProof or task completion.
+        """
+        with self.host.lock:
+            s = self.core.snapshot
+            if (self.stopped or s.state != State.HANDOFF_RECEIVED or not s.receipt_evidence
+                    or hasattr(self, "resume_qualification")):
+                raise TransitionError("one received handoff required for resume qualification")
+            try:
+                current, state, rows = self._post_receipt()
+                ref = self._record("post_receipt_observed", current=asdict(current),
+                    state=state, sqlite_rows=rows, receipt_evidence=s.receipt_evidence,
+                    host_local_attempt_id=self.candidate["id"])
+                next_action = reassess(self.document, current, state)
+                if (next_action is not None and (not isinstance(next_action, str) or not next_action
+                        or not self.document.recovered.unresolved
+                        or next_action != self.document.recovered.next_action_candidate)):
+                    raise TransitionError("changed next action or unresolved work unknown")
+                final = self._post_receipt()
+                if final != (current, state, rows):
+                    raise TransitionError("post-receipt state changed during reassessment")
+                final_ref = self._record("post_receipt_final_observed", current=asdict(current),
+                    state=final[1], sqlite_rows=final[2])
+                self.core.reconcile_resume_context(intent_revision=current.intent_revision,
+                    execution_revision=current.execution_revision, workspace=current.workspace)
+                result = dict(fresh_state="PASS", current=asdict(current),
+                    same_logical_task=True, unresolved_work=next_action is not None,
+                    next_action=next_action, historical_next_action_reevaluated=True,
+                    observation_ref=ref, final_observation_ref=final_ref,
+                    continuation_authorized=False, resume_verified="NOT_REACHED",
+                    stop_reason=("existing Core permit consumed by receipt; handoff binds receipt input, "
+                                 "not a separate continuation input" if next_action is not None
+                                 else "no unresolved work"))
+                self._record("resume_qualification_stopped", **result)
+                self.resume_qualification = result
+                return result
+            except Exception:
+                self._invalidate("post-receipt reconciliation failed; no continuation")
+                raise
 
     def offer_receipt(self, document):
         with self.host.lock:

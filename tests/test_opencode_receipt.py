@@ -39,12 +39,21 @@ class OpenCodeReceiptTests(unittest.TestCase):
         self.wrong_payload = False
         self.owned = True
         self.foreign_graph = False
+        self.resume_state = None
         self.current = CurrentContext("task", 0, 0, f.workspace)
         self.pool = ThreadPoolExecutor()
         self.addCleanup(self.pool.shutdown)
         base_api = OpenCodeAdapter._api
 
         def api(a, method, path, body=None):
+            if self.resume_state is not None and method == "GET":
+                for suffix, key in (("/context", "context"), ("/inbox", "inbox")):
+                    if path.endswith(suffix):
+                        return {"data": self.resume_state[key]}
+                if path == "/api/session/active":
+                    return {"data": self.resume_state["active"]}
+                if path == "/api/session/ses_test":
+                    return {"data": self.resume_state["session"]}
             if path.startswith("/api/plugin?"):
                 catalog = [dict(id=p, source={"type": "builtin"}, state={"status": "active"})
                            for p in BUILTINS]
@@ -259,6 +268,164 @@ class OpenCodeReceiptTests(unittest.TestCase):
             {"role": "user", "content": self.a.payload}]}).encode()
         data.update(body_base64=base64.b64encode(raw).decode(), body_sha256=sha256(raw).hexdigest())
         self.assertEqual(self.host.call("/observe", data)["action"], "deny")
+
+    def received(self, *, unresolved=True):
+        if unresolved:
+            self.doc = replace(self.doc, recovered=replace(self.doc.recovered,
+                unresolved=("stage two missing",), next_action_candidate="stage two"))
+        future, identity = self.held()
+        self.assertTrue(self.a.authorize_receipt(identity))
+        future.result(timeout=1)
+        self.assertEqual(self.seal(identity)["action"], "allow")
+        tail = [dict(id=self.a.native_id, type="user", text=self.a.payload),
+                dict(id="msg_receipt_answer", type="assistant", finish="stop",
+                     content=[{"type": "text", "text": "RECEIPT_ONLY"}]),
+                dict(id="msg_receipt_idle", type="idle", outcome="succeeded")]
+        self.resume_state = dict(session=dict(id="ses_test", outcome="succeeded",
+            location={"directory": self.f.tmp.name}, model=self.f.message["model"]),
+            context=self.f.context() + tail, inbox=[], active={})
+        with closing(sqlite3.connect(self.f.db)) as db, db:
+            db.execute("create table session_pending(id text, session_id text)")
+            for seq, m in enumerate(self.resume_state["context"][1:], 6):
+                db.execute("insert or replace into session_message values (?, ?, ?, ?, ?, ?)",
+                    (m["id"], "ses_test", m["type"], seq, 50,
+                     json.dumps({k: v for k, v in m.items() if k not in ("id", "type")})))
+            # The fixture has no primary key; promotion already wrote this row.
+            db.execute("delete from session_message where id=? and time_updated=40", (self.a.native_id,))
+
+    def assess(self, document, current, state):
+        self.assertEqual(current.logical_task_id, "task")
+        self.assertEqual(state["context"][-2]["content"][0]["text"], "RECEIPT_ONLY")
+        return "stage two"
+
+    def test_post_receipt_new_reads_sse_independent_and_no_authority(self):
+        self.received()
+        self.a._lost.set()
+        before = self.a.core.snapshot
+        with patch.object(self.a, "observe_current", wraps=self.a.observe_current) as read:
+            result = self.a.qualify_resume(reassess=self.assess)
+        self.assertEqual(read.call_count, 4)
+        self.assertEqual(result["fresh_state"], "PASS")
+        self.assertTrue(result["unresolved_work"])
+        self.assertFalse(result["continuation_authorized"])
+        self.assertEqual(self.a.core.snapshot.state, State.HANDOFF_RECEIVED)
+        self.assertEqual(self.a.core.snapshot.continuation_request_id, before.continuation_request_id)
+        self.assertNotEqual(result["observation_ref"], before.receipt_evidence)
+        self.assertNotEqual(result["observation_ref"], result["final_observation_ref"])
+        self.assertEqual(self.f.prompts, 1)
+
+    def test_post_receipt_stale_context_rejected(self):
+        self.received()
+        self.resume_state["context"] = self.a.candidate["context"]
+        with self.assertRaises(TransitionError):
+            self.a.qualify_resume(reassess=self.assess)
+        self.assertEqual(self.a.core.snapshot.state, State.RECOVERY_REQUIRED)
+
+    def test_post_receipt_changed_task_revision_rejected(self):
+        self.received()
+        self.current = replace(self.current, execution_revision=1)
+        with self.assertRaises(TransitionError):
+            self.a.qualify_resume(reassess=self.assess)
+
+    def test_post_receipt_changed_workspace_rejected(self):
+        self.received()
+        self.current = replace(self.current, workspace=replace(self.current.workspace,
+            mutation_epoch=1, workspace_stamp="changed"))
+        with self.assertRaises(TransitionError):
+            self.a.qualify_resume(reassess=self.assess)
+
+    def test_post_receipt_complete_work_does_not_dispatch(self):
+        self.received()
+        result = self.a.qualify_resume(reassess=lambda *args: None)
+        self.assertFalse(result["unresolved_work"])
+        self.assertEqual(result["stop_reason"], "no unresolved work")
+        with self.assertRaises(TransitionError):
+            self.a.continue_task("repeat completed work")
+        self.assertEqual(self.f.prompts, 1)
+
+    def test_post_receipt_duplicate_permit_rejected_even_in_recovery(self):
+        self.received()
+        permit = self.a.core.snapshot.continuation_request_id
+        with self.assertRaises(TransitionError):
+            self.a.core.claim_continuation()
+        self.a.core.recovery_required("permit inspection")
+        with self.assertRaises(TransitionError):
+            self.a.core.claim_continuation()
+        self.assertEqual(self.a.core.snapshot.continuation_request_id, permit)
+
+    def test_post_receipt_duplicate_qualification_continuation_and_completion(self):
+        self.received()
+        self.a.qualify_resume(reassess=self.assess)
+        before = self.a.core.snapshot
+        with self.assertRaises(TransitionError):
+            self.a.qualify_resume(reassess=self.assess)
+        for _ in range(2):
+            with self.assertRaises(TransitionError):
+                self.a.continue_task(self.a.native_id)
+        self.assertFalse(self.a.core.observe_completion(before.completions[0]))
+        self.assertEqual(self.a.core.snapshot, before)
+        self.assertEqual(self.f.prompts, 1)
+
+    def test_post_receipt_foreign_session_rejected(self):
+        self.received()
+        self.resume_state["session"]["id"] = "ses_foreign"
+        with self.assertRaises(TransitionError):
+            self.a.qualify_resume(reassess=self.assess)
+
+    def test_post_receipt_old_handoff_and_reuse_rejected(self):
+        self.received()
+        with self.assertRaises(TransitionError):
+            self.a.offer_receipt(self.doc)
+        self.a.document = replace(self.doc, handoff_id="old_handoff")
+        with self.assertRaises(TransitionError):
+            self.a.qualify_resume(reassess=self.assess)
+
+    def test_post_receipt_native_pending_work_rejected(self):
+        self.received()
+        with closing(sqlite3.connect(self.f.db)) as db, db:
+            db.execute("insert into session_pending values ('pending', 'ses_test')")
+        with self.assertRaises(TransitionError):
+            self.a.qualify_resume(reassess=self.assess)
+
+    def test_post_receipt_active_work_rejected(self):
+        self.received()
+        self.resume_state["active"] = {"ses_test": {"type": "running"}}
+        with self.assertRaises(TransitionError):
+            self.a.qualify_resume(reassess=self.assess)
+
+    def test_post_receipt_sqlite_mismatch_rejected(self):
+        self.received()
+        with closing(sqlite3.connect(self.f.db)) as db, db:
+            db.execute("update session_message set session_id='foreign' where id=?", (self.a.native_id,))
+        with self.assertRaises(TransitionError):
+            self.a.qualify_resume(reassess=self.assess)
+
+    def test_post_receipt_changed_state_during_reassessment_rejected(self):
+        self.received()
+        def assess(*args):
+            self.current = replace(self.current, intent_revision=1)
+            return "stage two"
+        with self.assertRaises(TransitionError):
+            self.a.qualify_resume(reassess=assess)
+
+    def test_post_receipt_changed_next_action_rejected(self):
+        self.received()
+        with self.assertRaises(TransitionError):
+            self.a.qualify_resume(reassess=lambda *args: "different task")
+
+    def test_post_receipt_unknown_unresolved_work_rejected(self):
+        self.received(unresolved=False)
+        with self.assertRaises(TransitionError):
+            self.a.qualify_resume(reassess=self.assess)
+
+    def test_post_receipt_no_send_even_if_transport_would_be_ambiguous(self):
+        self.received()
+        self.a.qualify_resume(reassess=self.assess)
+        with patch.object(self.a, "_api", side_effect=TimeoutError("send uncertain")) as send:
+            with self.assertRaises(TransitionError):
+                self.a.continue_task("stage two")
+            send.assert_not_called()
+        self.assertEqual(self.a.core.snapshot.state, State.HANDOFF_RECEIVED)
 
 
 if __name__ == "__main__":
