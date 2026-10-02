@@ -4,5 +4,4 @@ __pycache__/
 /build/
 /dist/
 *.egg-info/
-/probe-results/*
-!/probe-results/.gitignore
+/probe-results/

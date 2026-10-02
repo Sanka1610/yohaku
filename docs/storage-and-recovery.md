@@ -5,8 +5,7 @@ recovery可否をどう判定するかを定める公開正本である。利用
 [Operations](operations.md)、Runtime固有のcompletion proof / receipt / reconnect primitiveは
 [Codex](runtimes/codex.md)、[Hermes](runtimes/hermes.md)、
 [Claude Code CLI](runtimes/claude-code-cli.md)を参照する。Task固有のinput / output、Trusted
-Observer、Task Assessorは[Task Profile](task-profiles/document-review-report-v1.md)、Evidenceの
-authority、retention、CoverageProfile、Verdictは[Evidence Model](evidence-model.md)が所有する。
+Observer、Task Assessorの契約は[Task Profile](task-profiles/document-review-report-v1.md)を参照する。
 
 Durable recordは、過去のbyte列とその関係を保持する。保存済みであることだけでは、現在の
 workspace、task intent、Runtime state、completion、再実行の安全性を証明しない。
@@ -20,7 +19,7 @@ workspace、task intent、Runtime state、completion、再実行の安全性を�
 | Handoff | 一つのcompleted requestとcontinuation identityに結び付く、completed work、unresolved work、historical goal、workspace reference、archive reference | Current instruction、old permission、task完了、receipt、ResumeProof |
 | Archive COLD | Hostが選択・redactしたterminal visible turnの本文とmetadata | Runtime-native history全体、未選択tool envelope、execution authority |
 | Archive WARM index | Search用metadataと対応するCOLD recordのdigest | 本文、task current state、resume authority |
-| Adapter metadata | Runtime固有のevent projection、binding、operation / task ledger、run metadata | 他Runtimeにも通用する共通event、Capability Verdict |
+| Adapter metadata | Runtime固有のevent projection、binding、operation / task ledger、run metadata | 他Runtimeにも通用する共通event、公開support判断 |
 | Runtime-native storage | Codex thread / context / transcript / history、Hermes `SessionDB`、Claude native session / transcriptなど | Yohaku checkpoint、Yohaku archive、Task Profile completion |
 | Task workspace | Taskのcurrent input、output、source tree、task固有artifact | Yohaku control journalやRuntime-native DBの代替 |
 | Operational state | Config binding、owner lock、`last-run.json`、`runs/<run-id>/`、isolated native home | Verified transition checkpointやtask recovery authority |
@@ -88,8 +87,7 @@ Journalへ保存するsnapshotからはactive leaseとdeadlineを除き、lease�
 identityとして`revoked_lease_id`だけを残す。Transient raw tool outputはjournalへ保存しない。
 Handoff bodyもjournalへ複製せず、immutable handoff documentへのreferenceだけを保持する。
 
-JournalはCore stateの履歴であり、Evidence ModelのEvidence RecordやRuntime-native transcriptと
-同じものではない。Hash chainはbyte-level integrityを検査するが、trusted hostの観測内容が
+JournalはCore stateの履歴であり、検証メモやRuntime-native transcriptとは別である。Hash chainはbyte-level integrityを検査するが、trusted hostの観測内容が
 正しいことやRuntime capabilityを証明しない。
 
 ## Handoff
@@ -193,7 +191,7 @@ final current-state revalidation、Runtime sendの順になる。Storage write o
 open handleはpoisonedとなり、そのhandleから追加dispatchしない。
 
 SHA-256とhash chainが保証するのは、読み込んだbyte列のintegrityとrecord間の対応である。
-観測者の真正性、内容の正しさ、secretの不在、task完了、Capability Verdictは保証しない。
+観測者の真正性、内容の正しさ、secretの不在、task完了、公開support判断は保証しない。
 
 ## Restart時に復活させないstate
 
@@ -255,11 +253,11 @@ blind resendしない。
 
 | Runtime / profile | Clean stop後 | Interrupted / uncertain owner後 | Transition recovery |
 |---|---|---|---|
-| Codex `C-OP` | 同じstate rootにfresh dedicated sessionを新設可能 | `RECOVERY_REQUIRED`。Prior sessionをresumeしない | Lifecycle-onlyのためtransitionなし |
-| Codex `C-DRR` | Completed runをrerunしない | Retained stateはinspect-only | Accepted Task Profile restartは`UNSUPPORTED` |
+| Codex lifecycle | 同じstate rootにfresh dedicated sessionを新設可能 | `RECOVERY_REQUIRED`。Prior sessionをresumeしない | Lifecycle-onlyのためtransitionなし |
+| Codex document-review | Completed runをrerunしない | Retained stateはinspect-only | Accepted Task Profile restartは`UNSUPPORTED` |
 | Historical Codex manual | Operational launcherとは別contract | Exact saved continuation identityとfresh Runtime readを使うlimited reconciliationのみ | Lease / permitを復元せず、unknown sendを再送しない |
 | Historical Codex native-auto | Fresh lifecycleとは別 | Post-compaction provenanceを再構成できない | Restart `UNSUPPORTED` |
-| Hermes `H-OP` / `H-ADAPTER` | `H-OP`はclean stop後にfresh lifecycle。`H-ADAPTER`はfresh store / session前提 | Existing owner attach、Core snapshot restart、inflight ledger再構成なし | Interrupted adapter ownerのrestart `UNSUPPORTED` |
+| Hermes lifecycle / adapter | lifecycle launcherはclean stop後にfresh lifecycle。adapterはfresh store / session前提 | Existing owner attach、Core snapshot restart、inflight ledger再構成なし | Interrupted adapter ownerのrestart `UNSUPPORTED` |
 | Claude Code CLI profiles | Formal operational launcherなし | Accepted pathはsame retained process / bounded host-local continuation | Process restart / general reconnect `UNSUPPORTED` |
 
 Operational CLIは`status.recovery.fresh_start_allowed`と`resume_supported`を別fieldで表示する。

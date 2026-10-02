@@ -1,37 +1,8 @@
 # Runtime Adapter Contract
 
-本書は、新しいRuntime Adapter、または既存Runtimeの新しいSupport Profileを追加する際の
-公開開発contractである。Adapterは、一つのfixed Runtime / version / surface / OSと一つの
-Transition Strategyに属するRuntime固有primitiveを、Verified Context Transition Coreの
-trusted callへ対応付ける。
+Adapterは、Runtime固有のlifecycle、identity、work observation、completion proofをShared Coreへ接続します。Profileには試した環境、実際のworkflowと結果、Known Limitationsを記載し、内部APIへ依存するhard requirementをtested configurationから区別します。
 
-共通化する対象は、安全なboundary、freshness、one-shot authority、ambiguity、handoff、
-resume verificationなどのsemanticsである。Runtime event名、completion signalの数、receiptの
-wire format、native storageを共通APIに見せることは本contractの目的ではない。Codex、Hermes、
-Claude Code CLIの既存実装も、三Runtimeの最小公倍数となる完成済みplugin frameworkを構成して
-いない。
-
-Componentとtrust boundaryは[Architecture](../architecture.md)、Strategy taxonomyは
-[Transition Strategies](../transition-strategies.md)、EvidenceとCapability Verdictは
-[Evidence Model](../evidence-model.md)、保存とrestartは
-[Storage and Recovery](../storage-and-recovery.md)を正本とする。本書は、それらを新しい
-Runtime integrationへ適用するための責務と導入条件を定める。
-
-## Contractの適用単位
-
-Adapterの適用単位はRuntime family全体ではなく、固定したSupport Profileである。同じRuntimeでも、
-version、surface、OS、provider、backend、model、Transition Strategy、Hook構成、tool集合、owner条件が
-異なれば別profileとして扱う。既存profileに新しいStrategyやtool coverageを追加する場合も、Evidenceを
-自動継承せず、新しいclaimとしてreviewする。
-
-Adapterのsourceが存在するだけではRuntime supportは成立しない。少なくとも次の三点を別々に示す。
-
-- **Implementation**: 対象profileのevent、identity、I/O、failure semanticsを実装した範囲
-- **Acceptance**: bounded live workflowで観測し、accepted endpointまで到達した範囲
-- **Support claim**: Evidence、Coverage、Known Limitations、maturity / release判断をreviewした範囲
-
-Probe、local / synthetic test、live acceptance、Field Evidenceも同じ評価ではない。ある段階の成功を、
-後の段階の`PASS`へ読み替えない。
+設計とtrust boundaryは[Architecture](../architecture.md)、保存とrestartは[Storage and Recovery](../storage-and-recovery.md)を参照してください。以下は既存の安全条件をadapterへ適用する契約であり、完成した共通plugin APIではありません。
 
 ## Shared CoreとRuntime Adapterの境界
 
@@ -48,7 +19,6 @@ Shared Coreは、Runtimeから独立して表現できる安全semanticsを所�
 | Durable handoff、deliveryとreceiptの分離、fresh observation、resume gateを要求する | HandoffをRuntimeへdelivery / injectionし、profile固有のexplicit receiptとfresh readを観測する |
 | Duplicate completion / receiptから新しいauthorityを作らない | Native duplicateを同定し、二重dispatchや二重continuationを起こさない |
 | `ResumeProof`のidentity、freshness、nonduplication、same-task整合性を検査する | Trusted Observer / Task Assessorからprofileに必要な観測とproofを受け取る |
-| Evidence referenceとCoverage contractを必須にする | Profile固有Evidenceを、native / host-local / Core identityへ相関して記録する |
 
 Coreは外部I/Oを行わず、Runtime eventの真正性を独力で証明しない。Adapterを含むtrusted hostが、
 native eventのcapture、順序、coverage、correlationを正しく報告する必要がある。一方、AdapterはCoreの
@@ -82,41 +52,6 @@ Visible-turn extractionを実装しないprofileは、その欠落を明記す�
 database rowをYohaku archiveへ自動変換しない。Extraction、selection、redaction、archive commit、retrievalは、
 transition completionとは別のcapabilityである。
 
-## 共通化してよいsemantics
-
-新しいRuntime integrationは、次のsemanticsを共有できる。共有とは、同じ安全条件を満たすことであり、
-同じevent名やwire representationを使うことではない。
-
-- Semantic boundary gate: Model / Agentの提案はcandidateであり、trusted observationが揃うまで
-  verified boundaryにしない。
-- Revision / freshness: Historical observationとcurrent observationを区別し、stale evidenceから
-  authorityを作らない。
-- Checkpoint-before-authority: Current checkpointのdurable commit後にだけtransitionをauthorizeする。
-- One-shot lease: 一つのboundary、checkpoint、revision集合、workspace、generationに一つのrequestを
-  結び付ける。
-- Ambiguity handling: Side effectの可能性を除外できないunknown outcomeでは通常作業を停止する。
-- No blind retry: Consumed authority、unknown dispatch、unknown write、unknown continuationを再送しない。
-- Handoff semantics: Historical dataをinstructionやpermissionへ昇格させず、一つのcompleted requestと
-  continuationへ相関する。
-- Delivery / receipt separation: Transportへのdeliveryをtargetのreceiptとみなさない。
-- Fresh observation requirement: Receipt後にcurrent task / Runtime / workspace stateを読み直す。
-- Nonduplication: Exact duplicate completion、receipt、continuationから新しいeffectを作らない。
-- `ResumeProof` / resume verification: Receipt、freshness、未解決work、same-task continuation、
-  nonduplication、task assessmentが揃ってから`RESUME_VERIFIED`とする。
-- Evidence / Coverage contract: Implementation、観測範囲、accepted endpoint、未測定範囲を分ける。
-
-次の事項は共通化しない。
-
-- Runtime固有event名と、その順序・欠落条件
-- Completion signalの種類と必要数
-- Receipt tool、nonce、ACKなどのwire format
-- Runtime-native session / transcript / history / database schema
-- Native storageのretention、reconnect、compaction後の表現
-- Runtime固有trigger、transport、Hook enforcement、continuation dispatch
-- Runtime固有restart / reconnect codec
-
-一つの共通interfaceへ値を詰め替えられても、authorityやacceptanceが同一になるわけではない。
-情報を落とす正規化によって、native identityやfailure stateを捏造してはならない。
 
 ## Identity contract
 
@@ -135,10 +70,10 @@ native request IDとして記録せず、collector attachment IDをnative sessio
 turn IDからCore continuation permitを再構成しない。対応関係はprofileのcorrelation ruleとして明示し、
 owner、capture時点、generation、sequence、freshnessを検査する。
 
-### Identity inventory
+### 相関に使うidentity
 
-Support Profileには、少なくとも次のinventoryを置く。Runtimeに該当identityがない場合は「なし」と記載し、
-別分類の値で欄を埋めない。
+実装で使うidentityのownerとauthorityを説明する。Runtimeが提供しないidentityを
+別分類の値で補わない。
 
 | Identity | Ownerを明示する対象 | Authorityを明示する対象 |
 |---|---|---|
@@ -177,25 +112,6 @@ process、subagent、external writer、別tool surfaceまで停止したとは�
 宣言した観測面に対する結果であり、Runtime-wide atomic barrierを意味しない。Observationが失われた状態で
 quiescenceを推定せず、`AMBIGUOUS`またはprofile固有のrecovery停止とする。
 
-## Transition Strategy contract
-
-新しいAdapterまたはprofileは、採用するStrategyを一つ明示する。
-
-- Manual In-place Compaction
-- Native Automatic Compaction
-- Fresh-context Rollover
-- Session Migration
-- その他のFuture Strategy
-
-Future Strategyには、source / target context、trigger、identity、durable state、completion、delivery、
-receipt、fresh observation、continuation、failure / retry、late / duplicate、restartを新しく定義する。
-既存Strategyに似ているという理由だけで、既存Evidenceやaccepted endpointを継承しない。
-
-Strategyごとにsourceとtargetの関係が違う。In-place compactionのsame-session Evidenceはfresh contextの
-作成を証明せず、fresh-context rolloverのdestination receiptはsource retirementを必要とするsession
-migrationのproofにならない。同じCore checkpoint型やhandoff型を使っても、Strategy-specific claimは
-別々にreviewする。
-
 ## Completion Policy contract
 
 新しいtransition profileは、Runtime固有completion proofを定義する。Completion proofは、要求した
@@ -220,18 +136,7 @@ Exact duplicate completionはidempotentなno-opとして扱い、二つ目のhan
 continuation dispatchを作らない。異なるnative operationを同じcompletionのduplicateと推定することも、
 同じeventを新しいgenerationのcompletionへ転用することも認めない。
 
-### 現行三Runtimeの比較例
-
-| Profile固有実装 | Completion proofの要点 | 単独では不足するもの |
-|---|---|---|
-| Codex manual | Correlated compaction item completion、successful `PostCompact`、bound compact turnのterminal completion | RPC `{}`、`item/started`、`PostCompact`単独、assistant self-report |
-| Hermes H-CLI-01 | Host historyの変化、独立した`SessionDB` readback、host / DB payload hashとcountの一致、archived row、exact request / session correlation | Engine / compressor return、`compression_count=1`、provider success、host historyだけ、DB rowだけ |
-| Claude Code CLI manual | Fresh exclusive sessionで閉じたcollector window、correlated `PreCompact(manual)`、`PostCompact(manual)`、`SessionStart(compact)`、transport successとclosure | CLI result、process exit、各Hook単独、model self-report |
-
-この表は共通event taxonomyを定義しない。必要signal数、相互順序、storage readback、closureはprofileごとに
-異なる。現行shared seamは、bindingとeventを検証し、蓄積Evidenceからpredicateを評価する
-[`CompletionPolicy`](../../src/yohaku/completion.py)である。PolicyはCore構築時に固定し、I/Oを行わない。
-Trigger、event capture、transport、storage readbackはAdapter / hostが所有する。
+共有seamは[`CompletionPolicy`](../../src/yohaku/completion.py)です。Policyはbindingと蓄積eventを評価し、trigger、transport、event capture、storage readbackはadapter / hostが所有します。具体的なpredicateは[Codex](../runtimes/codex.md)、[Hermes](../runtimes/hermes.md)、[Claude Code CLI](../runtimes/claude-code-cli.md)を参照してください。
 
 ## Storage contract
 
@@ -239,7 +144,7 @@ Adapterは、保存dataを次の四層に分ける。
 
 | 層 | 内容 | Authorityと制限 |
 |---|---|---|
-| Shared durable primitives | Verified checkpoint value、append-only decision record、durable handoff、必要に応じたYohaku archive | Coreの関係とcommit順序を保持する。Current native state、lease、receipt、Capability Verdictを単独では証明しない |
+| Shared durable primitives | Verified checkpoint value、append-only decision record、durable handoff、必要に応じたYohaku archive | Coreの関係とcommit順序を保持する。Current native state、lease、receipt、公開supportを単独では証明しない |
 | Runtime adapter metadata | Native event、collector sequence、request binding、delivery、receipt、readbackなどのprofile固有metadata | Correlation補助であり、Runtime-native storageや共通event schemaではない。Raw secret / transcriptを不用意に複製しない |
 | Runtime-native storage | Runtime自身のsession、thread、history、transcript、database、provider / backend local state | Runtimeが所有する。Completion readbackに利用しても、Yohaku checkpoint、handoff、archiveへ自動変換しない |
 | Runtime-specific restart codec | Durable Core / adapter recordとfresh native readを再照合し、安全に復元できるfieldと拒否条件 | Strategy / profile固有である。Codecがなければrestartは`UNSUPPORTED`または`UNIMPLEMENTED`とする |
@@ -314,65 +219,6 @@ Late Evidenceは、正しいownerとidentity chainへ一意にcorrelateできる
 conflicting identity、close後のunsupported eventから新しいauthorityを作らない。Duplicate suppressionの
 keyもRuntime内で定義し、別Runtimeのevent名を共通keyとして使わない。
 
-## Support ProfileとEvidence contract
-
-新しいprofileは、少なくとも次を固定する。
-
-- Runtime family、exact version / source revision、surface、OS
-- Yohaku source revision、Adapter / collector / plugin revision
-- Provider、backend、model、reasoning / contextなど結果に影響する構成
-- Transition Strategy、trigger、source / target context
-- Tool / work coverage、admission gate、foreground / background / delegationの扱い
-- Owner、session exclusivity、Hook / permission、storage、workspaceの前提
-- Accepted endpoint（Probe observation、`ROLLOVER_OBSERVED`、`RESUME_VERIFIED`など）
-- Evidence provenance、Evidence level、retained recordへの安定した参照
-- Known Limitations、`UNSUPPORTED` / `NOT_RUN` / `UNKNOWN`の範囲
-
-Evidence Modelに従ってCapabilityごとのCoverageとVerdictをreviewする。Adapterの存在、source inspection、
-unit test、synthetic fixture、RPC ACK、engine returnはlive Runtime acceptanceの代わりにならない。Bounded
-workflowが`PASS`でも、overall CoverageProfileは`PARTIAL`のままになり得る。
-
-Runtime / version / surface / OS、provider / backend / model、Strategy、Task Profile、tool集合、owner条件、
-receipt方式、Adapter revisionのいずれかを越えてEvidenceを継承しない。Strategyが同じでも、completion、
-storage、receipt、continuationの契約が異なるなら別claimである。
-
-## 新しいRuntime / profileの追加手順
-
-導入は、次の順で狭いclaimから進める。
-
-1. **Documentation / source調査**
-   Official documentationと対象versionのsourceから、native lifecycle、identity、storage、Hook、trigger、
-   completion候補、failure挙動を特定する。不明事項をhost-local IDや別Runtimeのeventで補わない。
-2. **Bounded Capability Probe**
-   一つのfresh owner、限定したtool / work、固定provider / backend / modelで、必要なprimitiveを測定する。
-   Probe instrumentationと製品Adapterを区別し、accepted endpointをProbe scope内に限定する。
-3. **Support Profile固定**
-   Runtime / version / surface / OS、構成、owner条件、tool集合、Evidence provenance、Known Limitationsを固定する。
-4. **Transition Strategy選択**
-   Source / target、trigger、completion、handoff、receipt、fresh observation、continuation、restartを一つの
-   Strategy contractとして定義する。他StrategyのEvidenceを継承しない。
-5. **Adapter実装**
-   測定済みprimitiveだけをCore semanticsへ接続する。Lifecycle mapping、identity、work gate、completion
-   policy、storage readback、recovery chainをprofileの範囲で実装する。
-6. **Negative case**
-   Missing / stale / mismatched identity、timeout、unknown dispatch、duplicate、late event、storage failure、
-   receipt不一致、freshness changeを、side effectの可能性に応じてfail closedで分類する。
-7. **Bounded live acceptance**
-   Fixed profileを実Runtimeで実行し、実際に到達したendpointだけを記録する。Probeやlocal testの成功を
-   product Adapter acceptanceへ移さない。
-8. **Evidence review**
-   Provenance、manifest、Coverage、negative result、Known Limitationsをreviewし、Capability Verdictを
-   accepted scopeに限定して決める。
-9. **Runtime canonical更新**
-   `docs/runtimes/`の章順に従い、profile固有primitive、identity、storage、failure、Evidence、Verdictを
-   公開する。成功runだけで既知failureを上書きしない。
-10. **Maturity / release判断**
-    Evidenceから自動昇格させず、Support Policyに従ってmaturityとrelease channelを別に判断する。
-
-最初からgeneral Adapter、全tool coverage、cross-Runtime storage、general restart、Runtime-wide barrierを
-実装しない。Bounded Probeで観測した最小surfaceを固定し、negative caseとlive acceptanceを通過した範囲だけを
-拡張する。
-
 ## Task Profileとの境界
 
 Runtime Adapterは、Runtime lifecycleとtransitionを安全に接続する。Taskの正しさ、入力の妥当性、出力の
@@ -412,22 +258,37 @@ Runtime family全体、別tool、別Strategyのsupportを推定しない。
 検証する必要がある。Neutral interface、portable persistence、registryは、それぞれ別の設計変更と
 acceptanceを必要とする。
 
-## Adapter contract checklist
+## 新Runtimeの追加
 
-実装reviewでは、少なくとも次を確認する。
+最初に対象source / APIから、native lifecycle、identity、completion、readback、receipt、failure挙動を調べます。不明な点は、その質問に答える最小のProbeで確認し、profileのworkflowとowner条件を固定します。測定したprimitiveだけをadapterへ接続し、正常経路と主要な拒否経路を検証します。
 
-- [ ] Support ProfileとTransition Strategyが一意に固定されている
-- [ ] Native / Core / host-local identityのownerとauthorityが分離されている
-- [ ] Work taxonomyと`admitted` / `active` / `pending` / `incorporated` / unknownが定義されている
-- [ ] Gateのcoverage外とRuntime-wide atomicityの欠如が記載されている
-- [ ] Trigger前にcheckpoint、one-shot authority、final freshness checkがある
-- [ ] Request acceptanceとcompletion proofが分離されている
-- [ ] Runtime-native storage readbackとYohaku storageが分離されている
-- [ ] Delivery、receipt、fresh observation、authorization、continuation、assessmentが別段階である
-- [ ] Timeout、late、duplicate、unknown side effectでblind retryしない
-- [ ] Restart codecがないprofileはrestart supportを主張していない
-- [ ] Task correctnessとqualityをTask Profileへ委ねている
-- [ ] Bounded live Evidence、Coverage、Verdict、Known Limitationsが同じscopeでreviewされている
+`document-review-report-v1`は任意選択の固定taskです。新Runtimeへそのtool、出力形式、Codex event列を要求しません。二つ目のreal Task Profileが必要になるまでは、generic Task Profile frameworkを追加しません。
 
-Checklistへの適合は、live acceptance、Capability Verdict、maturity、release readinessを単独では
-証明しない。各claimは固定Support ProfileのEvidenceで別に判断する。
+## 変更に必要な検証
+
+変更した条件を確認できる既存の最小テストを選びます。Source testはsrc-layoutのため、例えば次のように実行します。
+
+```sh
+PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_completion_policy.py' -q
+```
+
+| 対象 | 確認する正常・拒否経路 |
+|---|---|
+| Boundary / admission | Active / pendingがsettleした正常boundary。未観測work、gate外workを安全と推定しない |
+| Freshness / authority | Current revisionから一回だけdispatch。Stale workspace、lease、checkpoint、generationは拒否 |
+| Completion | Exact request / sessionと全predicate。Missing、foreign、conflicting、late、duplicate eventを確認 |
+| Handoff / receipt | Deliveryとreceiptを分ける。Wrong identity / nonce / owner、missing tool resultを拒否 |
+| Continuation | Receipt後のfresh read、未完了workの一回実行。Completed work、stale input、duplicate writeを拒否 |
+| Uncertain outcome | Dispatch / write / submission timeoutでauthorityを戻さず、blind retryしない |
+| Persistence | Atomic publish、必要なfsync、integrity readback。Partial write、corrupt record、journal gapを停止扱いにする |
+| Resume | Same task、current revision、actual Runtime item、取込済みresult、nonduplicationを照合 |
+
+Offline fixtureやsynthetic testは、そこで確認したfailure分類の根拠です。Live Runtimeのenforcementやreal-task成功を実測したことにはなりません。文書だけの変更や無変更Runtimeに追加live acceptanceを慣例的に要求しません。
+
+## 試した内容の記録
+
+Workspaceのメモにはdate / Yohaku version、Runtime / version、OS / Python、結果に影響するprovider / model / owner条件、実際のworkflow、結果、失敗・未実行範囲を残します。Resultは`PASS` / `PARTIAL` / `NOT_RUN`を区別し、実測した失敗は`FAIL`と理由を記載します。公開supportでは機能を`supported` / `unsupported` / `untested`で示します。
+
+Transitionを確認した記録には、task identity、boundary / revision、Runtime固有completion、delivery / receipt、receipt後のfresh state、未完了workの非重複continuationをたどれる観測を残します。ACK、起動、PID、最終文章だけでは`RESUME_VERIFIED`の根拠になりません。Content qualityを評価しなければ`NOT_ASSESSED`とします。
+
+外部testerの記録は任意です。Manifest、source hash inventory、reviewer chain、多層IDを必須のframeworkにせず、具体的な調査を追跡する必要があれば短いrun labelを使います。Credential、private transcript、task本文、raw tool argument / resultは公開summaryへ含めません。

@@ -1,64 +1,10 @@
 # Task Profile: `document-review-report-v1`
 
-本書は、Task Profile `document-review-report-v1`のcurrent public canonicalである。この
-profileは、明示された文書を専用workspaceで読み、固定したMarkdown reportを一つ作成する
-real-task profileである。一般的なdocument agent、任意のfilesystem agent、coding agentでは
-ない。
+この任意選択のtaskは、専用workspaceの宣言文書を読み、manual compactを一回行い、固定Markdown reportを一つ新規作成します。`document_review.py`はtask contractとobserver / assessor、`document_review_runtime.py`はCodex bindingです。CLIから利用できる限定製品機能であり、Alphaのreal-task確認にも使いました。Shared Coreの汎用機能ではありません。
 
-このprofileが実証した対象は、固定したinput / output contractのもとで次のsequenceを成立
-させることである。
+RuntimeはCodex CLI `0.158.0-alpha.2.1`のdedicated App Server / dynamic tools / command Hooksです。試したhostはWSL2 Linux / CPython `3.14.4`、current preflightのhard requirementはLinux / Python `>=3.11`です。Profile statusと共通の制限は[Runtime support](../runtime-support.md)を参照してください。
 
-```text
-real task
-  -> verified boundary
-  -> checkpoint
-  -> Runtime-specific transition
-  -> handoff
-  -> receipt
-  -> fresh observation
-  -> non-duplicate continuation
-  -> RESUME_VERIFIED
-```
-
-`RESUME_VERIFIED`とmechanical completion `PASS`は、許可したworkだけで未完了処理を一度
-継続し、固定出力をdurableに作成したことを示す。文章品質、事実性、完全性、レビュー判断
-の妥当性は示さない。これらのcontent qualityは`NOT_ASSESSED`である。
-
-## Runtime supportとTask Profile support
-
-Runtime supportとTask Profile supportは別のclaimである。
-
-```text
-Runtime support  = 固定Runtime profileがtransition、handoff、receipt、continuationを
-                   観測・制御できる範囲
-Task Profile support
-                 = 固定Task Profileがinput、output、allowed work、current state、
-                   mechanical completionを判断できる範囲
-```
-
-Runtimeのlifecycleまたはtransitionが`PASS`でも、Task Assessorがないtaskの完了は判定でき
-ない。反対に、Task ProfileのcontractだけではRuntime固有のcompletion proof、handoff delivery、
-receiptを補えない。現在acceptedなのは、次のTask ProfileとRuntime Support Profileの組合せ
-だけである。
-
-| 項目 | Accepted value |
-|---|---|
-| Task Profile ID | `document-review-report-v1` |
-| Runtime Support Profile | `codex-document-review-report-v1`（Runtime Mapping key: `C-DRR`） |
-| Runtime / version | Codex CLI `0.158.0-alpha.2.1` |
-| Surface | Dedicated App Server over stdio、profile-owned dynamic tools |
-| OS / host runtime | WSL2 Linux / CPython `3.14.4` |
-| Owner条件 | 一つのdedicated App Server、一つのfresh thread、`single_owner`、`dedicated_session`、profile workspace lock |
-| Transition Strategy | Manual In-place Compactionを一回 |
-| Evidence provenance | `DRR-V1-CODEX-0158-LIVE-01`、lab / live-Runtime / nonfixture real task |
-| Accepted endpoint | Core `RESUME_VERIFIED`かつmechanical completion `PASS` |
-| Capability Verdict | 固定workflowは`PASS`。製品全体のcoverageは`PARTIAL` |
-| Support Profile maturity / Product release channel | `alpha` / `Alpha`（current Codex bindingのみ。Publication `BLOCKED_EXTERNAL`） |
-| Content quality | `NOT_ASSESSED` |
-
-Profile workspace lockが排除するのは、同じlockに協調するlauncherの並行実行だけである。
-別client、detached process、非協調external writerまで排除するRuntime-wide ownershipではない。
-他のCodex version、Codexの別surface、Hermes、Claude Code、他OSへこの結果を継承しない。
+Mechanical completionは、declared input、fixed instruction、receipt後のfresh read、one-shot continuation、create-only outputを照合します。文章品質、事実性、網羅性、review判断の妥当性は`NOT_ASSESSED`です。
 
 ## Fixed task identity
 
@@ -395,78 +341,10 @@ Assessorの条件はTask Profile contractである。現在acceptedのRuntime bi
 Current implementationは`gpt-5.6-luna`、reasoning `low`を選択するが、public Evidenceの
 provider / backend / model値から再利用可能な互換性claimを作らない。
 
-## Evidence summary
+## 試したworkflowと制限
 
-Accepted Evidenceは`DRR-V1-CODEX-0158-LIVE-01`である。Provenanceは、最終sourceと
-documentationからclean buildしたwheel、source manifest、task ledger、Runtime event projection、
-output readbackで構成する。Wheel SHA-256は
-`26f56dad8b3a832481aeb88ca7e51307312c6b7d1655b8ae5d8778673667b024`である。
+Alphaのreal-task確認では公開文書2点、manual compact一回、fresh read、一回のreport writeを経て`RESUME_VERIFIED`に到達しました。Read countは2、write started / completed / incorporatedは各1、active / pendingは0でした。先行runはHookがtask dynamic toolも拒否してtransition前に停止し、allowlist修正後に成功しました。Existing outputを使う再要求も拒否し、outputは不変でした。
 
-Live real-task acceptanceは、dedicated workspaceに置いた公開文書2点を読み、一回のmanual
-compact、receipted handoff、fresh read、一回のcreate-only report publishを経て、Core
-`RESUME_VERIFIED`とmechanical completion `PASS`へ到達した。Final active / pendingは0、read
-countは2、write started / completed / incorporatedは各1、unrelated Runtime operationは0だった。
+現在の未公開cleanupに対する新しいlive検証を示すものではありません。別Runtime、一般文書・coding task、shell / MCP、background / subagent、複数出力、既存file更新は対応範囲に含みません。Directory lockは協調launcherだけを排他し、外部writerの全raceを防止しません。Repeated transition、task restart、owner crash、power-loss recoveryは未受入です。
 
-初回run `a5c99afd16bd4e55a1763a7fb3402658`は、deny-all Hookがprofile-owned dynamic toolも
-拒否したため、transition前に`BUILTIN_TOOL_ATTEMPT_REFUSED` / `REFUSED`となった。Coreは
-`WORKING`、outputなし、write開始0であり、このfailure Evidenceも保持している。Exact
-allowlistへ修正した後、最終run `befe25e2f8f249309a72753d94c4f570`をaccepted runとした。
-
-Duplicate checkでは同じrunを再要求し、`STALE_OUTPUT_PRESENT`で`REFUSED`となった。Output
-hashとstatは変化していない。Accepted endpointは`RESUME_VERIFIED`であるが、Verdict `PASS`は
-この一つのfixed workflowだけに適用する。製品全体のcoverageは`PARTIAL`、受入当時のmaturityは
-`experimental`、Field Evidenceはない。Stage 5に基づくcurrent Codex Support Profileのmaturityは
-`alpha`である。Cross-Runtime Task Profile maturityは設けず、元のEvidenceは変更しない。
-
-Retained Evidenceは`DRR-V1-CODEX-0158-LIVE-01`で索引し、private maintainer workspaceに
-保持している。公開側のEvidence規則とRuntime scopeは[Evidence Model](../evidence-model.md)、
-[Codex Runtime](../runtimes/codex.md)、[Runtime Support](../runtime-support.md)を参照する。
-
-## Known Limitations
-
-- 一般的なdocument taskまたはgeneral document agentではない。
-- Accepted RuntimeはCodex CLI `0.158.0-alpha.2.1`の固定surfaceだけである。Hermes、Claude
-  Code、他Codex versionはこのTask Profileについて`NOT_RUN`である。
-- Outputは一つのfixed Markdown fileだけである。複数出力や既存file更新を扱わない。
-- Arbitrary file editingを許可しない。
-- Network、web、MCP、shellをwork planeに含めない。
-- Delegation、subagent、background workをwork planeに含めない。
-- Directory lockは協調launcherだけを排他する。External writerの完全な排除、race coverage、
-  atomic filesystem snapshotはない。
-- 一つのmanual transitionだけを受入れた。Repeated transitionは未受入である。
-- Task restart、owner crash recovery、process restart、power lossは未受入である。
-- General Task Profile registry、Observer registry、Assessor registryはない。
-- Reportのwriting qualityとcontent qualityは`NOT_ASSESSED`である。
-- Field Evidence、release acceptance、一般ユーザー環境での運用Evidenceはない。
-
-## Canonicalとretained資料
-
-Current public canonicalは本書
-`docs/task-profiles/document-review-report-v1.md`である。旧public path
-`docs/reference/document-review-report-v1.md`は既存linkの互換性とhistorical summaryを保持する
-ため、移動・改名・削除しない。Internal contract、accepted result、source manifest、run
-Evidenceも元のpathで保持し、Evidence provenanceを変更しない。
-
-## Candidate A release review fields
-
-次の表はCandidate Aに限定したrelease review用の検証対象である。Alpha候補の範囲を示し、
-現在のmaturity / channelや個別EvidenceのVerdictを昇格させない。Fieldの意味、除外コード、
-検証手順は[Candidate A review](../release/candidate-a.md)を参照する。
-
-<!-- candidate-a:start -->
-| field | C-DRR |
-|---|---|
-| mapping_key | C-DRR |
-| support_profile_id | codex-document-review-report-v1 |
-| runtime_family | codex |
-| runtime_exact_version | 0.158.0-alpha.2.1 |
-| surface | dedicated App Server / dynamic task tools / manual compact |
-| task_profile_id | document-review-report-v1 |
-| operational_launcher_support | true |
-| task_runner_support | true |
-| maturity | alpha |
-| release_channel | Alpha |
-| accepted_endpoint | RESUME_VERIFIED |
-| evidence_record_id | DRR-V1-CODEX-0158-LIVE-01 |
-| known_exclusions | no-runtime-family-support, no-field-evidence, no-other-runtime-os-provider, no-general-parallel-background-external-work, no-strong-transition-assurance, one-fresh-session-one-manual-compact-one-report, no-restart-or-repeated-transition, quality-not-assessed, no-general-document-coding-shell-mcp, external-writers-not-prevented |
-<!-- candidate-a:end -->
+DSH / OpenCode adapterへこのtaskのtool名、Markdown出力、Codex eventを要求しません。別のreal taskが必要になるまではgeneric Task Profile frameworkを追加しません。

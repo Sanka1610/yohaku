@@ -101,6 +101,53 @@ class OperationalTests(unittest.TestCase):
         with self.assertRaises(op.OperationError):
             replace(self.config, state_dir=str(self.workspace / 'nested'))
 
+    def test_cli_configure_enforces_owner_conditions_without_ack_flags(self):
+        path = self.base / 'cli-config.json'
+        with redirect_stdout(io.StringIO()):
+            code = main(['configure', '--config', str(path),
+                '--profile', self.config.profile, '--runtime-path', self.config.runtime_path,
+                '--workspace', str(self.workspace), '--state-dir', str(self.base / 'cli-state')])
+        self.assertEqual(code, 0)
+        config = op.load(path)
+        self.assertTrue(config.dedicated_session)
+        self.assertTrue(config.single_owner)
+        self.assertFalse(config.enabled)
+
+    def test_schema_one_lifecycle_config_without_task_fields_still_loads(self):
+        data = json.loads(self.path.read_text())
+        for key in ('task_inputs', 'task_output', 'task_instruction', 'credential_home'):
+            data.pop(key)
+        op.write_json(self.path, data)
+        self.assertEqual(op.load(self.path), self.config)
+
+    def test_preflight_allows_untested_linux_and_python_patch(self):
+        with patch('platform.release', return_value='6.8.0-generic'), \
+                patch('sys.version_info', (3, 12, 7, 'final', 0)), \
+                patch('yohaku.operational.command_output', return_value='codex-cli 0.158.0-alpha.2.1'):
+            report = op.preflight(self.config)
+        self.assertEqual(report['errors'], [])
+        self.assertFalse(report['transition_ready'])
+
+    def test_preflight_keeps_python_floor_and_linux_requirement(self):
+        with patch('sys.version_info', (3, 10, 0, 'final', 0)), \
+                patch('yohaku.operational.Path.exists', return_value=False), \
+                patch('yohaku.operational.command_output', return_value='codex-cli 0.158.0-alpha.2.1'):
+            report = op.preflight(self.config)
+        self.assertIn('PYTHON_3_11_REQUIRED', report['errors'])
+        self.assertIn('LINUX_REQUIRED', report['errors'])
+
+    def test_removed_noop_cli_surfaces_are_rejected(self):
+        configure = ['configure', '--profile', self.config.profile,
+                     '--runtime-path', self.config.runtime_path,
+                     '--workspace', str(self.workspace), '--state-dir', str(self.base / 'new-state')]
+        cases = (['transition'], ['recover', '--inspect'], ['status', '--json'],
+                 [*configure, '--single-owner'], [*configure, '--dedicated-session'])
+        for args in cases:
+            with self.subTest(args=args), redirect_stderr(io.StringIO()), \
+                    self.assertRaises(SystemExit) as stopped:
+                main([*args, '--config', str(self.path)])
+            self.assertEqual(stopped.exception.code, 2)
+
     def test_symlink_and_insecure_config_rejected(self):
         link = self.base / 'link.json'
         link.symlink_to(self.path)
@@ -124,7 +171,7 @@ class OperationalTests(unittest.TestCase):
         with patch('yohaku.operational.command_output', return_value='codex-cli 0.155.0-alpha.16.4'):
             r = op.preflight(c)
         self.assertIn('OPERATIONAL_PROFILE_UNSUPPORTED', r['errors'])
-        self.assertIn('DEDICATED_SESSION_AND_SINGLE_OWNER_ACK_REQUIRED', r['errors'])
+        self.assertIn('DEDICATED_SESSION_AND_SINGLE_OWNER_REQUIRED', r['errors'])
 
     def test_second_owner_and_disable_cannot_race_live_owner(self):
         with op.owner_lock(self.config):
@@ -136,15 +183,13 @@ class OperationalTests(unittest.TestCase):
             self.assertEqual(s['operational']['state'], 'OWNER_UNREACHABLE')
 
     def test_missing_observer_rejects_every_transition_route(self):
-        self.assertEqual(self.cli('transition')[0], 2)
         with self.assertRaisesRegex(op.OperationError, 'TASK_PROFILE_REQUIRED'):
             deny_task()
         host = CodexOperationalHost()
         for method in ('turn/start', 'thread/compact/start', 'thread/resume'):
             with self.assertRaisesRegex(op.OperationError, 'TASK_PROFILE_REQUIRED'):
                 host.send({'method': method})
-        self.assertEqual(self.cli('recover')[0], 2)
-        self.assertFalse(self.cli('recover', '--inspect')[1]['recovery']['resume_supported'])
+        self.assertFalse(self.cli('status')[1]['recovery']['resume_supported'])
 
     def test_stale_owner_not_inferred_stopped_from_pid_or_socket(self):
         op.write_json(Path(self.config.state_dir) / 'last-run.json', {
@@ -240,10 +285,6 @@ class CredentialAndStatusTests(unittest.TestCase):
     def runtime_patches(self, output='codex-cli 0.158.0-alpha.2.1'):
         stack = ExitStack()
         stack.enter_context(patch('yohaku.operational.command_output', return_value=output))
-        stack.enter_context(patch('yohaku.operational.platform.release',
-                                  return_value='6.6.0-microsoft-standard-WSL2'))
-        stack.enter_context(patch('yohaku.operational.platform.python_version',
-                                  return_value='3.14.4'))
         return stack
 
     def lifecycle(self, config, state):
@@ -360,7 +401,7 @@ class CredentialAndStatusTests(unittest.TestCase):
         self.assertFalse(status['transition_available'])
         self.assertIn('RUNTIME_VERSION_MISMATCH', status['transition_reason'])
 
-    def test_candidate_a_registry_wording_does_not_change_excluded_profiles(self):
+    def test_task_registration_and_current_readiness_are_distinct(self):
         candidate = op.profile('codex-document-review-report-v1')
         self.assertTrue(candidate['task_profile_registered'])
         self.assertNotIn('transition_available', candidate)

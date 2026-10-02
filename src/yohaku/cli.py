@@ -1,4 +1,4 @@
-"""Yohaku Operational Alpha Foundation command line."""
+"""Operational lifecycle and the fixed document-review command line."""
 
 import argparse
 import json
@@ -6,7 +6,7 @@ import sys
 from importlib.metadata import version
 
 from . import operational as op
-from .profiles import MISSING_TASK, PROFILES, profile
+from .profiles import PROFILES, profile
 
 
 def main(argv=None):
@@ -22,8 +22,6 @@ def main(argv=None):
     cfg.add_argument('--runtime-path', required=True, help='Codex executable or pinned Hermes source root')
     cfg.add_argument('--workspace', required=True)
     cfg.add_argument('--state-dir', required=True, help='new private directory, separate from workspace')
-    cfg.add_argument('--dedicated-session', action='store_true')
-    cfg.add_argument('--single-owner', action='store_true')
     cfg.add_argument('--stop-timeout', type=float, default=10)
     cfg.add_argument('--input', action='append', default=[], help='declared document-review input; repeatable')
     cfg.add_argument('--output', help='fixed create-only document-review report path')
@@ -32,21 +30,17 @@ def main(argv=None):
     command_help = {
         'start': 'start a lifecycle-only operational profile',
         'run': 'run a fixed registered Task Profile',
-        'transition': 'unsupported general transition command',
     }
-    for name in ('preflight', 'enable', 'start', 'run', 'status', 'stop', 'disable', 'recover', 'transition'):
+    for name in ('preflight', 'enable', 'start', 'run', 'status', 'stop', 'disable'):
         sub = commands.add_parser(name, help=command_help.get(name))
         sub.add_argument('--config', required=True)
-        sub.add_argument('--json', action='store_true', help='output is always structured JSON')
-        if name == 'recover':
-            sub.add_argument('--inspect', action='store_true', help='read-only recovery decision; never resend')
     args = parser.parse_args(argv)
     try:
         if args.command == 'profiles':
             result = {'profiles': [profile(name) for name in PROFILES]}
         elif args.command == 'configure':
             config = op.OperationalConfig(args.profile, args.runtime_path, args.workspace, args.state_dir,
-                args.dedicated_session, args.single_owner, stop_timeout=args.stop_timeout,
+                True, True, stop_timeout=args.stop_timeout,
                 task_inputs=tuple(args.input), task_output=args.output,
                 task_instruction=args.instruction, credential_home=args.credential_home)
             op.configure(args.config, config)
@@ -65,12 +59,6 @@ def main(argv=None):
                 result = op.set_enabled(args.config, args.command == 'enable')
             elif args.command == 'stop':
                 result = op.stop(config)
-            elif args.command == 'recover':
-                result = op.status(config)
-                if not args.inspect:
-                    raise op.OperationError('UNSUPPORTED_RECOVERY; use recover --inspect; ' + MISSING_TASK)
-            else:
-                raise op.OperationError(MISSING_TASK)
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return 2 if result.get('verdict') == 'FAIL' else 0
     except Exception as exc:

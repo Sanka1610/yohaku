@@ -8,7 +8,6 @@ import json
 from importlib.metadata import distribution
 import math
 import os
-import platform
 from pathlib import Path
 import signal
 import socket
@@ -19,7 +18,7 @@ import tempfile
 import time
 from uuid import uuid4
 
-from .profiles import CANDIDATE_A, MISSING_TASK, profile
+from .profiles import MISSING_TASK, profile
 
 
 class OperationError(RuntimeError):
@@ -183,10 +182,8 @@ def config_digest(config):
 
 def package_identity():
     d = distribution('yohaku')
-    record = d.read_text('RECORD')
     return dict(version=d.version, python=sys.version.split()[0], platform=sys.platform,
-                package_path=str(Path(__file__).parent),
-                installed_record_sha256=hashlib.sha256(record.encode()).hexdigest() if record else None)
+                package_path=str(Path(__file__).parent))
 
 
 def configure(path, config):
@@ -297,14 +294,12 @@ def _preflight(config):
     actual = None
     if os.name != 'posix' or not Path('/proc/self/stat').exists():
         errors.append('LINUX_REQUIRED')
-    if 'microsoft' not in platform.release().lower() or 'wsl2' not in platform.release().lower():
-        errors.append('OPERATIONAL_PLATFORM_NOT_MEASURED')
-    if platform.python_implementation() != 'CPython' or platform.python_version() != p['operational_python']:
-        errors.append('OPERATIONAL_PYTHON_NOT_MEASURED')
+    if sys.version_info[:2] < (3, 11):
+        errors.append('PYTHON_3_11_REQUIRED')
     if p['runtime'] == 'codex' and Path('/etc/codex').exists() and any(Path('/etc/codex').iterdir()):
         errors.append('SYSTEM_CODEX_CONFIG_NOT_REVIEWED')
     if not config.dedicated_session or not config.single_owner:
-        errors.append('DEDICATED_SESSION_AND_SINGLE_OWNER_ACK_REQUIRED')
+        errors.append('DEDICATED_SESSION_AND_SINGLE_OWNER_REQUIRED')
     if not Path(config.workspace).is_dir():
         errors.append('WORKSPACE_MISSING')
     if not p['launch_supported']:
@@ -368,7 +363,7 @@ def _preflight(config):
                 assumptions={'single_owner_acknowledged': config.single_owner,
                              'dedicated_session_acknowledged': config.dedicated_session,
                              'external_clients_excluded_by_lock': False})
-    if config.profile in CANDIDATE_A:
+    if p['runtime'] == 'codex' and p['launch_supported']:
         report.update(task_profile_registered=is_task, transition_ready=transition_ready,
                       transition_available=transition_ready)
     else:
@@ -437,7 +432,7 @@ def status(config):
     result = dict(profile=profile(config.profile), package=package_identity(), enabled=config.enabled,
                   owner_live=live is not None, owner_lock_busy=busy, operational=current,
                   recovery=recovery(config))
-    if config.profile in CANDIDATE_A:
+    if result['profile']['runtime'] == 'codex' and result['profile']['launch_supported']:
         check, _ = _preflight(config)
         result.update(task_profile_registered=check['task_profile_registered'],
                       transition_ready=check['transition_ready'],
@@ -531,7 +526,7 @@ def _serve(config, check):
                  observed_runtime=check['observed_runtime'], run_dir=str(run), inference_requests=0,
                  owner_kind='operational-only', work_observation_available=False,
                  transition_adapter_attached=False)
-    if config.profile in CANDIDATE_A:
+    if state['profile']['runtime'] == 'codex' and state['profile']['launch_supported']:
         state.update(task_profile_registered=False, transition_ready=False)
 
     def save():
