@@ -66,8 +66,8 @@ Python側では`compact()`成功後、既存`HandoffDocument`を
 inbox spliceを照合します。この時点は`HANDOFF_OFFERED`です。
 明示的な`receive_handoff(observe=...)`がreceipt検査用requestを一回だけ起動します。
 次のnative turnは公開turn lifecycleから予約し、実際のstart frameとの一致を確認します。
-既存Coreの`claim_continuation()`はこのrequest一回のbindingに消費し、
-receipt後のtask continuationを許可するauthorityにはしません。
+Receipt時点ではCore permitを消費せず、`Handoff.continuation_turn_id`は空文字です。
+Receipt turn / MessageIdはadapter側で保持し、receipt interactionの一回性をhostが管理します。
 
 Hostはnative exact membership、MessageId、handoff text hash、native turn / step /
 `LlmAttemptId`、host-local call ordinalとepoch / attempt counter、serialized body hashを
@@ -91,16 +91,36 @@ owner lossはresume qualificationを通過できません。
 declared workspace scopeを照合します。Trusted `reassess(document, current)`は実際のtask
 readからhistorical unresolved workを再評価し、まだ必要なら`next_action_candidate`、
 完了済みなら`None`を返します。別action、unknown、revision変更、pending workでは停止します。
-再評価後にも新しいobservationを取り、stateが変わっていないことを確認します。
+再評価後の新しいobservationでstateが変わっていれば、continuationは停止対象です。
 
-R4-Rのloopback mechanical qualificationはfresh stateと未完了作業の確認まで`PASS`、
-resume chain全体は`PARTIAL`です。既存Coreのone-shot `claim_continuation()`はR4-Iの
-receipt inspection turnに消費済みで、handoffの`continuation_turn_id`もそのturnに固定されます。
-Receipt後の別turnへauthorityや`ResumeVerification`を接続する既存semanticがないため、
-`HANDOFF_RECEIVED`とbarrierを維持して停止します。Qualificationはdispatchを許可せず、
-二回目のqualificationも拒否します。Task continuationとtask assessmentは`NOT_RUN`、
-`ResumeProof`は作成せず、`RESUME_VERIFIED`は未成立です。Core変更はありません。
+`continue_task(observe=...)`は成功したqualificationの後に明示的に呼びます。
+新しいpost-receipt readとtask readを照合してから、current Snapshotで
+`claim_continuation()`を一回だけ消費し、send前に記録します。
+再評価済みactionから一件の新しいnative inputを開始し、実際の
+`agent/assistant-stream` start frameのturnを`SessionId:turn`へ写像します。
+開始前の予測値やHTTP attempt counterはtask turn identityにしません。
+
+既存のnative membership検査と公式Messages serialized gateをtask interactionにも使い、
+provider effectを保留します。Coreの`bind_continuation()`成功とbindingのdurable記録後、
+current Snapshot、Session、Handoff、claim、actual turn、task/workspaceを再確認して
+一回だけreleaseします。Claim後の保存・送信・binding不確実性は`RECOVERY_REQUIRED`で
+停止し、permitもbindingも戻しません。二回目のcontinuationや同じHandoffの再利用は拒否します。
+
+`post_task()`は正常な`turn/end`一件、Agent idle、empty inbox、task input一件、独立readback、
+fresh projectionとcurrent task stateを照合します。この限定text-only profileのtask effectは
+native assistant outputです。Declared workspaceは継続中も変化しないことを要求し、
+任意のfile/tool mutationを許可する契約ではありません。
+
+Loopback protocol fixtureとstock transportによるR4-R2 acceptanceでは、receipt turnと
+別のactual task turnをbindし、task provider request一件、`FINALIZED`一回、正常な終端と
+final fresh stateを確認しました。Task requestをendpoint受信後に切断する別fresh Sessionでも、
+消費済みpermitとbindingを保持し、追加送信せず停止しました。実modelの品質評価ではありません。
+
+このprofileはtoolを使わないため、既存`ResumeProof`が要求するsuccessful tool observationは
+存在しません。`continue_task()`は正常完了時も`resume_proof=BLOCKED_BY_EXISTING_CONTRACT`、
+`resume_verified=NOT_REACHED`を返し、Coreは`HANDOFF_RECEIVED`とbarrierを保持します。
+Host readやreceipt outputをtool evidenceへ読み替えず、`verify_resume()`は呼びません。
 
 Receiptはstock pi-ai / OpenAI-compatible経路、他provider adapter、追加extension fields、
 file / image / tool projections、retry、restart、parallel / background / subagentでは
-`UNSUPPORTED`です。DSH Desktopは未検証です。
+`UNSUPPORTED`です。このreceipt/continuation profileのDSH Desktopは`UNSUPPORTED`です。

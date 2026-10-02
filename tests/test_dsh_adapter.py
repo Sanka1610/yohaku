@@ -10,7 +10,7 @@ from unittest.mock import patch
 from yohaku.codec import encode
 from yohaku.controller import TransitionError
 from yohaku.dsh_adapter import DSH_VERSION, DSH_RECEIPT_PROFILE, DshAdapter
-from yohaku.model import State, WorkspaceRevision
+from yohaku.model import ContinuationBinding, State, WorkspaceRevision
 from yohaku.persistence import SessionStore
 from yohaku.recovery import CurrentContext, HandoffDocument, RecoveredData
 
@@ -233,6 +233,30 @@ class ReceiptHost(Host):
     def invalidate_receipt(self, reason):
         self.invalidated = True
 
+    def start_task_interaction(self, claim, handoff, action, post):
+        from hashlib import sha256
+        self.task_starts = getattr(self, 'task_starts', 0) + 1
+        self.task_candidate = dict(self.receipt['binding'], claimId=claim, handoffId=handoff,
+            turn=3, turnId=f'{self.session_id}:3', nativeSeq=23, nativeAttemptId=f'{self.session_id}:3',
+            nativeCall=2, hostAttempt=2, taskMessageId='actual-task',
+            taskHash=sha256(action.encode()).hexdigest())
+        return self.task_candidate
+
+    def fresh_task(self):
+        self.task_reads = getattr(self, 'task_reads', 0) + 1
+        return dict(current=encode(self.current), sessionId=self.session_id,
+                    status='running', settled=False, seq=23, revision=f'task:{self.task_reads}')
+
+    def authorize_task(self, candidate, fresh, bound):
+        self.task_sends = getattr(self, 'task_sends', 0) + 1
+        return dict(binding=candidate, freshRevision=fresh['revision'], result='http-accepted')
+
+    def post_task(self):
+        return dict(sessionId=self.session_id, seq=30, terminalSeq=29, status='idle', settled=True,
+            nextTurn=[], nextStep=[], lastTurnEnd={'turn': 3, 'reason': {'kind': 'completed'}},
+            current=encode(self.current), taskBinding=self.task_candidate,
+            handoffId=self.delivery['handoffId'], claimId=self.task_candidate['claimId'])
+
 
 class DshReceiptAdapterTests(unittest.TestCase):
     host_type = ReceiptHost
@@ -253,6 +277,8 @@ class DshReceiptAdapterTests(unittest.TestCase):
         handoff = self.offer()
         self.assertEqual(self.adapter.core.snapshot.state, State.HANDOFF_OFFERED)
         self.assertIsNone(self.adapter.core.snapshot.receipt_evidence)
+        self.assertIsNone(self.adapter.core.snapshot.continuation_request_id)
+        self.assertEqual(handoff.continuation_turn_id, '')
         self.assertEqual(self.store.read_handoff(handoff.handoff_id).request, handoff.request)
         self.assertTrue(self.adapter.receive_handoff(observe=lambda: self.current))
         self.assertEqual(self.adapter.core.snapshot.state, State.HANDOFF_RECEIVED)
@@ -296,13 +322,16 @@ class DshReceiptAdapterTests(unittest.TestCase):
         return self.adapter.qualify_resume(observe=lambda: self.current,
             reassess=reassess or (lambda document, current: document.recovered.next_action_candidate))
 
-    def test_fresh_unresolved_work_stops_without_second_core_authority(self):
+    def test_fresh_unresolved_work_qualifies_without_consuming_core_authority(self):
         self.received()
         before = self.adapter.core.snapshot
         result = self.qualify()
         self.assertTrue(result['unresolved_work'])
         self.assertFalse(result['continuation_authorized'])
-        self.assertEqual(self.adapter.core.snapshot, before)
+        self.assertEqual(self.adapter.core.snapshot.state, before.state)
+        self.assertIsNone(self.adapter.core.snapshot.continuation_request_id)
+        self.assertEqual(self.adapter.core.snapshot.handoff.continuation_turn_id, '')
+        before = self.adapter.core.snapshot
         self.assertEqual(self.host.post_reads, 2)
         self.assertTrue(before.barrier_requested)
         with self.assertRaises(TransitionError):
@@ -375,6 +404,120 @@ class DshReceiptAdapterTests(unittest.TestCase):
             with self.assertRaises(TransitionError):
                 self.qualify()
         self.assertFalse(hasattr(self.host, 'post_reads'))
+
+    def test_task_binds_actual_identity_and_persists_before_effect(self):
+        import json
+        from pathlib import Path
+        self.received()
+        self.qualify()
+        original = self.host.authorize_task
+        def send(candidate, fresh, bound):
+            snapshot = self.adapter.core.snapshot
+            self.assertEqual(snapshot.handoff.continuation_turn_id, 'dsh-fixture:3')
+            record = json.loads(Path(bound['bindingRecord']).read_text())['payload']
+            self.assertEqual(record['binding']['turn_id'], candidate['turnId'])
+            self.assertEqual(record['binding']['request_id'], snapshot.continuation_request_id)
+            with self.assertRaises(TransitionError):
+                self.adapter.core.claim_continuation(expected_snapshot=snapshot)
+            with self.assertRaises(TransitionError):
+                self.adapter.core.bind_continuation(ContinuationBinding(snapshot.continuation_request_id,
+                    snapshot.thread_id, candidate['turnId']), expected_snapshot=snapshot)
+            return original(candidate, fresh, bound)
+        self.host.authorize_task = send
+        result = self.adapter.continue_task(observe=lambda: self.current)
+        self.assertEqual(result['continuation_completed'], 'PASS')
+        self.assertEqual(result['resume_proof'], 'BLOCKED_BY_EXISTING_CONTRACT')
+        self.assertEqual(self.adapter.core.snapshot.state, State.HANDOFF_RECEIVED)
+        self.assertTrue(self.adapter.core.snapshot.barrier_requested)
+        with self.assertRaises(TransitionError):
+            self.adapter.continue_task(observe=lambda: self.current)
+        self.assertFalse(self.adapter.receive_handoff(observe=lambda: self.current))
+        self.assertEqual((self.host.task_starts, self.host.task_sends, self.host.starts), (1, 1, 1))
+
+    def test_task_without_unresolved_work_never_claims(self):
+        self.received()
+        self.qualify(lambda d, c: None)
+        with self.assertRaises(TransitionError):
+            self.adapter.continue_task(observe=lambda: self.current)
+        self.assertIsNone(self.adapter.core.snapshot.continuation_request_id)
+
+    def test_qualification_cannot_survive_a_later_task_change(self):
+        self.received()
+        self.qualify()
+        self.current = replace(self.current, execution_revision=2)
+        with self.assertRaises(TransitionError):
+            self.adapter.continue_task(observe=lambda: self.current)
+        self.assertIsNone(self.adapter.core.snapshot.continuation_request_id)
+
+    def task_failure(self, method, replacement, *, bound=False, sent=0):
+        self.received()
+        self.qualify()
+        original = getattr(self.host, method)
+        setattr(self.host, method, lambda *args: replacement(original, *args))
+        with self.assertRaises((TransitionError, OSError)):
+            self.adapter.continue_task(observe=lambda: self.current)
+        snapshot = self.adapter.core.snapshot
+        self.assertIsNotNone(snapshot.continuation_request_id)
+        self.assertEqual(bool(snapshot.handoff.continuation_turn_id), bound)
+        self.assertEqual(snapshot.state, State.RECOVERY_REQUIRED)
+        self.assertTrue(self.host.invalidated)
+        with self.assertRaises(TransitionError):
+            self.adapter.continue_task(observe=lambda: self.current)
+        self.assertEqual(getattr(self.host, 'task_sends', 0), sent)
+
+    def test_stale_core_revision_after_claim_blocks_binding(self):
+        def change(original, *args):
+            result = original(*args)
+            self.adapter.core.update_revisions(archive_changed=True)
+            return result
+        self.task_failure('start_task_interaction', change)
+
+    def test_foreign_actual_task_identity_never_binds(self):
+        self.task_failure('start_task_interaction',
+            lambda original, *a: dict(original(*a), turnId='foreign:3'))
+
+    def test_stale_core_revision_after_binding_blocks_release(self):
+        def change(original):
+            result = original()
+            if self.host.task_reads == 2:
+                self.adapter.core.update_revisions(archive_changed=True)
+            return result
+        self.task_failure('fresh_task', change, bound=True)
+
+    def test_stale_task_state_after_binding_blocks_release(self):
+        def change(original):
+            result = original()
+            if self.host.task_reads == 2:
+                self.current = replace(self.current, execution_revision=2)
+            return result
+        self.task_failure('fresh_task', change, bound=True)
+
+    def test_uncertain_task_admission_keeps_claim_consumed(self):
+        def uncertain(original, *args):
+            original(*args)
+            raise OSError('native admission outcome unknown')
+        self.task_failure('start_task_interaction', uncertain)
+
+    def test_uncertain_send_keeps_binding_and_never_resends(self):
+        def uncertain(original, *args):
+            original(*args)
+            raise OSError('task HTTP outcome unknown')
+        self.task_failure('authorize_task', uncertain, bound=True, sent=1)
+
+    def test_binding_record_failure_never_releases_task(self):
+        self.received()
+        self.qualify()
+        original = self.adapter._record
+        def fail(kind, **data):
+            if kind == 'task_bound':
+                raise OSError('durable binding write uncertain')
+            return original(kind, **data)
+        with patch.object(self.adapter, '_record', side_effect=fail):
+            with self.assertRaises(OSError):
+                self.adapter.continue_task(observe=lambda: self.current)
+        self.assertEqual(self.adapter.core.snapshot.handoff.continuation_turn_id, 'dsh-fixture:3')
+        self.assertFalse(hasattr(self.host, 'task_sends'))
+        self.assertTrue(self.host.invalidated)
 
 
 # Each negative gets its own fresh owner/store; no restart or restored authority.

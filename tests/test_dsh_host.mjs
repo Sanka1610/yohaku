@@ -206,3 +206,93 @@ for (const mode of ['duplicate terminal', 'aborted terminal', 'pending inbox', '
     await f.host.dispose();
   });
 }
+
+async function taskHeld() {
+  const f = await acceptedIdle();
+  f.host.nativeCalls = 1;
+  f.host.delivery.handoffHash = hash(f.message.content[0].text);
+  f.host.receiptStarted = true;
+  f.host.createUserMessage = data => ({ id: 'task-input', ...data });
+  f.agent.session.deriveMessages = () => f.log.filter(e => e.type === 'user/message').map(e => e.data);
+  f.dispatches = 0;
+  f.agent.followup = message => {
+    f.agent.status = 'running';
+    f.log.push({ type: 'user/message', seq: f.log.length, data: message });
+    f.agent.session.seq = f.log.length;
+    for (const fn of f.listeners.get('agent/assistant-stream')) {
+      fn({ agent: f.agent, frame: { type: 'start', revision: 2, attemptId: 's-1:3', turn: 3, step: 1 } });
+    }
+    const signal = new AbortController();
+    f.taskSignal = signal;
+    const options = Object.freeze({ sessionId: 's-1', provider: 'messages',
+      messages: f.agent.session.deriveMessages() });
+    const next = async function* () {
+      const prepared = await f.host.prepareExtensions({ sessionId: 's-1', signal: signal.signal,
+        body: { messages: options.messages.map(m => ({ role: 'user', content: m.content })) } });
+      f.dispatches++;
+      await prepared.accept();
+    };
+    f.execution = (async () => {
+      for await (const item of f.listeners.get('llm/stream')[0](options, next)) void item;
+      const end = { type: 'turn/end', seq: f.log.length, data: { turn: 3, reason: { kind: 'completed' } } };
+      f.log.push(end);
+      f.agent.session.seq = f.log.length;
+      for (const fn of f.listeners.get('session/event')) fn(f.agent.session, end);
+      f.agent.status = 'idle';
+      signal.abort();
+    })();
+    f.execution.catch(() => {});
+    f.agent.whenIdle = async () => { await f.execution; };
+  };
+  const post = await f.host.post_receipt();
+  f.taskClaims = await f.host.start_task_interaction('task-claim', 'h-1', 'FINALIZE', post);
+  f.taskFresh = await f.host.fresh_task();
+  f.bound = { claimId: 'task-claim', handoffId: 'h-1', turnId: 's-1:3',
+    bindingRecord: 'local-fixture-bound-record', controlRevision: 20 };
+  return f;
+}
+
+test('task uses observed native turn and waits for saved binding before dispatch', async () => {
+  const f = await taskHeld();
+  assert.equal(f.taskClaims.turnId, 's-1:3');
+  assert.equal(f.taskClaims.nativeAttemptId, 's-1:3');
+  assert.equal(f.taskClaims.taskMessageId, 'task-input');
+  assert.equal(f.dispatches, 0);
+  await assert.rejects(f.host.authorize_receipt(f.taskClaims, f.taskFresh), /cannot release a task/);
+  await f.host.authorize_task(f.taskClaims, f.taskFresh, f.bound);
+  const post = await f.host.post_task();
+  assert.equal(post.lastTurnEnd.turn, 3);
+  assert.equal(post.phase, 'post-task-idle');
+  assert.equal(f.dispatches, 1);
+  await assert.rejects(f.host.start_task_interaction('another', 'h-1', 'FINALIZE', post));
+  await assert.rejects(f.host.authorize_task(f.taskClaims, f.taskFresh, f.bound));
+  assert.equal(f.dispatches, 1);
+  await f.host.dispose();
+});
+
+for (const mode of ['missing binding', 'foreign turn', 'stale task', 'owner loss', 'send abort']) {
+  test('task gate refuses ' + mode + ' and late release', async () => {
+    const f = await taskHeld();
+    if (mode === 'missing binding') f.bound.bindingRecord = '';
+    if (mode === 'foreign turn') f.bound.turnId = 'other:3';
+    if (mode === 'stale task') f.current.execution_revision++;
+    if (mode === 'owner loss') f.agent.session.id = 'foreign';
+    if (mode === 'send abort') f.taskSignal.abort();
+    await assert.rejects(f.host.authorize_task(f.taskClaims, f.taskFresh, f.bound));
+    await assert.rejects(f.execution);
+    await assert.rejects(f.host.authorize_task(f.taskClaims, f.taskFresh, f.bound));
+    assert.equal(f.dispatches, 0);
+    await f.host.dispose();
+  });
+}
+
+test('duplicate task terminal is not a completed new continuation', async () => {
+  const f = await taskHeld();
+  await f.host.authorize_task(f.taskClaims, f.taskFresh, f.bound);
+  await f.execution;
+  f.log.push({ ...f.log.at(-1), seq: f.log.length });
+  f.agent.session.seq = f.log.length;
+  await assert.rejects(f.host.post_task(), /terminal/);
+  assert.equal(f.dispatches, 1);
+  await f.host.dispose();
+});

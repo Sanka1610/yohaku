@@ -157,22 +157,29 @@ export class DshNativeHost {
     this.disposers.push(this.ctx.on('llm/stream', async function* (options, next) {
       if (!host.delivery) { yield* next(); return; }
       try {
-        const d = host.delivery, start = host.latestStart;
-        if (!host.receiptStarted || host.stopped || host.nativeCalls || !Object.isFrozen(options)
+        const d = host.delivery, start = host.latestStart, task = host.task;
+        if (!host.receiptStarted || host.stopped || host.nativeCalls !== (task ? 1 : 0) || !Object.isFrozen(options)
             || options.sessionId !== host.session_id || options.provider !== host.receiptProvider
             || options.purpose !== undefined || options.tools?.length || options.toolHistory?.length
             || options.messages.some(m => m.content.some(b => b.type !== 'text'))
-            || !start || `${host.session_id}:${start.turn}` !== d.turnId || start.step !== 1) {
+            || !start || start.step !== 1
+            || (task ? !Number.isSafeInteger(start.turn) || start.turn <= host.receiptTarget.turn
+              : `${host.session_id}:${start.turn}` !== d.turnId)) {
           throw new Error('request left the qualified one-attempt plain-text profile');
         }
         const members = options.messages.filter(m => m.id === d.messageId);
         if (members.length !== 1 || !same(members[0].content, host.handoffMessage.content)) {
           throw new Error('native handoff MessageId or exact payload mismatch');
         }
+        if (task && !same(options.messages.filter(m => m.id === task.message.id), [task.message])) {
+          throw new Error('actual task input missing from native request');
+        }
         const binding = { sessionId: host.session_id, messageId: d.messageId,
-          handoffId: d.handoffId, turnId: d.turnId, turn: start.turn, step: start.step,
+          handoffId: d.handoffId, turnId: `${host.session_id}:${start.turn}`, turn: start.turn, step: start.step,
           nativeAttemptId: start.attemptId, nativeCall: ++host.nativeCalls,
-          nativeSeq: host.agent.session.seq, handoffHash: d.handoffHash };
+          nativeSeq: host.agent.session.seq, handoffHash: d.handoffHash,
+          ...(task ? { claimId: task.claimId, taskMessageId: task.message.id,
+            taskHash: hash(task.message.content[0].text) } : {}) };
         const iterator = next()[Symbol.asyncIterator]();
         try {
           while (true) {
@@ -212,10 +219,16 @@ export class DshNativeHost {
       await prepared.accept();
       if (!this._currentCandidate(c)) throw new Error('receipt invalidated during acceptance');
       c.accepted = true;
-      this.receiptEvidence = freeze({ profile: RECEIPT_PROFILE,
+      const evidence = freeze({ profile: RECEIPT_PROFILE,
         binding: structuredClone(c.binding), freshRevision: c.fresh.revision,
         authorization: 'one-shot', result: 'http-accepted' });
-      this.receiptDone.resolve(this.receiptEvidence);
+      if (this.task) {
+        this.taskEvidence = evidence;
+        this.taskDone.resolve(evidence);
+      } else {
+        this.receiptEvidence = evidence;
+        this.receiptDone.resolve(evidence);
+      }
     } };
   }
 
@@ -285,7 +298,7 @@ export class DshNativeHost {
     try {
       const native = this.nativeContext.getStore();
       const text = this.handoffMessage.content[0].text;
-      if (!native || this.stopped || this.candidate || this.actualAttempts
+      if (!native || this.stopped || this.candidate || this.actualAttempts !== (this.task ? 1 : 0)
           || request.sessionId !== this.session_id || request.purpose !== undefined
           || this.receiptOptions.retryPolicy?.maxRetries !== 0
           || request.body.tools?.length || request.body.messages.some(m =>
@@ -294,6 +307,11 @@ export class DshNativeHost {
       const texts = request.body.messages.flatMap(m => m.content.map(b => b.text));
       if (texts.filter(t => t === text).length !== 1 || hash(text) !== native.handoffHash) {
         throw new Error('serialized exact handoff incorporation mismatch');
+      }
+      if (this.task && (native.claimId !== this.task.claimId
+          || native.taskMessageId !== this.task.message.id
+          || texts.filter(t => t === this.task.message.content[0].text).length !== 1)) {
+        throw new Error('serialized exact task incorporation mismatch');
       }
       const binding = freeze({ ...native, profile: RECEIPT_PROFILE,
         hostEpoch: this.epoch, hostAttempt: ++this.actualAttempts,
@@ -309,7 +327,7 @@ export class DshNativeHost {
       this.disposers.push(() => request.signal.removeEventListener('abort', onAbort));
       if (request.signal.aborted) onAbort();
       if (!this._currentCandidate(c)) throw new Error('gate aborted before observation');
-      this.gateReady.resolve(structuredClone(binding));
+      (this.task ? this.taskReady : this.gateReady).resolve(structuredClone(binding));
       await c.release.promise;
       if (!this._currentCandidate(c) || !c.authorized) throw new Error('late authorization rejected');
       return undefined; // Gate contributes no extra DeepSeek field.
@@ -321,6 +339,9 @@ export class DshNativeHost {
       && this.agent.id === c.binding.sessionId && this.agent.session.id === c.binding.sessionId
       && this.latestStart?.attemptId === c.binding.nativeAttemptId
       && this.receiptOptions.retryPolicy?.maxRetries === 0
+      && (!this.task || (c.binding.claimId === this.task.claimId
+        && c.binding.taskMessageId === this.task.message.id
+        && c.binding.taskHash === hash(this.task.message.content[0].text)))
       && hash(this.handoffMessage.content[0].text) === c.binding.handoffHash
       && hash(JSON.stringify({ ...c.body })) === c.binding.bodyHash;
   }
@@ -345,6 +366,11 @@ export class DshNativeHost {
   }
 
   async authorize_receipt(binding, fresh) {
+    if (this.task) throw new Error('receipt authority cannot release a task');
+    return this._authorizeAttempt(binding, fresh, this.receiptDone);
+  }
+
+  async _authorizeAttempt(binding, fresh, done) {
     const c = this.candidate;
     if (!this._currentCandidate(c) || c.authorized || !same(binding, c.binding)
         || !c.fresh || !same(fresh, c.fresh)) {
@@ -359,12 +385,12 @@ export class DshNativeHost {
     }
     c.authorized = true;
     c.release.resolve();
-    return this.receiptDone.promise;
+    return done.promise;
   }
 
   async post_receipt() {
     // A gate direct read cannot establish settled post-receipt task state.
-    if (!this.receiptEvidence || !this.candidate?.accepted || this.stopped) {
+    if (!this.receiptEvidence || !this.candidate?.accepted || this.stopped || this.task) {
       throw new Error('accepted receipt required before post-receipt observation');
     }
     const native = await this.observe();
@@ -391,6 +417,75 @@ export class DshNativeHost {
       phase: 'post-receipt-idle' });
   }
 
+  async start_task_interaction(claimId, handoffId, action, expected) {
+    if (this.task || this.stopped || !claimId || handoffId !== this.delivery?.handoffId
+        || typeof action !== 'string' || !action.trim()) throw new Error('one owned task claim required');
+    try {
+      const post = await this.post_receipt();
+      if (!same({ ...post, revision: null }, { ...expected, revision: null })) {
+        throw new Error('post-receipt state changed before task admission');
+      }
+      const message = freeze(this.createUserMessage({ source: { kind: 'user' },
+        content: [{ type: 'text', text: action }] }));
+      // Consume before native admission. The turn is observed later, never reserved.
+      this.task = freeze({ claimId, handoffId, message, current: post.current });
+      this.candidate = null;
+      this.taskReady = deferred();
+      this.taskDone = deferred();
+      this.agent.followup(message);
+      return await this.taskReady.promise;
+    } catch (error) { this.invalidate_receipt(error.message); throw error; }
+  }
+
+  async fresh_task() {
+    if (!this.task) throw new Error('no task interaction');
+    try {
+      const fresh = await this.fresh_receipt();
+      const messages = this.agent.session.deriveMessages();
+      if (!same(messages.filter(m => m.id === this.task.message.id), [this.task.message])
+          || !same(fresh.current, this.task.current)) throw new Error('stale actual task projection');
+      return fresh;
+    } catch (error) { this.invalidate_receipt(error.message); throw error; }
+  }
+
+  async authorize_task(binding, fresh, bound) {
+    if (!this.task || !bound || bound.claimId !== this.task.claimId
+        || bound.handoffId !== this.task.handoffId || bound.turnId !== this.candidate?.binding.turnId
+        || typeof bound.bindingRecord !== 'string' || !bound.bindingRecord
+        || !Number.isSafeInteger(bound.controlRevision) || bound.controlRevision < 1) {
+      this.invalidate_receipt('missing durable task binding');
+      throw new Error('missing durable task binding');
+    }
+    // The serialized Python owner attests its saved Core binding. This host
+    // independently rechecks native ownership, identity, seq and current task.
+    return this._authorizeAttempt(binding, fresh, this.taskDone);
+  }
+
+  async post_task() {
+    if (!this.taskEvidence || !this.task || !this.candidate?.accepted || this.stopped) {
+      throw new Error('accepted task request required');
+    }
+    const native = await this.observe();
+    const fresh = await this._directRead();
+    const messages = structuredClone(this.agent.session.deriveMessages());
+    const binding = this.taskEvidence.binding;
+    const ends = fresh.readbackEvents.filter(e => e.type === 'turn/end' && e.data.turn === binding.turn);
+    const inputs = fresh.readbackEvents.filter(e => e.type === 'user/message'
+      && e.data.id === this.task.message.id);
+    if (native.status !== 'idle' || !native.settled || native.nextTurn.length || native.nextStep.length
+        || fresh.seq !== native.seq || fresh.status !== 'idle' || this.stopped
+        || native.lastTurnEnd.turn !== binding.turn || ends.length !== 1
+        || ends[0].seq < binding.nativeSeq || ends[0].data.reason?.kind !== 'completed'
+        || !same(native.lastTurnEnd, ends[0].data) || inputs.length !== 1
+        || !same(inputs[0].data, this.task.message)
+        || !same(messages.filter(m => m.id === this.task.message.id), [this.task.message])
+        || !same(fresh.current, this.task.current) || this.actualAttempts !== 2 || this.nativeCalls !== 2
+        || this.agent.session.seq !== fresh.seq) throw new Error('task terminal/readback mismatch');
+    return structuredClone({ ...native, current: fresh.current, messages,
+      handoffId: this.task.handoffId, claimId: this.task.claimId, taskBinding: binding,
+      terminalSeq: ends[0].seq, revision: `${this.epoch}:${++this.freshRevision}`, phase: 'post-task-idle' });
+  }
+
   invalidate_receipt(reason) {
     if (this.candidate) {
       this.candidate.invalid = true;
@@ -399,6 +494,8 @@ export class DshNativeHost {
     this.stopped = true;
     this.gateReady?.reject(new Error(reason));
     this.receiptDone?.reject(new Error(reason));
+    this.taskReady?.reject(new Error(reason));
+    this.taskDone?.reject(new Error(reason));
     if (this.delivery) this.agent.cancel({ kind: 'hook', reason }, { keepInbox: true });
   }
 

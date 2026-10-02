@@ -113,11 +113,11 @@ class DshNativeCompletionPolicy:
 
 
 class DshReceiptCompletionPolicy(DshNativeCompletionPolicy):
-    """The completion predicate is unchanged; only an owned receipt turn is allowed."""
-    receipt_turn = None
+    """Completion is unchanged; task binding requires an observed owned turn."""
+    task_turn = None
 
     def permits_continuation(self, binding, continuation):
-        return (self.valid_binding(binding) and self.receipt_turn == continuation
+        return (self.valid_binding(binding) and self.task_turn == continuation
                 and continuation.thread_id == binding.session_id)
 
 
@@ -295,21 +295,19 @@ class DshAdapter:
             target = self.host.reserve_receipt()
             if target['sessionId'] != s.thread_id or not target['turnId']:
                 raise TransitionError('receipt target Session mismatch')
-            permit = self.core.claim_continuation()
-            binding = ContinuationBinding(permit, s.thread_id, target['turnId'])
-            self.core._completion_policy.receipt_turn = binding
-            self._record('receipt_turn_reserved', binding=asdict(binding), target=target)
+            self._record('receipt_turn_reserved', target=target)
             self.store.commit_handoff(document)
             if self.store.read_handoff(document.handoff_id) != document:
                 raise TransitionError('durable handoff readback mismatch')
-            handoff = self.core.offer_handoff(binding, handoff_id=document.handoff_id,
-                recovered_context=f'handoff:{document.handoff_id}')
+            handoff = self.core.offer_handoff(None, handoff_id=document.handoff_id,
+                recovered_context=f'handoff:{document.handoff_id}', expected_snapshot=s)
+            self._record('handoff_offered', handoff=asdict(handoff))
             text = document.render()
-            delivery = self.host.deliver_handoff(handoff.handoff_id, binding.turn_id, text)
+            delivery = self.host.deliver_handoff(handoff.handoff_id, target['turnId'], text)
             expected_hash = sha256(text.encode()).hexdigest()
             if (delivery['sessionId'] != s.thread_id or not delivery['messageId']
                     or delivery['handoffId'] != handoff.handoff_id
-                    or delivery['turnId'] != binding.turn_id
+                    or delivery['turnId'] != target['turnId']
                     or delivery['handoffHash'] != expected_hash
                     or delivery['nonWaking'] is not True or delivery['durable'] is not True):
                 raise TransitionError('non-waking delivery proof mismatch')
@@ -337,7 +335,8 @@ class DshAdapter:
             if (candidate['handoffId'] != h.handoff_id
                     or candidate['sessionId'] != h.request.thread_id
                     or candidate['messageId'] != d['messageId']
-                    or candidate['turnId'] != h.continuation_turn_id
+                    or candidate['turnId'] != d['turnId']
+                    or h.continuation_turn_id or self.core.snapshot.continuation_request_id is not None
                     or candidate['handoffHash'] != d['handoffHash']
                     or candidate['profile'] != DSH_RECEIPT_PROFILE):
                 raise TransitionError('receipt candidate identity mismatch')
@@ -367,14 +366,12 @@ class DshAdapter:
     def qualify_resume(self, *, observe, reassess):
         """Re-read settled state and reassess historical work; grants no dispatch.
 
-        R4-I consumed the existing Core permit on receipt inspection. A separate
-        post-receipt turn has no Core authority or ResumeProof turn binding.
-        Stop at HANDOFF_RECEIVED rather than rebinding or fabricating a proof.
         reassess(document, current) returns the still-unresolved historical next
         action, or None when that work is already complete, from trusted reads.
         """
         s = self.core.snapshot
         if (self.stopped or s.state != State.HANDOFF_RECEIVED or not s.receipt_evidence
+                or s.handoff.continuation_turn_id or s.continuation_request_id is not None
                 or not hasattr(self, 'receipt') or hasattr(self, 'resume_qualification')):
             raise TransitionError('one received handoff required for resume qualification')
         try:
@@ -398,7 +395,7 @@ class DshAdapter:
                     or native['revision'] == native['receiptFreshRevision']
                     or native['seq'] <= native['terminalSeq']
                     or native['terminalSeq'] < binding['nativeSeq']
-                    or f"{native['sessionId']}:{native['lastTurnEnd']['turn']}" != s.handoff.continuation_turn_id
+                    or f"{native['sessionId']}:{native['lastTurnEnd']['turn']}" != self.delivery['turnId']
                     or native['lastTurnEnd']['reason'].get('kind') != 'completed'
                     or len(messages) != 1
                     or messages[0]['content'] != [{'type': 'text', 'text': document.render()}]):
@@ -414,15 +411,106 @@ class DshAdapter:
             if (observe() != current or comparable != {k: v for k, v in native.items() if k != 'revision'}
                     or after['revision'] == native['revision']):
                 raise TransitionError('post-receipt state changed during reassessment')
+            self.core.reconcile_resume_context(intent_revision=current.intent_revision,
+                execution_revision=current.execution_revision, workspace=current.workspace)
+            self._qualified = (current, next_action, after, self.core.snapshot)
             result = dict(fresh_state='PASS', unresolved_work=next_action is not None,
                 historical_next_action_reevaluated=True, current=encode(current),
                 observation_ref=ref, continuation_authorized=False,
-                stop_reason=('existing Core permit consumed by receipt inspection; '
-                             'handoff turn binds receipt, not a new post-receipt turn'
-                             if next_action is not None else 'no unresolved work'))
-            self._record('resume_qualification_stopped', **result)
+                stop_reason=('awaiting explicit continuation' if next_action is not None
+                             else 'no unresolved work'))
+            self._record('resume_qualified', **result)
             self.resume_qualification = result
             return result
         except BaseException:
             self._stop_receipt('DSH post-receipt reconciliation failed; no continuation')
+            raise
+
+    def continue_task(self, *, observe):
+        """One reassessed text interaction; bind its observed turn before release.
+
+        Host reads are not tool observations. This no-tool profile stops after
+        completion without constructing ResumeProof or clearing the Core barrier.
+        """
+        if (self.stopped or not hasattr(self, '_qualified')
+                or self.core.snapshot.continuation_request_id is not None):
+            raise TransitionError('fresh qualification and an unused task claim required')
+        current, action, post, qualified = self._qualified
+        if action is None:
+            raise TransitionError('no unresolved work')
+        try:
+            fresh_post = self.host.post_receipt()
+            if (self.core.snapshot != qualified or observe() != current
+                    or fresh_post['revision'] == post['revision']
+                    or {k: v for k, v in fresh_post.items() if k != 'revision'} !=
+                       {k: v for k, v in post.items() if k != 'revision'}):
+                raise TransitionError('qualification changed before task claim')
+            document = self.store.read_handoff(qualified.handoff.handoff_id)
+            if (document.request != qualified.request
+                    or sha256(document.render().encode()).hexdigest() != self.delivery['handoffHash']):
+                raise TransitionError('task handoff changed')
+            claim = self.core.claim_continuation(expected_snapshot=qualified)
+            claimed = self.core.snapshot
+            self._record('task_claimed', claim_id=claim, handoff=asdict(claimed.handoff),
+                         current=encode(current), revisions=asdict(claimed.revisions),
+                         next_action=action, observation=fresh_post)
+            if observe() != current or self.core.snapshot != claimed:
+                raise TransitionError('current state changed after task claim')
+            candidate = self.host.start_task_interaction(claim, claimed.handoff.handoff_id,
+                                                         action, fresh_post)
+            if (candidate['sessionId'] != claimed.thread_id
+                    or candidate['handoffId'] != claimed.handoff.handoff_id
+                    or candidate['claimId'] != claim
+                    or type(candidate['turn']) is not int
+                    or candidate['turn'] <= self.receipt['binding']['turn']
+                    or candidate['turnId'] != f"{claimed.thread_id}:{candidate['turn']}"
+                    or candidate['step'] != 1 or candidate['nativeSeq'] <= fresh_post['seq']
+                    or not candidate['taskMessageId']
+                    or candidate['taskHash'] != sha256(action.encode()).hexdigest()):
+                raise TransitionError('foreign or unobserved task identity')
+            fresh = self.host.fresh_task()
+            if (observe() != current or fresh['current'] != encode(current)
+                    or fresh['sessionId'] != claimed.thread_id or fresh['status'] != 'running'
+                    or fresh['seq'] < candidate['nativeSeq']):
+                raise TransitionError('task gate state changed before binding')
+            binding = ContinuationBinding(claim, claimed.thread_id, candidate['turnId'])
+            self.core._completion_policy.task_turn = binding
+            handoff = self.core.bind_continuation(binding, expected_snapshot=claimed)
+            bound = self.core.snapshot
+            ref = self._record('task_bound', binding=asdict(binding), handoff=asdict(handoff),
+                               revisions=asdict(bound.revisions), candidate=candidate, fresh=fresh)
+            final = self.host.fresh_task()
+            if (self.core.snapshot != bound or observe() != current
+                    or final['revision'] == fresh['revision']
+                    or {k: v for k, v in final.items() if k != 'revision'} !=
+                       {k: v for k, v in fresh.items() if k != 'revision'}):
+                raise TransitionError('current state changed after task binding')
+            authorization = dict(claimId=claim, handoffId=handoff.handoff_id,
+                turnId=binding.turn_id, bindingRecord=ref, controlRevision=bound.revisions.control_revision)
+            self._record('task_release_authorized', authorization=authorization, fresh=final)
+            if self.core.snapshot != bound or observe() != current:
+                raise TransitionError('task release state changed')
+            accepted = self.host.authorize_task(candidate, final, authorization)
+            if (accepted['binding'] != candidate or accepted['freshRevision'] != final['revision']
+                    or accepted['result'] != 'http-accepted'):
+                raise TransitionError('task dispatch outcome uncertain')
+            self._record('task_http_accepted', evidence=accepted)
+            native = self.host.post_task()
+            self._idle(native)
+            end = native['lastTurnEnd']
+            if (self.core.snapshot != bound or native['taskBinding'] != candidate
+                    or native['handoffId'] != handoff.handoff_id or native['claimId'] != claim
+                    or end['turn'] != candidate['turn'] or end['reason'].get('kind') != 'completed'
+                    or native['terminalSeq'] < candidate['nativeSeq']
+                    or native['seq'] <= native['terminalSeq']
+                    or native['current'] != encode(observe())
+                    or native['current'] != encode(current)):
+                raise TransitionError('task terminal or final current state mismatch')
+            result = dict(continuation_completed='PASS', native=native,
+                          resume_proof='BLOCKED_BY_EXISTING_CONTRACT', resume_verified='NOT_REACHED')
+            self._record('task_completed', **result)
+            self.task_result = result
+            return result
+        except BaseException:
+            self._stop_receipt('DSH task dispatch/binding/completion uncertain; no retry')
             raise
