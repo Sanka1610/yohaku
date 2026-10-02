@@ -136,7 +136,9 @@ Exact duplicate completionはidempotentなno-opとして扱い、二つ目のhan
 continuation dispatchを作らない。異なるnative operationを同じcompletionのduplicateと推定することも、
 同じeventを新しいgenerationのcompletionへ転用することも認めない。
 
-共有seamは[`CompletionPolicy`](../../src/yohaku/completion.py)です。Policyはbindingと蓄積eventを評価し、trigger、transport、event capture、storage readbackはadapter / hostが所有します。具体的なpredicateは[Codex](../runtimes/codex.md)、[Hermes](../runtimes/hermes.md)、[Claude Code CLI](../runtimes/claude-code-cli.md)、[OpenCode](../runtimes/opencode.md)を参照してください。
+共有seamは[`CompletionPolicy`](../../src/yohaku/completion.py)です。Policyはbindingと蓄積eventを評価し、trigger、transport、event capture、storage readbackはadapter / hostが所有します。具体的なpredicateは[Codex](../runtimes/codex.md)、[Hermes](../runtimes/hermes.md)、[Claude Code CLI](../runtimes/claude-code-cli.md)、[OpenCode](../runtimes/opencode.md)、[DSH](../runtimes/dsh.md)を参照してください。
+
+DSHは同processのnative serviceへ[`dsh_host.mjs`](../../src/yohaku/dsh_host.mjs)から接続します。Python ownerへ渡す`observe` / `work` / `compact` / `project`のtransportはembedding hostが用意し、操作を直列化します。DSH binding / completionをschema-1 snapshot journalへ保存せず、既存checkpointとadapter固有decision recordだけを保存します。限定profileのcompletionとfresh projectionの条件は[DSH](../runtimes/dsh.md)を参照してください。
 
 ## Storage contract
 
