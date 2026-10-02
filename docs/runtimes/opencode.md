@@ -96,10 +96,48 @@ Adapterはactual native IDを`bind_continuation()`へ渡し、そのSnapshotを�
 
 Local controlled providerによるfresh acceptanceで、stage one、receipt、stage twoのnative markerを
 各一回、task provider execution一回、binding保存後のdispatch、final fresh stateを確認しました。
-このtext-only continuationには成功したtool observation IDがないため、既存`ResumeProof`は
-`BLOCKED_BY_EXISTING_CONTRACT`、`RESUME_VERIFIED`は`NOT_REACHED`です。Host file readをtoolと扱わず、
-Core stateは`HANDOFF_RECEIVED`で停止します。Send / completion / durable writeが不確かな場合は
-claim / bindingを戻さず`RECOVERY_REQUIRED`へ停止し、blind retryしません。
+R4-P-Iでは、この限定profileで`verify_resume(assess=...)`まで接続し、既存の
+`Controller.verify_resume()`による`RESUME_VERIFIED`を確認しました。既存`ResumeProof`は使用せず、
+Coreのmodel・verification semantics・保存形式も変更していません。
+
+`final_observation()`の後、ownerが`verify_resume()`を一回呼びます。Adapterは保存済みの
+claim、actual inputのbinding、task専用observation・authorization・seal・completion、final observationを
+照合します。Receipt inputとtask inputは別identityであり、receiptのbody hash・attempt・authorization・
+terminal observationをtask completionの証拠へ流用しません。Bindingがauthorizationとsealに先行して
+保存されたことも確認します。新しいAPI readで取得したcontextを独立SQLiteのtranscript・queueと照合し、
+同じSession・bound input、`finish="stop"`、successful idle、active / pendingなしを要求します。
+
+`assess(document, current, state)`はtrusted embedding hostのbounded task assessorです。
+毎回task fileとprovider側の観測を読み、同じ未完了actionの完了とnonduplicationを検査します。
+Model output、callerが指定したPASS、cached assessmentを渡す入口ではありません。戻り値は
+既存recordへ保存する小さな辞書で、次の値を持ちます。
+
+| Field | このprofileで照合する値 |
+|---|---|
+| `status` | task assessmentの`PASS` |
+| `current` | 新しく読んだtask / workspaceに基づく`encode(current)` |
+| `task_input_id` / `terminal_id` | actual taskのnative user input / successful assistant message ID |
+| `provider_attempts` | provider側で観測した全task実行。`native_id`、`host_local_attempt_id`、`body_sha256`を持つ一件だけのlist |
+| `task_observation_ref` | trusted hostが保存したtask assessmentの参照 |
+| `stage_one_count` / `receipt_count` / `stage_two_count` | 独立transcriptで数えた`STAGE_ONE_DONE` / `RECEIPT_ONLY` / `STAGE_TWO_DONE`が各1回 |
+| `tool_execution_count` | run全体で0回 |
+
+Marker名はこのbounded taskのcriteriaです。Adapterのnative terminal判定はmarker文字列に依存しません。
+Assessorは保存recordの参照先も保持し、actual task state・revisionと各countの根拠を検査する責務を持ちます。
+Markerだけ、またはbooleanだけではverificationになりません。
+
+Adapterはassessment前後のfresh readが一致することを確認し、既存`_record()`で
+`runtime_resume_verification`を保存します。新しいrecordはHandoff、receiptとtaskのidentity、claim、
+task attempt、各保存recordへの参照、final revision、assessmentとnonduplicationを持ちます。
+既存transcriptやbodyの全payloadは複製しません。保存後にもassessor、API / SQLite / task read、
+保存済みchainとCore Snapshotを再確認し、既存`ResumeVerification`を構成してCoreへ渡します。
+成功時は`resume_verified`を記録します。最終検証もSSEをauthorityにしません。
+
+Send / completion / durable writeが不確かな場合はclaim / bindingを戻さず停止し、blind retryしません。
+最終検証の失敗やCoreからの拒否でもadapterはstateを修復せず、ownerを停止します。
+Verification recordの保存に失敗した場合、Coreのverifyは呼びません。Core成功後の成功記録保存に
+失敗した場合はCoreのin-memory stateが`RESUME_VERIFIED`でもownerを停止し、成功を返しません。
+二回目のverifyは拒否します。
 
 R3 completionのSSEはvolatileです。切断・必要event欠落・identity競合時は`AMBIGUOUS`または
 attachment停止とし、再送やcompletionの推測をしません。OpenCode proofはin-memoryで、
@@ -108,7 +146,10 @@ dispatch前のCore requestまでです。Restart、proof restore、observation-l
 `UNSUPPORTED`です。Native transcriptはYohaku checkpointやarchiveへ変換しません。
 
 R4のretry-enabled path、restart、cross-process recovery、unknown plugin graph、later mutator、
-parallel / background / subagent、external client、DCPはunsupportedです。
+tools-enabled receipt、parallel / background / subagent、external client、DCPはunsupportedです。
 General tool incorporation、external client conflict、background / parallel work、
 plugin conflict、crash / power-loss durabilityは`NOT_RUN`です。Hostの排他的利用条件は
 Runtime-wide atomic freezeを意味しません。共有契約は[Adapter Contract](../development/adapter-contract.md)を参照してください。
+Hostは宣言したtask / workspace scopeに対する外部変更を最終検証中も排除し、各observerで新しく読みます。
+今回のPASSは実OpenCodeとlocal controlled providerによる一回のbounded acceptanceです。
+実model inference、一般taskの品質、installed wheelでの今回の経路は`NOT_RUN`です。
