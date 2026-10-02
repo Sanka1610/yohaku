@@ -109,6 +109,15 @@ class HermesAdapterTests(unittest.TestCase):
         with self.assertRaises(TransitionError):
             self.a.compress(observe=self.observe, now=lambda: 1)
 
+    def test_context_assist_failure_preserves_receipt_and_resume(self):
+        self.completed()
+        with patch('yohaku.context_assist.build_task_context', side_effect=RuntimeError('builder')) as build:
+            self.continued()
+        build.assert_called_once()
+        self.assertEqual(self.a.handoff_text, self.a.document.render(context_assist=False))
+        self.a.verify_resume(observe=self.observe, assess=self.proof)
+        self.assertEqual(self.a.core.snapshot.state, State.RESUME_VERIFIED)
+
     def test_native_return_and_count_without_history_change_are_ambiguous(self):
         self.checkpoint()
         self.host._manual_compress = lambda cmd: setattr(self.host.agent.context_compressor, 'compression_count', 1)

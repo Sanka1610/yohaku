@@ -580,7 +580,7 @@ class OpenCodeReceiptAdapter(OpenCodeAdapter):
                 if self.store.read_handoff(document.handoff_id) != document:
                     raise TransitionError("durable handoff readback mismatch")
                 self.document = document
-                self.payload = document.render() + (
+                self.payload = document.render(checkpoint=s.checkpoint) + (
                     "\nReceipt inspection only. Reply RECEIPT_ONLY without tools. "
                     "Do not continue the task or repeat completed work.")
                 self.payload_hash = sha256(self.payload.encode()).hexdigest()

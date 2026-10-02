@@ -191,6 +191,7 @@ class ReceiptHost(Host):
 
     def deliver_handoff(self, handoff_id, turn_id, text):
         from hashlib import sha256
+        self.handoff_text = text
         self.delivery = dict(sessionId=self.session_id, handoffId=handoff_id,
             messageId='native-handoff', turnId=turn_id, handoffHash=sha256(text.encode()).hexdigest(),
             durable=True, nonWaking=True)
@@ -221,7 +222,7 @@ class ReceiptHost(Host):
             status='idle', settled=True, nextTurn=[], nextStep=[],
             lastTurnEnd={'turn': 2, 'reason': {'kind': 'completed'}},
             current=encode(self.current), messages=[{'id': self.delivery['messageId'],
-                'content': [{'type': 'text', 'text': self.document.render()}]}],
+                'content': [{'type': 'text', 'text': self.handoff_text}]}],
             handoffId=self.delivery['handoffId'], messageId=self.delivery['messageId'],
             receiptBinding=self.receipt['binding'], receiptFreshRevision=self.receipt['freshRevision'],
             revision=f'local-owner:{self.post_reads + 1}', phase='post-receipt-idle'))
@@ -573,6 +574,25 @@ class DshFinalVerificationTests(unittest.TestCase):
 
     def verify(self):
         return self.adapter.verify_finalized(observe=lambda: self.current)
+
+    def test_context_assist_failure_at_delivery_keeps_exact_fallback_through_resume(self):
+        with patch('yohaku.context_assist.build_task_context', side_effect=RuntimeError('builder')):
+            self.received()
+        self.assertEqual(self.adapter.handoff_text, self.host.document.render(context_assist=False))
+        self.qualify()
+        self.adapter.continue_task(observe=lambda: self.current)
+        self.verify()
+        self.assertEqual(self.adapter.core.snapshot.state, State.RESUME_VERIFIED)
+
+    def test_later_builder_failure_cannot_change_delivered_context(self):
+        self.received()
+        self.assertIn('Historical task context', self.adapter.handoff_text)
+        with patch('yohaku.context_assist.build_task_context', side_effect=RuntimeError('builder')) as build:
+            self.qualify()
+            self.adapter.continue_task(observe=lambda: self.current)
+            self.verify()
+        build.assert_not_called()
+        self.assertEqual(self.adapter.core.snapshot.state, State.RESUME_VERIFIED)
 
     def rejected(self):
         with patch.object(self.adapter.core, 'verify_resume') as verify:

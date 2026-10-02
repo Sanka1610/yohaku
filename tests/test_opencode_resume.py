@@ -99,6 +99,14 @@ class ResumeVerificationTests(unittest.TestCase):
         self.a.task_completion = self.a.core.snapshot.receipt_evidence
         self.rejected()
 
+    def test_context_assist_failure_preserves_receipt_and_resume(self):
+        with patch('yohaku.context_assist.build_task_context', side_effect=RuntimeError('builder')) as build:
+            self.completed()
+        build.assert_called_once()
+        self.assertTrue(self.a.payload.startswith(self.a.document.render(context_assist=False)))
+        self.a.verify_resume(assess=self.assessment)
+        self.assertEqual(self.a.core.snapshot.state, State.RESUME_VERIFIED)
+
     def test_receipt_authorization_reuse_rejected(self):
         self.completed()
         self.a.task_candidate["authorization_ref"] = self.a.candidate["authorization_ref"]

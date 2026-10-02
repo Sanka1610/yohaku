@@ -132,10 +132,11 @@ class ClaudeCLIRecoveryAdapter(ClaudeCLIAdapter):
             self.continuation = ClaudeContinuationBinding(permit, s.thread_id, uuid4().hex,
                 s.binding.attachment_id, s.request.request_id, s.request.rollover_generation)
             self.last_seq = s.completions[0].closed_seq
-            self.prompt = self.document.render() + "\n[Current Yohaku recovery instructions]\n" + instructions(self.receipt_fields())
+            handoff_text = self.document.render(checkpoint=s.checkpoint)
+            self.prompt = handoff_text + "\n[Current Yohaku recovery instructions]\n" + instructions(self.receipt_fields())
             if len(self.prompt.encode()) > 100000:
                 self._stop("oversized recovery input")
-            self.core.offer_handoff(self.continuation, recovered_context=self.document.render(),
+            self.core.offer_handoff(self.continuation, recovered_context=handoff_text,
                                    handoff_id=self.document.handoff_id)
             self._record("handoff_offered", binding=asdict(self.continuation),
                          receipt=self.receipt_fields(), prompt_hash=digest(self.prompt))

@@ -304,7 +304,8 @@ class DshAdapter:
             handoff = self.core.offer_handoff(None, handoff_id=document.handoff_id,
                 recovered_context=f'handoff:{document.handoff_id}', expected_snapshot=s)
             self._record('handoff_offered', handoff=asdict(handoff))
-            text = document.render()
+            self.document = document
+            text = self.handoff_text = document.render(checkpoint=s.checkpoint)
             delivery = self.host.deliver_handoff(handoff.handoff_id, target['turnId'], text)
             expected_hash = sha256(text.encode()).hexdigest()
             if (delivery['sessionId'] != s.thread_id or not delivery['messageId']
@@ -381,7 +382,8 @@ class DshAdapter:
             if (document.request != s.request or document.workspace != self.current.workspace
                     or document.revisions != s.checkpoint.revisions
                     or document.recovered.logical_task_id != self.current.logical_task_id
-                    or sha256(document.render().encode()).hexdigest() != self.delivery['handoffHash']):
+                    or document != self.document
+                    or sha256(self.handoff_text.encode()).hexdigest() != self.delivery['handoffHash']):
                 raise TransitionError('old or changed handoff')
             native = self.host.post_receipt()
             self._idle(native)
@@ -400,7 +402,7 @@ class DshAdapter:
                     or f"{native['sessionId']}:{native['lastTurnEnd']['turn']}" != self.delivery['turnId']
                     or native['lastTurnEnd']['reason'].get('kind') != 'completed'
                     or len(messages) != 1
-                    or messages[0]['content'] != [{'type': 'text', 'text': document.render()}]):
+                    or messages[0]['content'] != [{'type': 'text', 'text': self.handoff_text}]):
                 raise TransitionError('stale post-receipt task, revision or Session')
             ref = self._record('post_receipt_observed', observation=native)
             next_action = reassess(document, current)
@@ -449,7 +451,8 @@ class DshAdapter:
                 raise TransitionError('qualification changed before task claim')
             document = self.store.read_handoff(qualified.handoff.handoff_id)
             if (document.request != qualified.request
-                    or sha256(document.render().encode()).hexdigest() != self.delivery['handoffHash']):
+                    or document != self.document
+                    or sha256(self.handoff_text.encode()).hexdigest() != self.delivery['handoffHash']):
                 raise TransitionError('task handoff changed')
             claim = self.core.claim_continuation(expected_snapshot=qualified)
             claimed = self.core.snapshot
@@ -541,7 +544,8 @@ class DshAdapter:
                     or document.recovered.unresolved != ('FINALIZE',)
                     or action != 'Produce FINALIZED exactly once after current task reconciliation.'
                     or document.recovered.next_action_candidate != action
-                    or sha256(document.render().encode()).hexdigest() != self.delivery['handoffHash']
+                    or document != self.document
+                    or sha256(self.handoff_text.encode()).hexdigest() != self.delivery['handoffHash']
                     or observe() != current
                     or (s.revisions.intent_revision, s.revisions.execution_revision, s.workspace) !=
                        (current.intent_revision, current.execution_revision, current.workspace)):

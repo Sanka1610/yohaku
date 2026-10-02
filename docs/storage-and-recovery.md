@@ -107,6 +107,26 @@ Handoffはdispatch前にdurable commitする。Continuation permitを一回だ�
 Runtimeへのsendより前にjournalへ保存する。Sendが例外またはunknown outcomeになった場合は、
 permitを戻さず`RECOVERY_REQUIRED`へ進み、同じcontinuationをblind resendしない。
 
+### Context Assist Stage 1
+
+`HandoffDocument.render()`は、既存の`RecoveredData`をtask再開向けのstructured textへ整形する。
+Goal、completed、unresolved、next-action candidate、workspace / Archive参照を原文のまま表示し、
+呼出側が渡したCheckpointのverificationも保持する。検証結果はhistorical sourceの記録であり、
+task完了や`RESUME_VERIFIED`の判定には使わない。Emergency progressは`unverified`のまま、
+completedとは別に表示する。
+
+Rendererへ明示済み制約を`constraints=((text, source_ref), ...)`で渡せる。既に選択・取得した
+`ArchiveTurn`を`archives=(turn, ...)`で渡した場合は、そのdecisions、verification summary、referencesも
+表示する。対象はHandoffが参照するArchiveに限る。通常のadapter経路では既存のrecovery情報と
+Checkpointを使い、Archive IDを保持するだけで本文を追加取得しない。制約や判断理由を自由文から
+推測したり、Archiveのprogressをcompletedへ移したりしない。
+
+これはmodelやnetworkを使わない任意の表示補助である。永続フィールド、Coreの状態遷移、receipt、
+continuation permit、fresh reconciliation、resume検証は変更しない。Builder例外や表示上限超過時は
+従来のrecovered JSONへ戻す。構造化本文の上限はUTF-8で16 KiB、元のJSONからの増加は2 KiBまでである。
+制約は16件、取得済みArchiveは4件までとし、上限を超えた場合も途中で切らずfallbackする。
+`render(context_assist=False)`で従来の表示を選べる。保存形式と設定schemaは共通のままである。
+
 ## Archive / archive index
 
 Yohaku archiveは、hostが明示的に選びredactしたterminal visible turnを保存する。COLD record

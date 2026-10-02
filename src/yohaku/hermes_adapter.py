@@ -141,7 +141,7 @@ class HermesCLIAdapter:
             if not any(text(value) == self.prompt for value in texts):
                 self._stop('handoff absent from native outgoing user input')
             self.core.offer_handoff(ContinuationBinding(self.core.snapshot.continuation_request_id,
-                self.host.session_id, turn), recovered_context=self.document.render(),
+                self.host.session_id, turn), recovered_context=self.handoff_text,
                 handoff_id=self.document.handoff_id)
             self.injection = self._record('handoff_in_request', turn_id=turn,
                                          prompt_hash=digest(self.prompt))
@@ -287,7 +287,8 @@ class HermesCLIAdapter:
         self.document = HandoffDocument(uuid4().hex, s.request, s.checkpoint.revisions,
             s.checkpoint.workspace, str(Path(cwd).resolve()), recovered)
         self.store.commit_handoff(self.document)
-        self.prompt = (self.document.render() + '\n[Yohaku explicit receipt]\n'
+        self.handoff_text = self.document.render(checkpoint=s.checkpoint)
+        self.prompt = (self.handoff_text + '\n[Yohaku explicit receipt]\n'
             + json.dumps(self.receipt_fields(), sort_keys=True)
             + '\nFirst call the receipt operation with every field above exactly. '
             'Then read fresh task state and reconcile it before acting.\n' + instructions)

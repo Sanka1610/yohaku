@@ -134,7 +134,7 @@ class RecoveryTests(unittest.TestCase):
         with patch("yohaku.archive.ArchiveStore._cold", side_effect=AssertionError("eager COLD read")):
             self.start();self.bind()
             output = self.delivered()["hookSpecificOutput"]["additionalContext"]
-            self.assertIn('"archive_ids": ["visible-turn"]', output)
+            self.assertIn('archive:visible-turn', output)
             self.assertNotIn("COLD_PAYLOAD_DO_NOT_INJECT", output)
             self.ack();self.tools()
             self.c.recovery.verify(observe=lambda: self.current, assess=self.proof)
@@ -144,6 +144,26 @@ class RecoveryTests(unittest.TestCase):
             self.assertEqual(self.c.snapshot.state, State.RECOVERY_REQUIRED)
         self.assertEqual(self.c.read_archive("visible-turn"), turn)
         self.assertEqual(sum(m['method'] == 'turn/start' for m in self.sent), 1)
+
+    def test_context_assist_failure_preserves_handoff_and_resume(self):
+        self.observed();self.start();self.bind()
+        doc = self.c.recovery.document
+        with patch('yohaku.context_assist.build_task_context', side_effect=RuntimeError('builder')):
+            output = self.delivered()['hookSpecificOutput']['additionalContext']
+        self.assertEqual(output, doc.render(context_assist=False))
+        self.ack();self.tools()
+        self.c.recovery.verify(observe=lambda: self.current, assess=self.proof)
+        self.assertEqual(self.c.snapshot.state, State.RESUME_VERIFIED)
+
+    def test_context_assist_retains_checkpoint_not_run_without_granting_authority(self):
+        self.observed();self.start();self.bind()
+        before = self.c.snapshot
+        text = self.delivered()['hookSpecificOutput']['additionalContext']
+        self.assertIn('verification=not_run', text)
+        self.assertIn('Next action candidate', text)
+        self.assertIn('STEP_B with OLD_VALUE', text)
+        self.assertEqual(self.c.snapshot, before)
+        self.assertIsNone(self.c.snapshot.receipt_evidence)
 
     def test_missing_handoff_archive_rejected_before_continuation(self):
         self.observed()
