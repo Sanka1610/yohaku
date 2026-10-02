@@ -27,11 +27,19 @@ R4の限定receiptには以下の専用adapterを使います。
 
 `OpenCodeReceiptAdapter`は`2.0.21`のfresh owned Session、single owner、one foreground
 bounded text task、native compact一回、handoff一回、known terminal `http.request` observer、
-後続body mutatorなし、retry無効に限定して`HANDOFF_RECEIVED`まで接続します。
+後続body mutatorなし、retry無効に限定してreceiptと別inputのbounded continuationを接続します。
 確認したprovider形式はOllamaのOpenAI-compatible HTTP `messages` / exact user textです。
 Local controlled provider fixtureによる実OpenCode acceptanceで、許可前dispatch 0件、
 許可後のhandoff dispatch 1件、terminal body hashとendpoint raw bytes hashの一致を確認しました。
-Fixtureは実model inferenceやtask continuationの評価を行いません。
+Fixtureは実model inferenceやcontent qualityの評価を行いません。
+
+このprofileはnative configの`permissions: [{action: "*", resource: "*", effect: "deny"}]`と
+既存builtin `opencode.config.agent`を必要とします。Adapterはeffective build agentの最後のruleが
+deny-allであることを毎回確認し、terminal HTTP bodyにtool定義があれば送信前に拒否します。
+Native tool snapshotは`execute`を含む全handlerを除外するため、modelが未advertiseのtoolを要求しても
+実行できません。Receipt responseが意図的に`execute`を要求するlive negativeで、native tool error、
+`executed=false`、side-effect fileなしを確認しました。後続model stepもgateで拒否して停止します。
+Tool callを観測した後の`_no_tools()`だけを事前抑止の根拠にはしていません。
 
 Embedding hostは`OpenCodeReceiptHost`を先に起動し、同梱の`opencode_receipt_hook.mjs`を
 専用plugin directoryへコピーし、そのdirectoryと`host.options`をnative configへ登録します。
@@ -44,6 +52,8 @@ file bytesを再照合します。Catalogはcallback順序を列挙するAPIで�
 `work()` → `checkpoint()` → `compact()`の後、existing `HandoffDocument`を
 `offer_receipt()`へ渡します。既存storeへdurable commitし、`resume:false`でnative inboxへ
 admitしたID / Session / payload hashをAPIと独立SQLiteで確認して`HANDOFF_OFFERED`にします。
+Core handoffは`offer_handoff(None, expected_snapshot=...)`で未束縛にし、
+`continuation_turn_id == ""`を保持します。ReceiptはCore continuation permitを消費しません。
 ここではreceiptを発行しません。`promote_receipt()`はsame native inputをnative flowで
 contextへ昇格します。Terminal observerがactual provider Requestをbytesへコピーして待ち、
 `observed`通知後にownerがcurrent candidate IDを`authorize_receipt()`へ渡します。
@@ -55,13 +65,15 @@ current host-local epoch/counterへ一回だけauthorizationを結び付けま�
 attempt IDではありません。Hook内でbodyを再照合して以前のRequest参照から切り離し、
 terminal sealでfresh stateを再確認した後、既存`receive_handoff()`へreceipt evidenceを渡します。
 Receiptのauthorityは送信直前のexact request incorporationです。Model受領や意味理解の証明では
-ありません。Receipt判定はSSEとmodel outputに依存せず、receipt後の追加promptは送りません。
+ありません。Receipt判定はSSEとmodel outputに依存しません。Task continuationは後述のfresh
+reconciliation後に別inputで実行します。
 
 Abort、replacement、retry、identity/hash/body不一致、unknown graph、stale state、owner loss、
 deadline、disposal、duplicate releaseでcandidateを失効させ、dispatchを拒否します。
 Provider failureによるnative retryも停止します。Receipt後の失敗ではhistorical evidenceを保持して
 `RECOVERY_REQUIRED`とし、old observationやauthorizationを新attemptへ流用しません。
-R3 CompletionPolicyとShared Core / schemaは変更していません。
+R3 CompletionPolicyは保持し、late bindingには既存Core semanticsを使います。
+Adapter固有のCore / schema変更はありません。
 
 Receiptがsettledした後、`qualify_resume(reassess=...)`でSession APIとcurrent contextを新しく読み、
 独立SQLite transactionのtranscript / inbox / pendingと照合します。Task / workspaceも新しく読み、
@@ -70,13 +82,24 @@ trusted bounded-task observerが完了済みか、historical next actionがま�
 再評価後にもAPI / SQLite / taskを読み直し、状態が変わればauthorityを失効させて停止します。
 Receipt gateのpre-dispatch observationやSSEの接続状態をfreshness proofへ流用しません。
 
-限定R4-R acceptanceではfresh post-receipt stateとunresolved workの再評価を確認しました。
-Stage one marker一回、receipt一回、stage two未実行をtask fileとnative SQLiteで確認しています。
-R4-Iは唯一のCore continuation permitをreceipt inputへ消費済みで、handoffのcontinuation IDも
-そのinputに固定されています。Receipt後の別inputをauthorizeする既存Core semanticsがないため、
-`HANDOFF_RECEIVED`で安全停止します。`continue_task()`は送信前に拒否します。
-`RESUME_VERIFIED`は`NOT_REACHED`です。別attemptのcontinuation、ResumeProof接続、stage two完了、
-continuation send ambiguityは`NOT_RUN`です。Content qualityは評価していません。
+R4-R2では、未完了workのqualification後に`continue_task(next_action)`がfresh stateを再確認し、
+post-receipt `claim_continuation(expected_snapshot=...)`を既存append-only evidenceへ保存してから
+新しいpromptを一回送ります。Nativeが発行したactual input IDをadmission、current context、
+独立SQLiteで観測し、task専用terminal gateで待ちます。Receiptのinput ID、authorization、
+attempt ID、body hashはtaskへ流用しません。
+
+Ownerは`task_observed`を待ち、current task attempt IDを`authorize_continuation()`へ渡します。
+Adapterはactual native IDを`bind_continuation()`へ渡し、そのSnapshotを保存した後、fresh state / revisionを
+再確認してgateをauthorizeします。Terminal sealでもbody / current bindingを再照合してからreleaseします。
+`complete_continuation()`は新しいAPI / SQLiteでcompletionを確認します。Hostがtask-specific assessmentを
+行った後、`final_observation()`でtask / workspace、settled context、active / pendingなしを再確認します。
+
+Local controlled providerによるfresh acceptanceで、stage one、receipt、stage twoのnative markerを
+各一回、task provider execution一回、binding保存後のdispatch、final fresh stateを確認しました。
+このtext-only continuationには成功したtool observation IDがないため、既存`ResumeProof`は
+`BLOCKED_BY_EXISTING_CONTRACT`、`RESUME_VERIFIED`は`NOT_REACHED`です。Host file readをtoolと扱わず、
+Core stateは`HANDOFF_RECEIVED`で停止します。Send / completion / durable writeが不確かな場合は
+claim / bindingを戻さず`RECOVERY_REQUIRED`へ停止し、blind retryしません。
 
 R3 completionのSSEはvolatileです。切断・必要event欠落・identity競合時は`AMBIGUOUS`または
 attachment停止とし、再送やcompletionの推測をしません。OpenCode proofはin-memoryで、
