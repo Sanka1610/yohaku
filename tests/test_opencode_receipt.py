@@ -40,12 +40,33 @@ class OpenCodeReceiptTests(unittest.TestCase):
         self.owned = True
         self.foreign_graph = False
         self.resume_state = None
+        self.task_sends = 0
+        self.uncertain_send = False
+        self.uncertain_completion = False
+        self.unsafe_permissions = False
         self.current = CurrentContext("task", 0, 0, f.workspace)
         self.pool = ThreadPoolExecutor()
         self.addCleanup(self.pool.shutdown)
         base_api = OpenCodeAdapter._api
 
         def api(a, method, path, body=None):
+            if path.startswith("/api/agent/build?"):
+                return {"data": {"id": "build", "permissions": [
+                    {"action": "*", "resource": "*", "effect": "allow" if self.unsafe_permissions else "deny"}]}}
+            if method == "POST" and path.endswith("/wait") and self.uncertain_completion:
+                raise TimeoutError("completion unknown")
+            if method == "POST" and path.endswith("/prompt") and self.resume_state is not None:
+                self.task_sends += 1
+                admitted = dict(id="msg_actual_task", sessionID="ses_test", type="user", payload=body)
+                self.resume_state["context"] = list(self.resume_state["context"]) + [
+                    dict(id=admitted["id"], type="user", text=body["text"])]
+                self.resume_state["active"] = {"ses_test": {"type": "running"}}
+                with closing(sqlite3.connect(f.db)) as db, db:
+                    db.execute("insert into session_message values (?, ?, ?, ?, ?, ?)",
+                        (admitted["id"], "ses_test", "user", 10, 60, json.dumps({"text": body["text"]})))
+                if self.uncertain_send:
+                    raise TimeoutError("input may have been sent")
+                return {"data": admitted}
             if self.resume_state is not None and method == "GET":
                 for suffix, key in (("/context", "context"), ("/inbox", "inbox")):
                     if path.endswith(suffix):
@@ -345,7 +366,8 @@ class OpenCodeReceiptTests(unittest.TestCase):
 
     def test_post_receipt_duplicate_permit_rejected_even_in_recovery(self):
         self.received()
-        permit = self.a.core.snapshot.continuation_request_id
+        self.a.qualify_resume(reassess=self.assess)
+        permit = self.a.core.claim_continuation(expected_snapshot=self.a.core.snapshot)
         with self.assertRaises(TransitionError):
             self.a.core.claim_continuation()
         self.a.core.recovery_required("permit inspection")
@@ -420,7 +442,7 @@ class OpenCodeReceiptTests(unittest.TestCase):
 
     def test_post_receipt_no_send_even_if_transport_would_be_ambiguous(self):
         self.received()
-        self.a.qualify_resume(reassess=self.assess)
+        self.a.qualify_resume(reassess=lambda *args: None)
         with patch.object(self.a, "_api", side_effect=TimeoutError("send uncertain")) as send:
             with self.assertRaises(TransitionError):
                 self.a.continue_task("stage two")
