@@ -304,31 +304,71 @@ class Controller:
                      reason=f"not executed: {evidence_ref}")
         self.return_to_work()
 
-    def claim_continuation(self) -> str:
-        """One dispatch permit for explicit turn/start on snapshot.thread_id.
+    def _check_continuation_snapshot(self, expected_snapshot: Snapshot | None):
+        s = self.snapshot
+        r, cp = s.request, s.checkpoint
+        if (expected_snapshot != s or s.invalidated or r is None or cp is None
+                or not cp.commit_evidence or s.workspace is None
+                or r.thread_id != s.thread_id or r.transition_id != s.transition_id
+                or r.boundary_id != s.boundary_id or r.checkpoint_id != cp.checkpoint_id
+                or r.rollover_generation != s.rollover_generation
+                or s.binding is None or s.binding.request != r
+                or (s.handoff is not None and (s.handoff.request != r
+                    or s.handoff.intent_revision != cp.revisions.intent_revision
+                    or s.handoff.execution_revision != cp.revisions.execution_revision))):
+            raise TransitionError("continuation requires the current snapshot, request and handoff")
+
+    def claim_continuation(self, *, expected_snapshot: Snapshot | None = None) -> str:
+        """Consume the transition's one task continuation permit before I/O.
 
         Journal the returned request ID before I/O. Uncertain dispatch must be
         reconciled; neither restart nor another completion grants a new permit.
+        For an unbound handoff, the adapter supplies its post-receipt snapshot
+        after successful settlement, fresh task reassessment and final recheck.
+        Core checks consistency; it cannot attest those external observations.
         """
-        self._require(State.ROLLOVER_OBSERVED, State.RECOVERY_REQUIRED)
-        if not self._completed() or self.snapshot.continuation_request_id is not None:
+        s = self.snapshot
+        if s.handoff is not None:
+            self._require(State.HANDOFF_RECEIVED)
+            self._check_continuation_snapshot(expected_snapshot)
+            if s.handoff.continuation_turn_id or not s.receipt_evidence or not s.injection_evidence:
+                raise TransitionError("delayed continuation requires a received unbound handoff")
+        else:
+            self._require(State.ROLLOVER_OBSERVED, State.RECOVERY_REQUIRED)
+            if expected_snapshot is not None:
+                self._check_continuation_snapshot(expected_snapshot)
+        if not self._completed() or s.continuation_request_id is not None:
             raise TransitionError("continuation requires completion and an unused dispatch permit")
         request_id = self._id()
         self._change(continuation_request_id=request_id)
         return request_id
 
-    def offer_handoff(self, binding: ContinuationBinding, *, recovered_context: str,
-                      handoff_id: str | None = None) -> Handoff:
-        """Bind the adapter's explicit same-thread continuation to one handoff."""
+    def offer_handoff(self, binding: ContinuationBinding | None, *, recovered_context: str,
+                      handoff_id: str | None = None,
+                      expected_snapshot: Snapshot | None = None) -> Handoff:
+        """Offer one handoff, early-bound by default.
+
+        Explicit binding=None opts into delayed binding and requires the current
+        snapshot and durable document ID. Receipt transport remains adapter-owned.
+        """
         self._require(State.ROLLOVER_OBSERVED, State.RECOVERY_REQUIRED)
         s = self.snapshot
-        if (not self._completed() or s.continuation_request_id is None
+        if binding is None:
+            self._require(State.ROLLOVER_OBSERVED)
+            self._check_continuation_snapshot(expected_snapshot)
+            if (not self._completed() or s.continuation_request_id is not None
+                    or s.handoff is not None or not handoff_id):
+                raise TransitionError("unbound offer requires completed rollover and an unused permit")
+            turn_id = ""
+        elif (not self._completed() or s.continuation_request_id is None
                 or binding.request_id != s.continuation_request_id
                 or binding.thread_id != s.thread_id
                 or s.handoff is not None or not binding.turn_id
                 or not self._completion_policy.permits_continuation(s.binding, binding)):
             raise TransitionError("handoff needs completed rollover and a new continuation turn")
-        handoff = Handoff(handoff_id or self._id(), s.request, binding.turn_id,
+        else:
+            turn_id = binding.turn_id
+        handoff = Handoff(handoff_id or self._id(), s.request, turn_id,
                           s.checkpoint.revisions.intent_revision,
                           s.checkpoint.revisions.execution_revision, recovered_context)
         self._change(state=State.HANDOFF_OFFERED, handoff=handoff)
@@ -341,16 +381,47 @@ class Controller:
             raise TransitionError("receipt needs offered identity and actual injection evidence")
         if s.receipt_evidence:
             return False
-        self._require(State.HANDOFF_OFFERED, State.RECOVERY_REQUIRED)
+        if not handoff.continuation_turn_id:
+            self._require(State.HANDOFF_OFFERED)
+            self._check_continuation_snapshot(s)
+            if s.continuation_request_id is not None:
+                raise TransitionError("unbound receipt cannot consume continuation authority")
+        else:
+            self._require(State.HANDOFF_OFFERED, State.RECOVERY_REQUIRED)
         self._change(state=State.HANDOFF_RECEIVED,
                      injection_evidence=injection_evidence,
                      receipt_evidence=receipt_evidence)
         return True
 
+    def bind_continuation(self, binding: ContinuationBinding, *,
+                          expected_snapshot: Snapshot) -> Handoff:
+        """Bind an observed native task identity once, after the delayed claim.
+
+        Retain the snapshot immediately after claim for this check. The trusted
+        adapter must attest actual native identity (never a reservation/guess),
+        persist the resulting snapshot, and recheck its gate before task effects.
+        Failed binding or uncertain I/O never restores the consumed permit.
+        """
+        self._require(State.HANDOFF_RECEIVED)
+        self._check_continuation_snapshot(expected_snapshot)
+        s = self.snapshot
+        if (s.handoff is None or s.handoff.continuation_turn_id
+                or not s.receipt_evidence or not s.injection_evidence
+                or not self._completed() or s.continuation_request_id is None
+                or binding.request_id != s.continuation_request_id
+                or binding.thread_id != s.thread_id
+                or not isinstance(binding.turn_id, str) or not binding.turn_id.strip()
+                or not self._completion_policy.permits_continuation(s.binding, binding)):
+            raise TransitionError("binding requires the active claim and an observed task identity")
+        handoff = replace(s.handoff, continuation_turn_id=binding.turn_id)
+        self._change(handoff=handoff)
+        return handoff
+
     def verify_resume(self, evidence: ResumeVerification):
         self._require(State.HANDOFF_RECEIVED, State.RECOVERY_REQUIRED)
         s = self.snapshot
         if (s.handoff is None or not s.receipt_evidence
+                or s.continuation_request_id is None or not s.handoff.continuation_turn_id
                 or evidence.handoff_id != s.handoff.handoff_id
                 or evidence.continuation_turn_id != s.handoff.continuation_turn_id
                 or evidence.intent_revision != s.revisions.intent_revision

@@ -3,6 +3,7 @@
 import unittest
 from dataclasses import replace
 from itertools import count
+from unittest.mock import patch
 
 from yohaku.controller import Controller, TransitionError
 from yohaku.model import (
@@ -69,6 +70,255 @@ class ControllerTests(unittest.TestCase):
     def continuation_binding(self, turn="next-turn"):
         s = self.controller.snapshot
         return ContinuationBinding(s.continuation_request_id, s.thread_id, turn)
+
+    def delayed_offer(self):
+        _, _, binding = self.to_requested()
+        self.complete(binding)
+        c = self.controller
+        return c.offer_handoff(None, handoff_id="delayed-handoff",
+                               recovered_context="handoff:delayed-handoff",
+                               expected_snapshot=c.snapshot)
+
+    def delayed_received(self):
+        c = self.controller
+        handoff = self.delayed_offer()
+        c.receive_handoff(handoff, injection_evidence="inspection-input",
+                          receipt_evidence="inspection-receipt")
+        return handoff
+
+    def test_delayed_receipt_leaves_task_authority_unclaimed(self):
+        c = self.controller
+        handoff = self.delayed_received()
+        self.assertEqual(c.snapshot.state, State.HANDOFF_RECEIVED)
+        self.assertEqual(handoff.continuation_turn_id, "")
+        self.assertIsNone(c.snapshot.continuation_request_id)
+        before = c.snapshot
+        self.assertFalse(c.receive_handoff(handoff, injection_evidence="inspection-input",
+                                           receipt_evidence="inspection-receipt"))
+        self.assertEqual(c.snapshot, before)
+        for action in (c.require_work, c.claim_continuation,
+                       lambda: c.verify_resume(self.resume_evidence(handoff))):
+            with self.assertRaises(TransitionError):
+                action()
+        self.assertEqual(c.snapshot, before)
+
+    def test_delayed_claim_bind_and_verify_actual_task_identity(self):
+        c = self.controller
+        unbound = self.delayed_received()
+        # Model the trusted adapter publishing its fresh post-receipt assessment.
+        c.reconcile_resume_context(intent_revision=1, execution_revision=1,
+            workspace=WorkspaceRevision(1, "fresh", self.workspace.relevant_scope))
+        ident = c.claim_continuation(expected_snapshot=c.snapshot)
+        claimed = c.snapshot
+        self.assertEqual(claimed.continuation_request_id, ident)
+        with self.assertRaises(TransitionError):
+            c.claim_continuation(expected_snapshot=claimed)
+        with self.assertRaises(TransitionError):
+            c.verify_resume(self.resume_evidence(unbound))
+        handoff = c.bind_continuation(self.continuation_binding("actual-task"),
+                                      expected_snapshot=claimed)
+        self.assertEqual(handoff, replace(unbound, continuation_turn_id="actual-task"))
+        self.assertEqual(c.snapshot.receipt_evidence, claimed.receipt_evidence)
+        self.assertEqual(c.snapshot.state, State.HANDOFF_RECEIVED)
+        with self.assertRaises(TransitionError):
+            c.verify_resume(replace(self.resume_evidence(handoff),
+                                   continuation_turn_id="inspection-input"))
+        bound = c.snapshot
+        c._snapshot = replace(bound, continuation_request_id=None)
+        with self.assertRaises(TransitionError):
+            c.verify_resume(self.resume_evidence(handoff))
+        c._snapshot = bound
+        c.verify_resume(self.resume_evidence(handoff))
+        self.assertEqual(c.snapshot.state, State.RESUME_VERIFIED)
+
+    def test_delayed_binding_requires_policy_attested_actual_native_identity(self):
+        c = self.controller
+        self.delayed_received()
+        c.claim_continuation(expected_snapshot=c.snapshot)
+        claimed = c.snapshot
+        observed_turn = None
+        # The Runtime policy owns native observation; Core cannot infer opaque IDs.
+        with patch.object(c._completion_policy, "permits_continuation",
+                          side_effect=lambda completion, binding: binding.turn_id == observed_turn):
+            with self.assertRaises(TransitionError):
+                c.bind_continuation(self.continuation_binding("expected-next-turn"),
+                                    expected_snapshot=claimed)
+            observed_turn = "observed-task-turn"
+            with self.assertRaises(TransitionError):
+                c.bind_continuation(self.continuation_binding("foreign-native-turn"),
+                                    expected_snapshot=claimed)
+            self.assertEqual(c.snapshot, claimed)
+            c.bind_continuation(self.continuation_binding(observed_turn), expected_snapshot=claimed)
+        self.assertEqual(c.snapshot.handoff.continuation_turn_id, observed_turn)
+
+    def test_delayed_offer_requires_explicit_current_snapshot_and_document(self):
+        c = self.controller
+        _, _, binding = self.to_requested()
+        incomplete = c.snapshot
+        with self.assertRaises(TransitionError):
+            c.offer_handoff(None, recovered_context="data", handoff_id="doc",
+                            expected_snapshot=incomplete)
+        self.complete(binding)
+        for kwargs in ({}, {"handoff_id": "doc"},
+                       {"expected_snapshot": c.snapshot},
+                       {"handoff_id": "doc", "expected_snapshot": incomplete}):
+            with self.subTest(kwargs=kwargs), self.assertRaises(TransitionError):
+                c.offer_handoff(None, recovered_context="data", **kwargs)
+        before = c.snapshot
+        c.update_revisions(archive_changed=True)
+        with self.assertRaises(TransitionError):
+            c.offer_handoff(None, recovered_context="data", handoff_id="doc",
+                            expected_snapshot=before)
+        c.claim_continuation()
+        with self.assertRaises(TransitionError):
+            c.offer_handoff(None, recovered_context="data", handoff_id="doc",
+                            expected_snapshot=c.snapshot)
+
+    def test_delayed_offer_cannot_be_duplicated_or_claimed_before_receipt(self):
+        c = self.controller
+        self.delayed_offer()
+        before = c.snapshot
+        for action in (lambda: c.offer_handoff(None, recovered_context="data",
+                            handoff_id="another", expected_snapshot=before),
+                       lambda: c.claim_continuation(expected_snapshot=before),
+                       lambda: c.bind_continuation(self.continuation_binding(),
+                                                   expected_snapshot=before)):
+            with self.assertRaises(TransitionError):
+                action()
+        self.assertEqual(c.snapshot, before)
+
+    def test_delayed_binding_requires_claim_and_matching_identity(self):
+        c = self.controller
+        self.delayed_received()
+        with self.assertRaises(TransitionError):
+            c.bind_continuation(self.continuation_binding(), expected_snapshot=c.snapshot)
+        c.claim_continuation(expected_snapshot=c.snapshot)
+        before = c.snapshot
+        for binding in (replace(self.continuation_binding(), request_id="foreign-claim"),
+                        replace(self.continuation_binding(), thread_id="foreign-thread"),
+                        self.continuation_binding(""), self.continuation_binding(" "),
+                        self.continuation_binding("compact-turn")):
+            with self.subTest(binding=binding), self.assertRaises(TransitionError):
+                c.bind_continuation(binding, expected_snapshot=before)
+        self.assertEqual(c.snapshot, before)
+        with self.assertRaises(TransitionError):
+            c.claim_continuation(expected_snapshot=before)
+
+    def test_delayed_rebind_unbind_and_old_receipt_are_rejected(self):
+        c = self.controller
+        unbound = self.delayed_received()
+        c.claim_continuation(expected_snapshot=c.snapshot)
+        handoff = c.bind_continuation(self.continuation_binding("actual-task"),
+                                      expected_snapshot=c.snapshot)
+        before = c.snapshot
+        for turn in ("actual-task", "another-task", ""):
+            with self.subTest(turn=turn), self.assertRaises(TransitionError):
+                c.bind_continuation(self.continuation_binding(turn), expected_snapshot=before)
+        with self.assertRaises(TransitionError):
+            c.receive_handoff(unbound, injection_evidence="input", receipt_evidence="receipt")
+        self.assertFalse(c.receive_handoff(handoff, injection_evidence="input", receipt_evidence="receipt"))
+        with self.assertRaises(TransitionError):
+            c.claim_continuation(expected_snapshot=before)
+        self.assertEqual(c.snapshot, before)
+
+    def test_delayed_duplicate_receipt_after_claim_grants_no_second_authority(self):
+        c = self.controller
+        handoff = self.delayed_received()
+        c.claim_continuation(expected_snapshot=c.snapshot)
+        before = c.snapshot
+        self.assertFalse(c.receive_handoff(handoff, injection_evidence="input", receipt_evidence="receipt"))
+        with self.assertRaises(TransitionError):
+            c.claim_continuation(expected_snapshot=c.snapshot)
+        self.assertEqual(c.snapshot, before)
+
+    def test_delayed_foreign_handoff_or_request_snapshot_rejected(self):
+        c = self.controller
+        handoff = self.delayed_received()
+        before = c.snapshot
+        for foreign in (replace(before, handoff=replace(handoff, handoff_id="foreign")),
+                        replace(before, request=replace(before.request, request_id="foreign"))):
+            with self.subTest(snapshot=foreign), self.assertRaises(TransitionError):
+                c.claim_continuation(expected_snapshot=foreign)
+        c.claim_continuation(expected_snapshot=before)
+        claimed = c.snapshot
+        for foreign in (before, replace(claimed, handoff=replace(handoff, handoff_id="foreign")),
+                        replace(claimed, request=replace(claimed.request, rollover_generation=0))):
+            with self.subTest(snapshot=foreign), self.assertRaises(TransitionError):
+                c.bind_continuation(self.continuation_binding(), expected_snapshot=foreign)
+        self.assertEqual(c.snapshot, claimed)
+
+    def test_delayed_current_request_consistency_is_checked(self):
+        c = self.controller
+        handoff = self.delayed_received()
+        current = c.snapshot
+        inconsistent = (
+            {"handoff": replace(handoff, request=replace(handoff.request, request_id="old"))},
+            {"handoff": replace(handoff, intent_revision=99)},
+            {"transition_id": "old"}, {"boundary_id": "old"},
+            {"rollover_generation": 0}, {"thread_id": "foreign"},
+            {"checkpoint": replace(current.checkpoint, checkpoint_id="old")},
+            {"binding": replace(current.binding, request=replace(current.request, request_id="old"))},
+            {"receipt_evidence": None}, {"injection_evidence": None}, {"invalidated": True},
+        )
+        for changes in inconsistent:
+            with self.subTest(changes=changes):
+                c._snapshot = replace(current, **changes)
+                with self.assertRaises(TransitionError):
+                    c.claim_continuation(expected_snapshot=c.snapshot)
+                self.assertIsNone(c.snapshot.continuation_request_id)
+        c._snapshot = current
+
+    def test_delayed_stale_revision_rejected_at_claim_and_bind(self):
+        for change in ("control", "intent", "execution", "workspace"):
+            with self.subTest(change=change):
+                self.setUp()
+                c = self.controller
+                self.delayed_received()
+                before = c.snapshot
+                c.reconcile_resume_context(intent_revision=0, execution_revision=0,
+                                            workspace=self.workspace)
+                with self.assertRaises(TransitionError):
+                    c.claim_continuation(expected_snapshot=before)
+                ident = c.claim_continuation(expected_snapshot=c.snapshot)
+                claimed = c.snapshot
+                c.reconcile_resume_context(intent_revision=int(change == "intent"),
+                    execution_revision=int(change in ("execution", "workspace")),
+                    workspace=(WorkspaceRevision(1, "changed", self.workspace.relevant_scope)
+                               if change == "workspace" else self.workspace))
+                with self.assertRaises(TransitionError):
+                    c.bind_continuation(self.continuation_binding(), expected_snapshot=claimed)
+                with self.assertRaises(TransitionError):
+                    c.claim_continuation(expected_snapshot=c.snapshot)
+                self.assertEqual(c.snapshot.continuation_request_id, ident)
+                self.assertEqual(c.snapshot.handoff.continuation_turn_id, "")
+
+    def test_delayed_stop_cannot_restore_authority_or_resume_binding(self):
+        for stage in ("offer", "receipt", "claim"):
+            for reason in ("send uncertainty", "binding persistence failure", "adapter abort"):
+                with self.subTest(stage=stage, reason=reason):
+                    self.setUp()
+                    c = self.controller
+                    handoff = self.delayed_offer() if stage == "offer" else self.delayed_received()
+                    if stage == "claim":
+                        c.claim_continuation(expected_snapshot=c.snapshot)
+                    ident = c.snapshot.continuation_request_id
+                    c.recovery_required(reason)
+                    before = c.snapshot
+                    if stage == "offer":
+                        with self.assertRaises(TransitionError):
+                            c.receive_handoff(handoff, injection_evidence="input", receipt_evidence="receipt")
+                    else:
+                        self.assertFalse(c.receive_handoff(handoff, injection_evidence="input",
+                                                           receipt_evidence="receipt"))
+                    for action in (c.claim_continuation,
+                                   lambda: c.claim_continuation(expected_snapshot=before),
+                                   lambda: c.bind_continuation(self.continuation_binding(),
+                                                               expected_snapshot=before),
+                                   c.return_to_work):
+                        with self.assertRaises(TransitionError):
+                            action()
+                    self.assertEqual(c.snapshot, before)
+                    self.assertEqual(c.snapshot.continuation_request_id, ident)
 
     def test_normal_transition_requires_completion_receipt_and_actual_resume(self):
         c = self.controller

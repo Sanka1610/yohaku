@@ -11,10 +11,12 @@ from pathlib import Path
 from unittest.mock import patch
 
 from yohaku.companion import CompanionController, CurrentState
+from yohaku.codec import decode, encode
 from yohaku.controller import TransitionError
 from yohaku.manual import JsonLineSender
-from yohaku.model import BoundaryVerification, State, WorkspaceRevision
+from yohaku.model import BoundaryVerification, ContinuationBinding, Handoff, Snapshot, State, WorkspaceRevision
 from yohaku.persistence import PersistenceError, SessionStore, resolve_yohaku_home
+from yohaku.recovery import HandoffDocument, RecoveredData
 from yohaku import persistence
 
 
@@ -92,6 +94,55 @@ class CompanionTests(unittest.TestCase):
         with patch.dict(os.environ, {"CODEX_HOME": "relative"}):
             with self.assertRaises(PersistenceError):
                 resolve_yohaku_home()
+
+    def test_handoff_binding_uses_existing_append_only_format_and_reader(self):
+        request = self.requested()
+        self.bind(request)
+        for event in self.completions():
+            self.c.receive(event, request=request)
+        core = self.c._core
+        s = core.snapshot
+        document = HandoffDocument("delayed", s.request, s.checkpoint.revisions,
+            s.checkpoint.workspace, self.tmp.name,
+            RecoveredData("task", (), "Finish task", ("remaining work",), "read task", ("task.json",)))
+        self.c.store.commit_handoff(document)
+        document_path = self.c.store.path / "handoffs" / "delayed.json"
+        original_document = document_path.read_bytes()
+        handoff = core.offer_handoff(None, handoff_id=document.handoff_id,
+            recovered_context="handoff:delayed", expected_snapshot=s)
+        snapshots = [("handoff_offered", core.snapshot)]
+        core.receive_handoff(handoff, injection_evidence="inspection", receipt_evidence="receipt")
+        snapshots.append(("handoff_received", core.snapshot))
+        core.claim_continuation(expected_snapshot=core.snapshot)
+        snapshots.append(("continuation_requested", core.snapshot))
+        claimed = core.snapshot
+        core.bind_continuation(ContinuationBinding(claimed.continuation_request_id,
+            claimed.thread_id, "actual-task"), expected_snapshot=claimed)
+        snapshots.append(("continuation_bound", core.snapshot))
+        original_records = {p: p.read_bytes() for p in self.c.store.journal.glob("*.json")}
+        for event, snapshot in snapshots:
+            with self.subTest(event=event):
+                self.assertEqual(decode(Handoff, encode(snapshot.handoff)), snapshot.handoff)
+                self.assertEqual(decode(Snapshot, encode(snapshot)), snapshot)
+                self.c.store.append(snapshot, {}, event)
+                # Reopen only the existing journal reader, without rebuilding a Runtime owner.
+                self.c.store.close()
+                self.c.store = SessionStore("thread-1")
+                self.assertEqual(self.c.store.latest, (snapshot, {}))
+                for path, content in original_records.items():
+                    self.assertEqual(path.read_bytes(), content)
+                newest = sorted(self.c.store.journal.glob("*.json"))[-1]
+                record = json.loads(newest.read_bytes())
+                self.assertEqual(set(record), {"schema", "sha256", "payload"})
+                self.assertEqual(record["schema"], 1)
+                self.assertEqual(set(record["payload"]),
+                                 {"sequence", "previous", "event", "snapshot", "cursor"})
+                self.assertEqual(set(record["payload"]["snapshot"]["handoff"]), {
+                    "handoff_id", "request", "continuation_turn_id", "intent_revision",
+                    "execution_revision", "recovered_context", "material_policy", "resume_status"})
+                original_records[newest] = newest.read_bytes()
+        self.assertEqual(document_path.read_bytes(), original_document)
+        self.assertEqual(self.c.store.read_handoff("delayed"), document)
 
     def test_checkpoint_roundtrip_temp_ignored_restart_revokes_lease(self):
         lease = self.authorized()

@@ -176,6 +176,12 @@ handoff delivery / injection
 
 各段階は、直前の段階を含意しない。
 
+Coreは既存のearly claim → bound offer → receipt → verifyを維持する。Receiptとtaskが別interactionの場合は、durable document作成後に`offer_handoff(None, handoff_id=..., expected_snapshot=...)`で明示的に未束縛のofferを作る。`Handoff.continuation_turn_id == ""`はtask identity未確定を意味し、receiptはpermitを消費しない。
+
+この経路では、adapterがreceiptのsuccessful settlement、fresh task/workspace観測、未完了workの再評価と最終照合を行い、`reconcile_resume_context()`後のSnapshotを`claim_continuation(expected_snapshot=...)`へ渡す。Claim直後のSnapshotを保持し、actual native task identityを観測してから`bind_continuation(binding, expected_snapshot=...)`へ渡す。Coreはcurrent Request/Handoff/revisionと一件のclaimを照合する。Native identityの実観測と意味的freshnessの確認はtrusted adapterの責務である。
+
+Adapterはclaimを送信前に、binding確定をtask effect前に既存のappend-only記録へ保存する。Rebind、unbind、二回目のclaim、未束縛でのverifyは拒否する。保存・送信の不確実性ではpermitを戻さず停止する。新経路のrestart/retryは未対応であり、`RECOVERY_REQUIRED`から未束縛のreceive/claim/bindは行えない。既存のfield、schema、journal形式は変更しない。
+
 - Deliveryは、target transportまたはnative inputへhandoffを提示したEvidenceである。Targetが受け取った
   ことや、意味を理解したことは証明しない。
 - Explicit receiptは、handoffとtarget continuationに相関したacknowledgmentである。Delivery、printed

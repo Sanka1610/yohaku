@@ -133,6 +133,11 @@ class ContinuationBinding:
 
 @dataclass(frozen=True)
 class Handoff:
+    """continuation_turn_id is empty until the actual task identity is bound.
+
+    Receipt may belong to a different interaction; its identity is adapter-owned.
+    """
+
     handoff_id: str
     request: Request
     continuation_turn_id: str
