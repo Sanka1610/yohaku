@@ -1,6 +1,6 @@
 # Runtime support
 
-以下は各profileで試した範囲です。CLI registryにあるprofileは`yohaku profiles`でも確認できます。DSH / OpenCodeのadapterはembedding hostから利用し、CLI registryには登録していません。今回の統合で新しいlive Runtime検証は行っていません。
+以下は各profileで試した範囲です。CLI registryにあるprofileは`yohaku profiles`でも確認できます。DSH / OpenCodeのadapterはembedding hostから利用し、CLI registryには登録していません。両Runtimeの限定receiptは保存済みacceptanceで確認しています。
 
 | Profile | Status | 試した環境・workflow | 対応機能と制限 |
 |---|---|---|---|
@@ -26,6 +26,6 @@ Runtime-wide atomic freeze、外部writerの排除、general exactly-onceは成�
 
 Runtime-native historyはYohaku checkpointやarchiveとは別です。Receipt、fresh current-state reconciliation、task assessmentのどれかが欠ければresume成功にはなりません。Mechanical completionは文章・コード・事実品質を保証しません。
 
-OpenCodeには`2.0.21` / Linux / fresh Session / one native compact限定の[adapter](runtimes/opencode.md)があります。Native transitionとbounded text taskのlive acceptanceを確認しました。Receiptとrestartはunsupportedで、公開CLIのlauncherや一般Task Profileはありません。
+OpenCodeには`2.0.21` / Linux / fresh owned Session限定の[adapter](runtimes/opencode.md)があります。R3のnative transitionとbounded text taskを確認しました。R4はsingle owner / known terminal hook graph / later mutatorなし / one bounded foreground task / retry disabledの固定HTTP profileで`HANDOFF_RECEIVED`まで確認しています。Receipt後のtask continuationと`RESUME_VERIFIED`は未評価です。対応範囲とunsupported条件はRuntime pageを参照してください。
 
-DSHには`0.2.0-rc.2` / headless / fresh Session / single Agent / stock compactor / one native compact限定の[adapter](runtimes/dsh.md)があります。Native transitionとfresh post-stateを確認しました。Accepted endpointは`ROLLOVER_OBSERVED`です。Receiptとrestartはunsupported、optional continuationは`NOT_RUN`です。公開CLIや標準SDK transportのlauncherはありません。新Runtimeの調査とadapter実装は[Adapter Contract](development/adapter-contract.md)を入口とします。
+DSHには`0.2.0-rc.2` / headless / fresh Session限定の[adapter](runtimes/dsh.md)があります。R3のnative transitionとfresh post-stateを確認しました。R4は公式DeepSeek Messages adapter / plain text / single Agent・owner / additional extension fieldsなし / retry disabledで`HANDOFF_RECEIVED`まで確認しています。Task continuationは`NOT_RUN`、`RESUME_VERIFIED`は未評価です。対応範囲とunsupported条件はRuntime pageを参照してください。新Runtimeの実装は[Adapter Contract](development/adapter-contract.md)を入口とします。

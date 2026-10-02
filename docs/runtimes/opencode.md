@@ -18,19 +18,62 @@ journalへ記録してから`POST /api/session/:id/compact`を一回発行しま
 同Sessionの`session.compaction.ended`、同IDのcompleted message、別read-only SQLite
 connectionで取得したprojection、その後に新しく取得したactive contextを照合します。
 `ended`にはinput IDがないため単独ではcompletionにしません。Native summaryは置換しません。
-TS pluginは不要です。
+R3 compact proofに追加pluginは不要です。
 
 限定live acceptanceはnative transitionとbounded task workflowがともに`PASS`でした。
 Task fidelityはRuntime completionから独立して評価しています。これで一般taskの正しさは保証しません。
-Coreのaccepted endpointは`ROLLOVER_OBSERVED`です。次promptの実行を確認しても、
-独立receiptは`UNSUPPORTED`で、`RESUME_VERIFIED`には進みません。
+R3のaccepted endpointは`ROLLOVER_OBSERVED`です。R3の次promptはreceiptを作りません。
+R4の限定receiptには以下の専用adapterを使います。
 
-SSEはvolatileです。切断・必要event欠落・identity競合時は`AMBIGUOUS`または
+`OpenCodeReceiptAdapter`は`2.0.21`のfresh owned Session、single owner、one foreground
+bounded text task、native compact一回、handoff一回、known terminal `http.request` observer、
+後続body mutatorなし、retry無効に限定して`HANDOFF_RECEIVED`まで接続します。
+確認したprovider形式はOllamaのOpenAI-compatible HTTP `messages` / exact user textです。
+Local controlled provider fixtureによる実OpenCode acceptanceで、許可前dispatch 0件、
+許可後のhandoff dispatch 1件、terminal body hashとendpoint raw bytes hashの一致を確認しました。
+Fixtureは実model inferenceやtask continuationの評価を行いません。
+
+Embedding hostは`OpenCodeReceiptHost`を先に起動し、同梱の`opencode_receipt_hook.mjs`を
+専用plugin directoryへコピーし、そのdirectoryと`host.options`をnative configへ登録します。
+Optionsの認証tokenはprivate temporary configで扱います。Hostはqualified builtin graph、
+terminal位置、後続mutatorなし、専用Session/server/configの所有を保証し、
+`known_terminal_graph=True`として明示します。Adapterはactive plugin catalogとobserverの
+file bytesを再照合します。Catalogはcallback順序を列挙するAPIではないため、末尾位置の
+保証を置き換えません。Unknown graphではreceiptを有効にできません。
+
+`work()` → `checkpoint()` → `compact()`の後、existing `HandoffDocument`を
+`offer_receipt()`へ渡します。既存storeへdurable commitし、`resume:false`でnative inboxへ
+admitしたID / Session / payload hashをAPIと独立SQLiteで確認して`HANDOFF_OFFERED`にします。
+ここではreceiptを発行しません。`promote_receipt()`はsame native inputをnative flowで
+contextへ昇格します。Terminal observerがactual provider Requestをbytesへコピーして待ち、
+`observed`通知後にownerがcurrent candidate IDを`authorize_receipt()`へ渡します。
+`observe_current`は毎回新しく読んだ既存`CurrentContext`を返し、`owner_alive`は専用ownerの
+継続所有を検査します。Target endpointは`provider_request_url`へexactに固定します。
+
+Gateはnative message / context / handoff / task revision / workspaceを新しく照合し、
+current host-local epoch/counterへ一回だけauthorizationを結び付けます。このIDはnative HTTP
+attempt IDではありません。Hook内でbodyを再照合して以前のRequest参照から切り離し、
+terminal sealでfresh stateを再確認した後、既存`receive_handoff()`へreceipt evidenceを渡します。
+Receiptのauthorityは送信直前のexact request incorporationです。Model受領や意味理解の証明では
+ありません。Receipt判定はSSEとmodel outputに依存せず、receipt後の追加promptは送りません。
+
+Abort、replacement、retry、identity/hash/body不一致、unknown graph、stale state、owner loss、
+deadline、disposal、duplicate releaseでcandidateを失効させ、dispatchを拒否します。
+Provider failureによるnative retryも停止します。Receipt後の失敗ではhistorical evidenceを保持して
+`RECOVERY_REQUIRED`とし、old observationやauthorizationを新attemptへ流用しません。
+R3 CompletionPolicyとShared Core / schemaは変更していません。
+
+`HANDOFF_RECEIVED`は`RESUME_VERIFIED`ではありません。Receipt後のfresh state、unresolved work、
+continuation authority、same-task continuation、nonduplication、task assessmentは未評価です。
+
+R3 completionのSSEはvolatileです。切断・必要event欠落・identity競合時は`AMBIGUOUS`または
 attachment停止とし、再送やcompletionの推測をしません。OpenCode proofはin-memoryで、
 Runtime固有の証跡は別recordに保持します。Schema-1 journalへ保存するのはcheckpointと
 dispatch前のCore requestまでです。Restart、proof restore、observation-loss reconciliationは
 `UNSUPPORTED`です。Native transcriptはYohaku checkpointやarchiveへ変換しません。
 
+R4のretry-enabled path、restart、cross-process recovery、unknown plugin graph、later mutator、
+parallel / background / subagent、external client、DCPはunsupportedです。
 General tool incorporation、external client conflict、background / parallel work、
 plugin conflict、crash / power-loss durabilityは`NOT_RUN`です。Hostの排他的利用条件は
 Runtime-wide atomic freezeを意味しません。共有契約は[Adapter Contract](../development/adapter-contract.md)を参照してください。

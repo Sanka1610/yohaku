@@ -3,17 +3,21 @@
 The trusted host mounts stock BasicCompaction (auto:false), with no tool,
 background, subagent or alternate input surface. Native history remains DSH's.
 Only checkpoint/decision records use SessionStore; binding/proof are in-memory.
-Receipt and restart are unsupported. All owner calls must be serialized.
+Receipt is opt-in for the qualified Messages profile. Restart is unsupported.
+All owner calls must be serialized.
 """
 
 from dataclasses import asdict, dataclass
+from hashlib import sha256
 
+from .codec import encode
 from .controller import Controller, TransitionError
-from .model import BoundaryVerification, Request, State
-from .recovery import CurrentContext
+from .model import BoundaryVerification, ContinuationBinding, Request, State
+from .recovery import CurrentContext, HandoffDocument
 from .persistence import _sync_directory
 
 DSH_VERSION = "0.2.0-rc.2"
+DSH_RECEIPT_PROFILE = "messages-plain-text-owner-no-retry"
 
 
 @dataclass(frozen=True)
@@ -108,6 +112,15 @@ class DshNativeCompletionPolicy:
         return False  # No qualified handoff receipt on this profile.
 
 
+class DshReceiptCompletionPolicy(DshNativeCompletionPolicy):
+    """The completion predicate is unchanged; only an owned receipt turn is allowed."""
+    receipt_turn = None
+
+    def permits_continuation(self, binding, continuation):
+        return (self.valid_binding(binding) and self.receipt_turn == continuation
+                and continuation.thread_id == binding.session_id)
+
+
 class DshAdapter:
     def __init__(self, host, store):
         fresh = host.observe()
@@ -117,7 +130,9 @@ class DshAdapter:
             raise TransitionError('DSH needs the pinned, fresh headless owner and store')
         store._ready()
         self.host, self.store = host, store
-        self.core = Controller(host.session_id, completion_policy=DshNativeCompletionPolicy())
+        policy = (DshReceiptCompletionPolicy() if getattr(host, 'receipt_profile', None)
+                  == DSH_RECEIPT_PROFILE else DshNativeCompletionPolicy())
+        self.core = Controller(host.session_id, completion_policy=policy)
         self.records = store.path / 'dsh-events'
         self.records.mkdir(mode=0o700, exist_ok=False)
         _sync_directory(store.path)
@@ -262,3 +277,87 @@ class DshAdapter:
             self.core.fail('DSH completion known; post-state needs review')
             raise
         return self.core.snapshot
+
+
+    def offer_handoff(self, document, *, observe):
+        """Persist one existing HandoffDocument, then inject without waking the Agent."""
+        self._idle()
+        s = self.core.snapshot
+        if (not isinstance(self.core._completion_policy, DshReceiptCompletionPolicy)
+                or s.state != State.ROLLOVER_OBSERVED or not hasattr(self, 'post_state')
+                or not isinstance(document, HandoffDocument) or document.request != s.request
+                or document.revisions != s.checkpoint.revisions
+                or document.workspace != self.current.workspace
+                or document.recovered.logical_task_id != self.current.logical_task_id
+                or observe() != self.current):
+            raise TransitionError('qualified receipt profile and current durable handoff required')
+        try:
+            target = self.host.reserve_receipt()
+            if target['sessionId'] != s.thread_id or not target['turnId']:
+                raise TransitionError('receipt target Session mismatch')
+            permit = self.core.claim_continuation()
+            binding = ContinuationBinding(permit, s.thread_id, target['turnId'])
+            self.core._completion_policy.receipt_turn = binding
+            self._record('receipt_turn_reserved', binding=asdict(binding), target=target)
+            self.store.commit_handoff(document)
+            if self.store.read_handoff(document.handoff_id) != document:
+                raise TransitionError('durable handoff readback mismatch')
+            handoff = self.core.offer_handoff(binding, handoff_id=document.handoff_id,
+                recovered_context=f'handoff:{document.handoff_id}')
+            text = document.render()
+            delivery = self.host.deliver_handoff(handoff.handoff_id, binding.turn_id, text)
+            expected_hash = sha256(text.encode()).hexdigest()
+            if (delivery['sessionId'] != s.thread_id or not delivery['messageId']
+                    or delivery['handoffId'] != handoff.handoff_id
+                    or delivery['turnId'] != binding.turn_id
+                    or delivery['handoffHash'] != expected_hash
+                    or delivery['nonWaking'] is not True or delivery['durable'] is not True):
+                raise TransitionError('non-waking delivery proof mismatch')
+            self.delivery = delivery
+            self.injection_ref = self._record('handoff_delivered', delivery=delivery)
+            return handoff
+        except BaseException:
+            self._stop_receipt('DSH handoff delivery uncertain')
+            raise
+
+    def _stop_receipt(self, reason):
+        self.stopped = True
+        self.core.fail(reason)
+        self.host.invalidate_receipt(reason)
+
+    def receive_handoff(self, *, observe):
+        """One explicit receipt request; no task continuation or resume verification."""
+        if self.core.snapshot.receipt_evidence:
+            return False
+        if self.stopped or self.core.snapshot.state != State.HANDOFF_OFFERED:
+            raise TransitionError('one offered handoff required')
+        try:
+            candidate = self.host.start_receipt_request()
+            d, h = self.delivery, self.core.snapshot.handoff
+            if (candidate['handoffId'] != h.handoff_id
+                    or candidate['sessionId'] != h.request.thread_id
+                    or candidate['messageId'] != d['messageId']
+                    or candidate['turnId'] != h.continuation_turn_id
+                    or candidate['handoffHash'] != d['handoffHash']
+                    or candidate['profile'] != DSH_RECEIPT_PROFILE):
+                raise TransitionError('receipt candidate identity mismatch')
+            fresh = self.host.fresh_receipt()
+            current = observe()
+            if (current != self.current or fresh['current'] != encode(current)
+                    or fresh['sessionId'] != h.request.thread_id
+                    or fresh['status'] != 'running' or fresh['settled'] is not False
+                    or fresh['seq'] < candidate['nativeSeq']):
+                raise TransitionError('receipt fresh task or Session state is stale')
+            self._record('receipt_candidate', candidate=candidate, fresh=fresh)
+            evidence = self.host.authorize_receipt(candidate, fresh)
+            if (evidence['binding'] != candidate or evidence['freshRevision'] != fresh['revision']
+                    or evidence['authorization'] != 'one-shot'
+                    or evidence['result'] != 'http-accepted'
+                    or evidence['profile'] != DSH_RECEIPT_PROFILE):
+                raise TransitionError('qualified current-attempt receipt proof mismatch')
+            ref = self._record('receipt_received', evidence=evidence)
+            return self.core.receive_handoff(h, injection_evidence=self.injection_ref,
+                                             receipt_evidence=ref)
+        except BaseException:
+            self._stop_receipt('DSH receipt uncertain; no retry or continuation')
+            raise

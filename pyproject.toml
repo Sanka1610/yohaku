@@ -18,4 +18,4 @@ yohaku = "yohaku.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-yohaku = ["dsh_host.mjs"]
+yohaku = ["dsh_host.mjs", "opencode_receipt_hook.mjs"]

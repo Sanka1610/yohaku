@@ -33,7 +33,7 @@ class OpenCodeAdapter:
         self.store, self.server_url = store, server_url.rstrip("/")
         self.db_path = Path(db_path).resolve()
         self.headers, self.timeout = dict(headers or {}), timeout
-        self.core = Controller(session_id, completion_policy=OpenCodeNativeCompletionPolicy())
+        self.core = self._controller(session_id)
         self.records = store.path / "opencode-evidence"
         _mkdir(self.records)
         self.record_seq = 0
@@ -59,6 +59,9 @@ class OpenCodeAdapter:
         if not self._connected.wait(min(timeout, 10)) or self._lost.is_set():
             self.close()
             raise TransitionError("OpenCode SSE subscription unavailable")
+
+    def _controller(self, session_id):
+        return Controller(session_id, completion_policy=OpenCodeNativeCompletionPolicy())
 
     def _api(self, method, path, body=None):
         request = urllib.request.Request(self.server_url + path, method=method,

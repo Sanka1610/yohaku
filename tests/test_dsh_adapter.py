@@ -1,17 +1,18 @@
 """Bounded local DSH contract checks. Native acceptance is recorded separately."""
 
 from copy import deepcopy
-from dataclasses import replace
+from dataclasses import asdict, replace
 import os
 import tempfile
 import unittest
 from unittest.mock import patch
 
+from yohaku.codec import encode
 from yohaku.controller import TransitionError
-from yohaku.dsh_adapter import DSH_VERSION, DshAdapter
+from yohaku.dsh_adapter import DSH_VERSION, DSH_RECEIPT_PROFILE, DshAdapter
 from yohaku.model import State, WorkspaceRevision
 from yohaku.persistence import SessionStore
-from yohaku.recovery import CurrentContext
+from yohaku.recovery import CurrentContext, HandoffDocument, RecoveredData
 
 
 class Host:
@@ -58,6 +59,7 @@ class Host:
 
 
 class DshAdapterTests(unittest.TestCase):
+    host_type = Host
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
@@ -66,7 +68,7 @@ class DshAdapterTests(unittest.TestCase):
         self.addCleanup(env.stop)
         self.store = SessionStore('dsh-fixture', create=True)
         self.addCleanup(self.store.close)
-        self.host = Host()
+        self.host = self.host_type()
         self.adapter = DshAdapter(self.host, self.store)
         self.current = CurrentContext('bounded-task', 0, 1,
             WorkspaceRevision(1, 'fixture-done', ('task.json',)))
@@ -84,6 +86,17 @@ class DshAdapterTests(unittest.TestCase):
         self.assertIsNone(self.adapter.core.snapshot.handoff)
         self.assertIsNone(self.adapter.core.snapshot.continuation_request_id)
         self.assertEqual(list(self.store.journal.iterdir()), [])
+
+    def test_stock_profile_cannot_offer_receipt_handoff(self):
+        self.compact()
+        s = self.adapter.core.snapshot
+        document = HandoffDocument('stock-handoff', s.request, self.cp.revisions,
+            self.cp.workspace, '/bounded-workspace', RecoveredData('bounded-task',
+                ('work completed',), 'receipt only', (), 'no continuation', ('task.json',)))
+        with self.assertRaises(TransitionError):
+            self.adapter.offer_handoff(document, observe=lambda: self.current)
+        self.assertEqual(self.adapter.core.snapshot.state, State.ROLLOVER_OBSERVED)
+        self.assertIsNone(self.adapter.core.snapshot.continuation_request_id)
 
     def test_wrong_compaction_id_and_incomplete_sets_are_ambiguous(self):
         def wrong(p):
@@ -167,6 +180,98 @@ class DshAdapterTests(unittest.TestCase):
             self.compact()
         self.assertIsNone(self.adapter.core.snapshot.lease)
         self.assertEqual(self.host.calls, 0)
+
+
+
+class ReceiptHost(Host):
+    receipt_profile = DSH_RECEIPT_PROFILE
+
+    def reserve_receipt(self):
+        return dict(sessionId=self.session_id, turnId=f'{self.session_id}:2')
+
+    def deliver_handoff(self, handoff_id, turn_id, text):
+        from hashlib import sha256
+        self.delivery = dict(sessionId=self.session_id, handoffId=handoff_id,
+            messageId='native-handoff', turnId=turn_id, handoffHash=sha256(text.encode()).hexdigest(),
+            durable=True, nonWaking=True)
+        return self.delivery
+
+    def start_receipt_request(self):
+        self.starts = getattr(self, 'starts', 0) + 1
+        candidate = dict(self.delivery, profile=DSH_RECEIPT_PROFILE, nativeSeq=16,
+            nativeCall=3, turn=2, step=1, nativeAttemptId='dsh-fixture:2',
+            hostEpoch='local-owner', hostAttempt=1, bodyHash='serialized-fixture')
+        return self.mutate_candidate(candidate)
+
+    mutate_candidate = staticmethod(lambda candidate: candidate)
+
+    def fresh_receipt(self):
+        return dict(current=encode(self.current), sessionId=self.session_id,
+                    seq=16, status='running', settled=False, revision='local-owner:1')
+
+    def authorize_receipt(self, candidate, fresh):
+        self.authorizations = getattr(self, 'authorizations', 0) + 1
+        return self.mutate_receipt(dict(binding=candidate, freshRevision=fresh['revision'],
+            authorization='one-shot', result='http-accepted', profile=DSH_RECEIPT_PROFILE))
+
+    mutate_receipt = staticmethod(lambda proof: proof)
+
+    def invalidate_receipt(self, reason):
+        self.invalidated = True
+
+
+class DshReceiptAdapterTests(unittest.TestCase):
+    host_type = ReceiptHost
+    setUp = DshAdapterTests.setUp
+    compact = DshAdapterTests.compact
+
+    def offer(self):
+        self.compact()
+        self.host.current = self.current
+        s = self.adapter.core.snapshot
+        document = HandoffDocument('handoff-fixture', s.request, self.cp.revisions,
+            self.cp.workspace, '/bounded-workspace', RecoveredData('bounded-task',
+                ('work completed',), 'receipt only', (), 'no continuation', ('task.json',)))
+        return self.adapter.offer_handoff(document, observe=lambda: self.current)
+
+    def test_delivery_remains_offered_and_receipt_is_one_shot(self):
+        handoff = self.offer()
+        self.assertEqual(self.adapter.core.snapshot.state, State.HANDOFF_OFFERED)
+        self.assertIsNone(self.adapter.core.snapshot.receipt_evidence)
+        self.assertEqual(self.store.read_handoff(handoff.handoff_id).request, handoff.request)
+        self.assertTrue(self.adapter.receive_handoff(observe=lambda: self.current))
+        self.assertEqual(self.adapter.core.snapshot.state, State.HANDOFF_RECEIVED)
+        before = self.adapter.core.snapshot
+        self.assertFalse(self.adapter.receive_handoff(observe=lambda: self.current))
+        self.assertEqual(self.adapter.core.snapshot, before)
+        self.assertEqual(self.host.starts, 1)
+        self.assertEqual(self.host.authorizations, 1)
+        self.assertTrue(before.barrier_requested)
+
+    def test_foreign_candidate_stops_before_authorization(self):
+        self.offer()
+        self.host.mutate_candidate = lambda candidate: dict(candidate, messageId='foreign')
+        with self.assertRaises(TransitionError):
+            self.adapter.receive_handoff(observe=lambda: self.current)
+        self.assertFalse(hasattr(self.host, 'authorizations'))
+        self.assertTrue(self.host.invalidated)
+        self.assertEqual(self.adapter.core.snapshot.state, State.RECOVERY_REQUIRED)
+
+    def test_stale_direct_state_stops_before_authorization(self):
+        self.offer()
+        self.current = replace(self.current, execution_revision=2)
+        with self.assertRaises(TransitionError):
+            self.adapter.receive_handoff(observe=lambda: self.current)
+        self.assertFalse(hasattr(self.host, 'authorizations'))
+        self.assertTrue(self.host.invalidated)
+
+    def test_mismatched_receipt_does_not_reach_received(self):
+        self.offer()
+        self.host.mutate_receipt = lambda proof: dict(proof, freshRevision='old')
+        with self.assertRaises(TransitionError):
+            self.adapter.receive_handoff(observe=lambda: self.current)
+        self.assertEqual(self.adapter.core.snapshot.state, State.RECOVERY_REQUIRED)
+        self.assertIsNone(self.adapter.core.snapshot.receipt_evidence)
 
 
 if __name__ == '__main__':

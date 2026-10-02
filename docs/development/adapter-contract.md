@@ -138,7 +138,7 @@ continuation dispatchを作らない。異なるnative operationを同じcomplet
 
 共有seamは[`CompletionPolicy`](../../src/yohaku/completion.py)です。Policyはbindingと蓄積eventを評価し、trigger、transport、event capture、storage readbackはadapter / hostが所有します。具体的なpredicateは[Codex](../runtimes/codex.md)、[Hermes](../runtimes/hermes.md)、[Claude Code CLI](../runtimes/claude-code-cli.md)、[OpenCode](../runtimes/opencode.md)、[DSH](../runtimes/dsh.md)を参照してください。
 
-DSHは同processのnative serviceへ[`dsh_host.mjs`](../../src/yohaku/dsh_host.mjs)から接続します。Python ownerへ渡す`observe` / `work` / `compact` / `project`のtransportはembedding hostが用意し、操作を直列化します。DSH binding / completionをschema-1 snapshot journalへ保存せず、既存checkpointとadapter固有decision recordだけを保存します。限定profileのcompletionとfresh projectionの条件は[DSH](../runtimes/dsh.md)を参照してください。
+DSHは同processのnative serviceへ[`dsh_host.mjs`](../../src/yohaku/dsh_host.mjs)から接続します。Python ownerへ渡す`observe` / `work` / `compact` / `project`のtransportはembedding hostが用意し、操作を直列化します。DSH binding / completionをschema-1 snapshot journalへ保存せず、既存checkpointとadapter固有decision recordだけを保存します。Receipt-enabled profileは既存HandoffDocumentとCoreの`receive_handoff()`へ接続し、`HANDOFF_RECEIVED`まで確認しています。限定profileの条件とhostの接続方法は[DSH](../runtimes/dsh.md)を参照してください。
 
 ## Storage contract
 
@@ -196,6 +196,8 @@ Receiptのwire protocolはRuntime / profile固有でよい。Modelに不要なop
 modelにはhandoff固有のone-time nonceだけを返させる。Hostはnonceとnative session、owner、attachment、
 request、generation、continuation、tool lifecycleを照合する。この設計は、model-visible fieldを減らせる
 profile固有例であり、nonce方式を共通仕様にするものではない。
+
+OpenCodeの限定receiptも既存HandoffDocumentとCoreの`receive_handoff()`へ接続します。Receiptの根拠とhostの構成条件は[OpenCode](../runtimes/opencode.md)を参照してください。両RuntimeともR3 completion predicateとCoreは変更せず、receipt後のtask continuationは未評価です。
 
 Receipt submissionやcontinuation dispatchのoutcomeが不明なら、nonceやpermitを再発行せず
 `AMBIGUOUS`として停止する。Outcomeは確定しているが、後続のrecovery chainを安全に完了できない場合は
