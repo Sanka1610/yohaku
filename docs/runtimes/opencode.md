@@ -63,8 +63,20 @@ Provider failureによるnative retryも停止します。Receipt後の失敗で
 `RECOVERY_REQUIRED`とし、old observationやauthorizationを新attemptへ流用しません。
 R3 CompletionPolicyとShared Core / schemaは変更していません。
 
-`HANDOFF_RECEIVED`は`RESUME_VERIFIED`ではありません。Receipt後のfresh state、unresolved work、
-continuation authority、same-task continuation、nonduplication、task assessmentは未評価です。
+Receiptがsettledした後、`qualify_resume(reassess=...)`でSession APIとcurrent contextを新しく読み、
+独立SQLite transactionのtranscript / inbox / pendingと照合します。Task / workspaceも新しく読み、
+trusted bounded-task observerが完了済みか、historical next actionがまだ必要かを再評価します。
+`reassess(document, current, state)`は実task stateを読み、必要なnext actionか、完了済みなら`None`を返します。
+再評価後にもAPI / SQLite / taskを読み直し、状態が変わればauthorityを失効させて停止します。
+Receipt gateのpre-dispatch observationやSSEの接続状態をfreshness proofへ流用しません。
+
+限定R4-R acceptanceではfresh post-receipt stateとunresolved workの再評価を確認しました。
+Stage one marker一回、receipt一回、stage two未実行をtask fileとnative SQLiteで確認しています。
+R4-Iは唯一のCore continuation permitをreceipt inputへ消費済みで、handoffのcontinuation IDも
+そのinputに固定されています。Receipt後の別inputをauthorizeする既存Core semanticsがないため、
+`HANDOFF_RECEIVED`で安全停止します。`continue_task()`は送信前に拒否します。
+`RESUME_VERIFIED`は`NOT_REACHED`です。別attemptのcontinuation、ResumeProof接続、stage two完了、
+continuation send ambiguityは`NOT_RUN`です。Content qualityは評価していません。
 
 R3 completionのSSEはvolatileです。切断・必要event欠落・identity競合時は`AMBIGUOUS`または
 attachment停止とし、再送やcompletionの推測をしません。OpenCode proofはin-memoryで、
