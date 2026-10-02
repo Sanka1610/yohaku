@@ -1,6 +1,6 @@
 # Runtime support
 
-Profileの`status`はregistryにある`yohaku profiles`でも確認できます。以下の結果はAlpha開発で試した範囲です。Current checkoutのcleanupを、新しいlive Runtime検証として扱いません。
+以下は各profileで試した範囲です。CLI registryにあるprofileは`yohaku profiles`でも確認できます。OpenCodeのadapterはembedding hostから利用し、CLI registryには登録していません。今回の統合で新しいlive Runtime検証は行っていません。
 
 | Profile | Status | 試した環境・workflow | 対応機能と制限 |
 |---|---|---|---|
@@ -26,4 +26,6 @@ Runtime-wide atomic freeze、外部writerの排除、general exactly-onceは成�
 
 Runtime-native historyはYohaku checkpointやarchiveとは別です。Receipt、fresh current-state reconciliation、task assessmentのどれかが欠ければresume成功にはなりません。Mechanical completionは文章・コード・事実品質を保証しません。
 
-DSH / OpenCodeは未実装です。新Runtimeの調査とadapter実装は[Adapter Contract](development/adapter-contract.md)を入口とします。
+OpenCodeには`2.0.21` / Linux / fresh Session / one native compact限定の[adapter](runtimes/opencode.md)があります。Native transitionとbounded text taskのlive acceptanceを確認しました。Receiptとrestartはunsupportedで、公開CLIのlauncherや一般Task Profileはありません。
+
+DSHは未実装です。新Runtimeの調査とadapter実装は[Adapter Contract](development/adapter-contract.md)を入口とします。

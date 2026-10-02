@@ -136,7 +136,7 @@ Exact duplicate completionはidempotentなno-opとして扱い、二つ目のhan
 continuation dispatchを作らない。異なるnative operationを同じcompletionのduplicateと推定することも、
 同じeventを新しいgenerationのcompletionへ転用することも認めない。
 
-共有seamは[`CompletionPolicy`](../../src/yohaku/completion.py)です。Policyはbindingと蓄積eventを評価し、trigger、transport、event capture、storage readbackはadapter / hostが所有します。具体的なpredicateは[Codex](../runtimes/codex.md)、[Hermes](../runtimes/hermes.md)、[Claude Code CLI](../runtimes/claude-code-cli.md)を参照してください。
+共有seamは[`CompletionPolicy`](../../src/yohaku/completion.py)です。Policyはbindingと蓄積eventを評価し、trigger、transport、event capture、storage readbackはadapter / hostが所有します。具体的なpredicateは[Codex](../runtimes/codex.md)、[Hermes](../runtimes/hermes.md)、[Claude Code CLI](../runtimes/claude-code-cli.md)、[OpenCode](../runtimes/opencode.md)を参照してください。
 
 ## Storage contract
 
