@@ -10,7 +10,7 @@ Yohakuは、Runtimeのcontext切替前後に安全なboundary、保存状態、�
 | `CompletionPolicy` | Runtime固有bindingとeventからcompletionを評価する。Core構築時に固定するtrusted policyで、I/Oは行わない |
 | Runtime adapter / host | Native identityとworkを観測し、Runtime dispatch、completion readback、handoff delivery、receiptを相関する |
 | Persistence / recovery | Journal、checkpoint、handoff、archiveをdurableに保存する。Schema-1とrestart codecはCodex由来で、cross-Runtime restartは一般化されていない |
-| Task observer / assessor | Task固有のworkspace変更と未完了workを確認し、same-task / nonduplicationの`ResumeProof`を生成する |
+| Task observer / assessor | Task固有のworkspace変更と未完了work、same-task / nonduplicationを評価する。Adapterが検証結果から`ResumeVerification`を構成する |
 
 Work ledgerのactiveは実行中、pendingは完了resultの取込待ちです。Tool成功を取込完了とみなさず、関連workがsettleしてからboundaryを検証します。観測とgateが及ぶ範囲はadapterごとに異なります。
 

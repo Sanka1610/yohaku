@@ -138,7 +138,7 @@ continuation dispatchを作らない。異なるnative operationを同じcomplet
 
 共有seamは[`CompletionPolicy`](../../src/yohaku/completion.py)です。Policyはbindingと蓄積eventを評価し、trigger、transport、event capture、storage readbackはadapter / hostが所有します。具体的なpredicateは[Codex](../runtimes/codex.md)、[Hermes](../runtimes/hermes.md)、[Claude Code CLI](../runtimes/claude-code-cli.md)、[OpenCode](../runtimes/opencode.md)、[DSH](../runtimes/dsh.md)を参照してください。
 
-DSHは同processのnative serviceへ[`dsh_host.mjs`](../../src/yohaku/dsh_host.mjs)から接続します。Python ownerへ渡す`observe` / `work` / `compact` / `project`のtransportはembedding hostが用意し、操作を直列化します。DSH binding / completionをschema-1 snapshot journalへ保存せず、既存checkpointとadapter固有decision recordだけを保存します。Receipt-enabled profileは既存HandoffDocumentとCoreの`receive_handoff()`へ接続し、`HANDOFF_RECEIVED`まで確認しています。限定profileの条件とhostの接続方法は[DSH](../runtimes/dsh.md)を参照してください。
+DSHは同processのnative serviceへ[`dsh_host.mjs`](../../src/yohaku/dsh_host.mjs)から接続します。Python ownerへ渡す`observe` / `work` / `compact` / `project`のtransportはembedding hostが用意し、操作を直列化します。DSH binding / completionをschema-1 snapshot journalへ保存せず、既存checkpointとadapter固有decision recordだけを保存します。Receipt-enabled profileは既存HandoffDocumentとCoreの`receive_handoff()`へ接続します。限定text taskでは、DSH固有recordから既存`ResumeVerification`を構成し、`RESUME_VERIFIED`まで確認しています。限定profileの条件とhostの接続方法は[DSH](../runtimes/dsh.md)を参照してください。
 
 ## Storage contract
 
@@ -194,8 +194,16 @@ Adapterはclaimを送信前に、binding確定をtask effect前に既存のappen
   undeclared workを再実行しない。
 - Assessmentは、Task ProfileのTrusted Observer / Task Assessorがsame-task、nonduplication、current
   effect、unresolved workを評価する段階である。
-- `RESUME_VERIFIED`は、上記を相関した`ResumeProof`をCoreが受理したstateである。Content qualityや
+- `RESUME_VERIFIED`は、上記をtrusted adapterが検証し、既存`ResumeVerification`をCoreが受理したstateである。Content qualityや
   general semantic understandingまで自動的に評価しない。
+
+`recovery.py`の`ResumeProof`はsuccessful tool observationを照合する既存helper型である。
+Text-only Runtimeは、固有のcompletion evidence、独立したfresh state、bounded task assessmentを
+adapter内で照合・保存してから`ResumeVerification`を構成できる。正しいHandoffと消費済みclaim、
+bound continuation、current revision / workspace、same-taskとnonduplicationの検証は省略しない。
+Assistant text、receipt、host readをtool observationへ読み替えない。
+保存失敗やsend/completion uncertaintyではCore検証へ進まず、最終Snapshotも再確認する。
+DSHの具体的な条件と保存順序は[DSH Runtime](../runtimes/dsh.md)に記載する。
 
 Receiptのwire protocolはRuntime / profile固有でよい。Modelに不要なopaque identity一式を転記させる
 必要はない。Claude Code CLIの`host-nonce-v1` profileでは、trusted hostがfull identity tupleを保持し、
@@ -203,7 +211,7 @@ modelにはhandoff固有のone-time nonceだけを返させる。Hostはnonceと
 request、generation、continuation、tool lifecycleを照合する。この設計は、model-visible fieldを減らせる
 profile固有例であり、nonce方式を共通仕様にするものではない。
 
-OpenCodeの限定receiptも既存HandoffDocumentとCoreの`receive_handoff()`へ接続します。Receiptの根拠とhostの構成条件は[OpenCode](../runtimes/opencode.md)を参照してください。両RuntimeともR3 completion predicateとCoreは変更せず、receipt後のtask continuationは未評価です。
+OpenCodeの限定receiptも既存HandoffDocumentとCoreの`receive_handoff()`へ接続します。Receiptの根拠とhostの構成条件は[OpenCode](../runtimes/opencode.md)を参照してください。両RuntimeともR3 completion predicateとCoreは変更していません。各profileのcontinuation対応範囲はRuntime pageに記載します。
 
 Receipt submissionやcontinuation dispatchのoutcomeが不明なら、nonceやpermitを再発行せず
 `AMBIGUOUS`として停止する。Outcomeは確定しているが、後続のrecovery chainを安全に完了できない場合は
