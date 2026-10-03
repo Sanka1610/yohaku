@@ -13,6 +13,7 @@ from yohaku.dsh_adapter import DSH_VERSION, DSH_RECEIPT_PROFILE, DshAdapter
 from yohaku.model import ContinuationBinding, State, WorkspaceRevision
 from yohaku.persistence import SessionStore
 from yohaku.recovery import CurrentContext, HandoffDocument, RecoveredData
+from yohaku.supervisor import YohakuSupervisor
 
 
 class Host:
@@ -59,6 +60,14 @@ class Host:
 
 
 class DshAdapterTests(unittest.TestCase):
+    def test_supervisor_routes_standalone_to_existing_compact(self):
+        supervisor = YohakuSupervisor()
+        registration = supervisor.register_builtin('dsh', self.adapter)
+        result = supervisor.request_transition(registration.session, requester='dsh',
+                                               observe=lambda: self.current, now=lambda: 1)
+        self.assertEqual(result.state, State.ROLLOVER_OBSERVED)
+        self.assertEqual(self.host.calls, 1)
+
     host_type = Host
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()

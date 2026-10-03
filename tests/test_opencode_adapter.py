@@ -19,9 +19,19 @@ from yohaku.model import BoundaryVerification, State, WorkspaceRevision
 from yohaku.opencode import OpenCodeNativeCompletionPolicy
 from yohaku.opencode_adapter import OpenCodeAdapter
 from yohaku.persistence import SessionStore, _read
+from yohaku.supervisor import YohakuSupervisor
 
 
 class OpenCodeAdapterTests(unittest.TestCase):
+    def test_supervisor_routes_standalone_to_existing_compact(self):
+        supervisor = YohakuSupervisor()
+        registration = supervisor.register_builtin('opencode', self.a)
+        self.checkpoint()
+        supervisor.request_transition(registration.session, requester='opencode',
+                                      observe_workspace=lambda: self.workspace)
+        self.assertEqual(self.a.core.snapshot.state, State.ROLLOVER_OBSERVED)
+        self.assertEqual(self.compacts, 1)
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)

@@ -7,9 +7,13 @@ from importlib.metadata import PackageNotFoundError, version
 
 from . import operational as op
 from .profiles import PROFILES, profile
+from .supervisor import SupervisorError, failure_guidance as supervisor_guidance
 
 
 def _failure_guidance(reason):
+    guidance = supervisor_guidance(reason)
+    if guidance:
+        return guidance
     codes = reason.split('; ')
     if any(code in ('RUNTIME_VERSION_MISMATCH', 'SOURCE_VERSION_MISMATCH',
                     'OPERATIONAL_PROFILE_UNSUPPORTED', 'INVALID_CONFIG_OR_PROFILE') for code in codes):
@@ -35,7 +39,7 @@ def _failure_guidance(reason):
     return None
 
 
-def main(argv=None):
+def main(argv=None, *, supervisor=None):
     parser = argparse.ArgumentParser(description=(
         'Yohaku operational CLI for lifecycle-only profiles and fixed Task Profile runs; '
         'general transitions are not supported'))
@@ -70,7 +74,7 @@ def main(argv=None):
     try:
         if args.command == 'doctor':
             from .doctor import render
-            print(render(args.config))
+            print(render(args.config, supervisor=supervisor))
             return 0
         elif args.command == 'profiles':
             result = {'profiles': [profile(name) for name in PROFILES]}
@@ -104,7 +108,7 @@ def main(argv=None):
         return 2 if result.get('verdict') == 'FAIL' else 0
     except Exception as exc:
         # Runtime stderr and arbitrary exception text may contain credentials.
-        reason = str(exc) if isinstance(exc, op.OperationError) else type(exc).__name__
+        reason = str(exc) if isinstance(exc, (op.OperationError, SupervisorError)) else type(exc).__name__
         if args.command == 'doctor':
             print('Doctor could not complete local inspection. Check the installation and selected config.', file=sys.stderr)
         else:

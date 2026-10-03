@@ -14,6 +14,7 @@ from .dsh_adapter import DSH_RECEIPT_PROFILE, DSH_VERSION
 from .hermes import HERMES_SOURCE
 from .opencode import OPENCODE_VERSION
 from .profiles import PROFILES, profile
+from .supervisor import SupervisorError, failure_guidance
 
 
 def _query(args):
@@ -44,7 +45,7 @@ def _package_version(executable):
     return None
 
 
-def render(config_path=None):
+def render(config_path=None, *, supervisor=None):
     """Return human-readable observations, without acquiring any owner lock."""
     warnings = []
     config = None
@@ -138,6 +139,21 @@ def render(config_path=None):
                 lines += ['    Runtime-only conditions: Linux; known terminal http.request hook graph; no later mutator;',
                           '      native deny-all receipt tools; fresh owned Session; retry disabled']
             lines.append('    Important limitations: retry unsupported; restart unsupported; no public CLI launcher')
+    if supervisor is not None:
+        lines += ['', 'Supervisor sessions (provided facts only)',
+                  '  Process-local; restart recovery: NOT_SUPPORTED']
+        for session in supervisor.sessions:
+            lines += ['  Session', f'    Harness: {session.harness}']
+            try:
+                trigger = supervisor.resolve(session)
+                observers = supervisor.observers(session)
+                lines += [f'    Trigger authority: {trigger.name}',
+                          '    Observers: ' + (', '.join(item.name for item in observers) or 'none'),
+                          '    Ownership facts: supplied by embedding host']
+            except SupervisorError as exc:
+                lines.append('    Trigger authority: unresolved')
+                lines.extend('    ' + line for line in failure_guidance(str(exc)).splitlines())
+                warnings.append('A supplied Supervisor session could not be resolved safely.')
     lines += ['', 'Environment', f'  Platform: {sys.platform}',
               '  Operational launcher requires Linux / local POSIX storage; filesystem suitability: not checked']
     if config:
@@ -152,7 +168,9 @@ def render(config_path=None):
               '  Executable presence and version compatibility do not prove transition or resume readiness.',
               '  For not detected runtimes, check PATH; use --config to inspect an existing operational configuration.',
               '  Verify runtime-only qualification at execution time; see docs/runtime-support.md.',
-              '  Ownership, trigger authority, other observers and external writers: not checked.',
+              ('  Ownership, trigger authority, other observers and external writers: not checked.'
+               if supervisor is None else
+               '  Supervisor routing uses provided facts only; live ownership and external writers: not checked.'),
               '  No config/provider/state changes, repairs, runtime sessions or network requests are performed.']
     lines += [f'  Warning: {warning}' for warning in warnings]
     lines += ['', 'Summary', f'  Supported runtimes detected (presence only): {supported}',

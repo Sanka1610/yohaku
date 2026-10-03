@@ -8,11 +8,42 @@ Yohakuは、Runtimeのcontext切替前後に安全なboundary、保存状態、�
 |---|---|
 | `Controller` / `model` | Verified boundary、revision / freshness、checkpoint-before-authority、one-shot lease / request、stale / duplicate rejection、ambiguity、resume gate |
 | `CompletionPolicy` | Runtime固有bindingとeventからcompletionを評価する。Core構築時に固定するtrusted policyで、I/Oは行わない |
+| `YohakuSupervisor` | 提供されたnative session identityとownership factsから一つのtriggerを選び、既存adapterへroutingする。Process内の登録だけを扱うinternal module |
 | Runtime adapter / host | Native identityとworkを観測し、Runtime dispatch、completion readback、handoff delivery、receiptを相関する |
 | Persistence / recovery | Journal、checkpoint、handoff、archiveをdurableに保存する。Schema-1とrestart codecはCodex由来で、cross-Runtime restartは一般化されていない |
 | Task observer / assessor | Task固有のworkspace変更と未完了work、same-task / nonduplicationを評価する。Adapterが検証結果から`ResumeVerification`を構成する |
 
 Work ledgerのactiveは実行中、pendingは完了resultの取込待ちです。Tool成功を取込完了とみなさず、関連workがsettleしてからboundaryを検証します。観測とgateが及ぶ範囲はadapterごとに異なります。
+
+## Minimal Supervisor
+
+CLIを組み込むhostまたはembedding hostは、`YohakuSupervisor`へsessionとadapterを登録できます。Supervisorは`harness`と`provider_session_id`でprovider-native sessionを相関します。Codexではprocessではなくthread IDを使います。同じsessionを観測するmeta adapterも、childのharnessとnative IDに登録します。新しい汎用IDは作りません。
+
+契約は**1 trigger / N observers**です。`SessionProfile`は`harness`、`provider_session_id`、任意の`trigger_authority`と`ownership_source`だけを持ちます。Hostがsessionごとのauthorityとその出所を明示し、選んだadapterが`TRIGGER`として登録されている場合に限りroutingします。`OBSERVER`は複数登録でき、trigger自身がobserverを兼ねることもできます。Roleはそのsessionにだけ適用します。
+
+`resolve()`はselected registrationを返し、`request_transition()`はrequesterがselected triggerであることを確認して既存transition methodを呼びます。複数のtrigger claimは、明示されたsession-specific authorityで一つに絞ります。そのfactがない競合、ownerが不明、trigger不在、native identityの不一致はdispatch前に拒否します。Adapterの優先順位表や実行ファイルの存在からownerを決めません。
+
+Yohakuの一つのinstallationにはCodex、Hermes、DSH、OpenCodeのbuilt-in adapterが含まれます。登録には既にattachしたinstanceを使い、関係するadapterだけをsessionごとに有効にします。`register_builtin()`でsessionを省略する呼び出しは、hostによる明示的なstandalone宣言です。そのadapterをtriggerとobserverに登録します。Ownership discoveryやRuntime起動は行いません。
+
+```python
+from yohaku.supervisor import YohakuSupervisor
+
+# companion is an already attached Codex CompanionController.
+supervisor = YohakuSupervisor()
+registration = supervisor.register_builtin("codex", companion)
+request = supervisor.request_transition(
+    registration.session, lease, read_current, requester="codex")
+```
+
+Codexは`request_compact()`、Hermesは`compress()`、DSHとOpenCodeは`compact()`へroutingします。既存adapterを直接呼ぶ経路も維持します。SupervisorはCoreのboundary、checkpoint、lease、receipt、continuation、late binding、resume verificationを変更せず、Core authorityを新たに発行しません。Observerの登録はlifecycle観測、identity確認、補助Evidenceのためのmetadataです。Supervisorからobserverのtransitionやcontinuationを呼ばず、そのEvidenceをCore proofへ昇格しません。Hostもobserverを読み取り専用で扱う必要があります。
+
+同じsessionと既存checkpoint IDでtransition methodへ一度入った後は、例外の場合も含めて二重dispatchを拒否します。実行中の同じsessionへの再入も拒否します。次のtransitionにはfreshなCore checkpointが必要で、既存adapterのfreshnessとauthorization検証を通る必要があります。Supervisorの記録はdurable leaseではありません。Direct adapter callや別Supervisor instance、別processを調停する仕組みではなく、協調するhostが全requestを同じSupervisorへ渡す必要があります。
+
+登録、resolution、dispatchはhostの既存event loopで直列化します。複数sessionは登録できますが、parallel executionは保証しません。Stateはprocess-localでnon-durableです。Restart recoveryは`NOT_SUPPORTED`で、Snapshot、Handoff、journal、SessionStore、codecにSupervisor metadataを保存しません。
+
+Embedding hostは`doctor.render(supervisor=supervisor)`または`cli.main(["doctor"], supervisor=supervisor)`で、登録済みsessionのharness、trigger、observersを表示できます。表示はprovided factsに限定し、native session IDやownership sourceの内容は出しません。Supervisorを渡さない`yohaku doctor`は従来のlocal inspectionを維持します。Live ownership discoveryは行いません。
+
+Orca production adapterとdaemon、server、MCP、cross-process registryはBeta supervisorの範囲外です。
 
 ## Control flow
 

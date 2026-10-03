@@ -16,9 +16,19 @@ from yohaku.hermes_adapter import HermesCLIAdapter, digest
 from yohaku.model import State, WorkspaceRevision
 from yohaku.persistence import SessionStore
 from yohaku.recovery import CurrentContext, RecoveredData, ResumeProof
+from yohaku.supervisor import YohakuSupervisor
 
 
 class HermesAdapterTests(unittest.TestCase):
+    def test_supervisor_routes_standalone_to_existing_compress(self):
+        supervisor = YohakuSupervisor()
+        registration = supervisor.register_builtin('hermes', self.a)
+        self.checkpoint()
+        supervisor.request_transition(registration.session, requester='hermes',
+                                      observe=self.observe, now=lambda: 1)
+        self.assertEqual(self.a.core.snapshot.state, State.ROLLOVER_OBSERVED)
+        self.assertEqual(self.a.manual_requests, 1)
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)

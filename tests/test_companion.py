@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from yohaku.companion import CompanionController, CurrentState
 from yohaku.codec import decode, encode
@@ -18,9 +18,45 @@ from yohaku.model import BoundaryVerification, ContinuationBinding, Handoff, Sna
 from yohaku.persistence import PersistenceError, SessionStore, resolve_yohaku_home
 from yohaku.recovery import HandoffDocument, RecoveredData
 from yohaku import persistence
+from yohaku.supervisor import (AdapterRegistration, OBSERVER, TRIGGER, SessionProfile,
+                               SupervisorError, YohakuSupervisor)
 
 
 class CompanionTests(unittest.TestCase):
+    def test_supervisor_meta_owner_keeps_codex_observer_only(self):
+        supervisor = YohakuSupervisor()
+        session = SessionProfile('codex', 'thread-1', 'meta', 'fixture: explicit meta owner')
+        supervisor.register_session(session)
+        observer = supervisor.register_builtin('codex', self.c, session=session, roles=(OBSERVER,))
+        self.assertIsNone(observer.transition)
+        meta = Mock(return_value='meta request')
+        supervisor.register_adapter(AdapterRegistration('meta', session,
+            frozenset({TRIGGER, OBSERVER}), lambda: ('thread-1',), lambda: self.c.snapshot, meta))
+        before = self.c.snapshot
+        with self.assertRaises(SupervisorError) as caught:
+            supervisor.request_transition(session, requester='codex')
+        self.assertEqual(str(caught.exception), 'SUPERVISOR_NOT_TRIGGER')
+        self.assertEqual(supervisor.request_transition(session, requester='meta'), 'meta request')
+        meta.assert_called_once()
+        self.assertEqual(self.c.snapshot, before)
+        self.assertEqual(self.sent, [])
+        self.assertEqual([r.name for r in supervisor.observers(session)], ['codex', 'meta'])
+
+    def test_supervisor_routes_standalone_native_thread_to_existing_compact(self):
+        supervisor = YohakuSupervisor()
+        registration = supervisor.register_builtin('codex', self.c)
+        lease = self.authorized()
+        request = supervisor.request_transition(registration.session, lease, self.current,
+            requester='codex', completion_timeout=2)
+        self.assertEqual(self.sent, [{"id": request.request_id, "method": "thread/compact/start",
+                                    "params": {"threadId": "thread-1"}}])
+        self.assertEqual(self.c.snapshot.state, State.ROLLOVER_REQUESTED)
+        before = self.c.snapshot
+        with self.assertRaises(SupervisorError):
+            supervisor.request_transition(registration.session, lease, self.current, requester='codex')
+        self.assertEqual(self.c.snapshot, before)
+        self.assertEqual(len(self.sent), 1)
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
