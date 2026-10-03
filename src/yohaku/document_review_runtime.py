@@ -1,6 +1,5 @@
 """Codex 0.158 runtime path for the single document-review-report-v1 profile."""
 
-from dataclasses import asdict
 import hashlib
 import json
 from importlib.metadata import version

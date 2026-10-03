@@ -3,7 +3,7 @@
 本書は、Yohakuが何をdurableに保存し、restart時に何を復活させず、保存済みstateから
 recovery可否をどう判定するかを定める公開正本である。利用者が実行するcommandと拒否条件は
 [Operations](operations.md)、Runtime固有のcompletion proof / receipt / reconnect primitiveは
-[Codex](runtimes/codex.md)、[Hermes](runtimes/hermes.md)、
+[Codex](runtimes/codex.md)、[Hermes](runtimes/hermes.md)、[DSH](runtimes/dsh.md)、[OpenCode](runtimes/opencode.md)、
 [Claude Code CLI](runtimes/claude-code-cli.md)を参照する。Task固有のinput / output、Trusted
 Observer、Task Assessorの契約は[Task Profile](task-profiles/document-review-report-v1.md)を参照する。
 

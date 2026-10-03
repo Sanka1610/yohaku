@@ -6,7 +6,7 @@ Beta: Supported on qualified profile。公開statusの一覧は[Runtime support]
 
 ## Tested profile
 
-OpenCode `2.0.21`、Linux、fresh owned Session、single owner、known terminal `http.request` hook graph、no later body mutator、native deny-all tools、one bounded foreground text task、retry disabledに限定します。Embedding hostが専用Session / server / configとterminal hook位置を保証します。試した環境はLinux / WSL2です。
+OpenCode `2.0.21`、Linux、fresh owned Session、single owner、known terminal `http.request` hook graph、no later body mutator、native deny-all tools、one bounded foreground text task、native compact / handoff各一回、retry disabledに限定します。Embedding hostが専用Session / server / configとterminal hook位置を保証します。試した環境はLinux / WSL2です。
 
 ## Verified path
 
@@ -18,13 +18,13 @@ Native transition → receipt → fresh reconciliationと未完了workの再評�
 
 Unknown hook graph、later body mutator、tools-enabled receipt profile、retry-enabled path、restart、cross-process recovery、external client、DCP、parallel execution、background execution、subagentはUnsupportedです。別versionや上記条件を満たさない構成はNot qualifiedで、他versionの動作はNot testedです。
 
-実model inference、一般taskの品質、installed-wheel live acceptance、general tool incorporation、external client conflict、plugin conflict、crash / power-loss durabilityは`NOT_RUN`です。公開CLI launcherや一般Task Profileはありません。Hostの専有条件はRuntime-wide atomic freezeを意味しません。
+実model inference、一般taskの品質、installed-wheel live acceptance、general tool incorporation、external client conflict、background / parallel work、plugin conflict、crash / power-loss durabilityは`NOT_RUN`です。公開CLI launcherや一般Task Profileはありません。Hostの専有条件はRuntime-wide atomic freezeを意味しません。
 
 ## Safety behavior
 
 Unknown graph、body / identity / task / workspaceのmismatch、stale / foreign evidence、owner loss、retryではcandidateを失効させて停止します。Claimやbindingを戻さず、blind retryしません。Receiptとtaskの証拠を流用せず、新しいstate照合と最終検証を要求します。成功記録の保存に失敗した場合もownerを停止し、成功を返しません。
 
-## Adapter contractと先行検証
+## Native transition
 
 `OpenCodeAdapter`はserver/client APIを使う限定adapterです。試した対象は
 `@opencode/cli@2.0.21`、公式tag `v2.0.21`、Linux / WSL2、fresh Session、
@@ -44,16 +44,16 @@ journalへ記録してから`POST /api/session/:id/compact`を一回発行しま
 同Sessionの`session.compaction.ended`、同IDのcompleted message、別read-only SQLite
 connectionで取得したprojection、その後に新しく取得したactive contextを照合します。
 `ended`にはinput IDがないため単独ではcompletionにしません。Native summaryは置換しません。
-R3 compact proofに追加pluginは不要です。
+Native compactのcompletion proofに追加pluginは不要です。
 
 限定live acceptanceはnative transitionとbounded task workflowがともに`PASS`でした。
 Task fidelityはRuntime completionから独立して評価しています。これで一般taskの正しさは保証しません。
 R3のaccepted endpointは`ROLLOVER_OBSERVED`です。R3の次promptはreceiptを作りません。
-R4の限定receiptには以下の専用adapterを使います。
 
-`OpenCodeReceiptAdapter`は`2.0.21`のfresh owned Session、single owner、one foreground
-bounded text task、native compact一回、handoff一回、known terminal `http.request` observer、
-後続body mutatorなし、retry無効に限定してreceiptと別inputのbounded continuationを接続します。
+## Handoff receipt
+
+`OpenCodeReceiptAdapter`は[Tested profile](#tested-profile)の条件内で、
+receiptと別inputのbounded continuationを接続します。
 確認したprovider形式はOllamaのOpenAI-compatible HTTP `messages` / exact user textです。
 Local controlled provider fixtureによる実OpenCode acceptanceで、許可前dispatch 0件、
 許可後のhandoff dispatch 1件、terminal body hashとendpoint raw bytes hashの一致を確認しました。
@@ -98,8 +98,10 @@ Abort、replacement、retry、identity/hash/body不一致、unknown graph、stal
 deadline、disposal、duplicate releaseでcandidateを失効させ、dispatchを拒否します。
 Provider failureによるnative retryも停止します。Receipt後の失敗ではhistorical evidenceを保持して
 `RECOVERY_REQUIRED`とし、old observationやauthorizationを新attemptへ流用しません。
-R3 CompletionPolicyは保持し、late bindingには既存Core semanticsを使います。
+Native completion policyは保持し、late bindingには既存Core semanticsを使います。
 Adapter固有のCore / schema変更はありません。
+
+## Late-bound continuation
 
 Receiptがsettledした後、`qualify_resume(reassess=...)`でSession APIとcurrent contextを新しく読み、
 独立SQLite transactionのtranscript / inbox / pendingと照合します。Task / workspaceも新しく読み、
@@ -108,7 +110,7 @@ trusted bounded-task observerが完了済みか、historical next actionがま�
 再評価後にもAPI / SQLite / taskを読み直し、状態が変わればauthorityを失効させて停止します。
 Receipt gateのpre-dispatch observationやSSEの接続状態をfreshness proofへ流用しません。
 
-R4-R2では、未完了workのqualification後に`continue_task(next_action)`がfresh stateを再確認し、
+未完了workのqualification後に`continue_task(next_action)`がfresh stateを再確認し、
 post-receipt `claim_continuation(expected_snapshot=...)`を既存append-only evidenceへ保存してから
 新しいpromptを一回送ります。Nativeが発行したactual input IDをadmission、current context、
 独立SQLiteで観測し、task専用terminal gateで待ちます。Receiptのinput ID、authorization、
@@ -122,9 +124,11 @@ Adapterはactual native IDを`bind_continuation()`へ渡し、そのSnapshotを�
 
 Local controlled providerによるfresh acceptanceで、stage one、receipt、stage twoのnative markerを
 各一回、task provider execution一回、binding保存後のdispatch、final fresh stateを確認しました。
-R4-P-Iでは、この限定profileで`verify_resume(assess=...)`まで接続し、既存の
+この限定profileでは`verify_resume(assess=...)`まで接続し、既存の
 `Controller.verify_resume()`による`RESUME_VERIFIED`を確認しました。既存`ResumeProof`は使用せず、
 Coreのmodel・verification semantics・保存形式も変更していません。
+
+## Runtime-owned verification
 
 `final_observation()`の後、ownerが`verify_resume()`を一回呼びます。Adapterは保存済みの
 claim、actual inputのbinding、task専用observation・authorization・seal・completion、final observationを
@@ -165,17 +169,16 @@ Verification recordの保存に失敗した場合、Coreのverifyは呼びませ
 失敗した場合はCoreのin-memory stateが`RESUME_VERIFIED`でもownerを停止し、成功を返しません。
 二回目のverifyは拒否します。
 
-R3 completionのSSEはvolatileです。切断・必要event欠落・identity競合時は`AMBIGUOUS`または
+## Storageと制限
+
+Native completionのSSEはvolatileです。切断・必要event欠落・identity競合時は`AMBIGUOUS`または
 attachment停止とし、再送やcompletionの推測をしません。OpenCode proofはin-memoryで、
 Runtime固有の証跡は別recordに保持します。Schema-1 journalへ保存するのはcheckpointと
 dispatch前のCore requestまでです。Restart、proof restore、observation-loss reconciliationは
 `UNSUPPORTED`です。Native transcriptはYohaku checkpointやarchiveへ変換しません。
 
-R4のretry-enabled path、restart、cross-process recovery、unknown plugin graph、later mutator、
-tools-enabled receipt、parallel / background / subagent、external client、DCPはunsupportedです。
-General tool incorporation、external client conflict、background / parallel work、
-plugin conflict、crash / power-loss durabilityは`NOT_RUN`です。Hostの排他的利用条件は
-Runtime-wide atomic freezeを意味しません。共有契約は[Adapter Contract](../development/adapter-contract.md)を参照してください。
+対応範囲と未検証項目は[Limitations](#limitations)、共有契約は
+[Adapter Contract](../development/adapter-contract.md)を参照してください。
 Hostは宣言したtask / workspace scopeに対する外部変更を最終検証中も排除し、各observerで新しく読みます。
 今回のPASSは実OpenCodeとlocal controlled providerによる一回のbounded acceptanceです。
 実model inference、一般taskの品質、installed wheelでの今回の経路は`NOT_RUN`です。

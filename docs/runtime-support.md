@@ -48,9 +48,12 @@ Runtime-native historyはYohaku checkpointやarchiveとは別です。Receipt、
 
 ## Qualified profiles
 
-DSHのexact profileは`0.2.0-rc.2`、headless、公式DeepSeek Messages adapter、plain text、fresh Session、single Agent、single owner、追加extension fieldsなし、retry disabledです。対象taskは固定の`FINALIZE` / `FINALIZED`です。保存済みacceptanceはloopback protocol fixtureとstock HTTP transportによるmechanical verificationで、外部APIや実modelの品質評価を含みません。Stock pi-ai / OpenAI-compatible経路、他provider adapter、追加extension fields、file / image / tool projections、retry-enabled path、restart、Desktop、parallel / background / subagentのreceipt / resumeはUnsupportedです。[DSHの制限と安全停止](runtimes/dsh.md#limitations)を参照してください。
+Exact条件、対応範囲外の構成、安全停止の詳細は各Runtimeページに集約しています。
 
-OpenCodeのexact profileは`2.0.21`、Linux、fresh owned Session、single owner、known terminal `http.request` hook graph、later body mutatorなし、native deny-all tools、一つのbounded foreground text task、retry disabledです。保存済みacceptanceは実OpenCodeとlocal controlled providerによるfresh Session一回で、実model inferenceや一般taskの品質は未評価です。Unknown hook graph、later body mutator、tools-enabled receipt profile、retry-enabled path、restart、cross-process recovery、external client、DCP、parallel / background / subagentはUnsupportedです。[OpenCodeの制限と安全停止](runtimes/opencode.md#limitations)を参照してください。
+- [DSH](runtimes/dsh.md#tested-profile)は公式Messages / plain textの固定`FINALIZE` / `FINALIZED` taskです。保存済みacceptanceはloopback protocol fixtureとstock HTTP transportによるmechanical verificationです。[制限](runtimes/dsh.md#limitations)と[安全停止](runtimes/dsh.md#safety-behavior)を参照してください。
+- [OpenCode](runtimes/opencode.md#tested-profile)はknown terminal hook graph / native deny-all toolsのbounded foreground text taskです。保存済みacceptanceは実OpenCodeとlocal controlled providerによるfresh Session一回です。[制限](runtimes/opencode.md#limitations)と[安全停止](runtimes/opencode.md#safety-behavior)を参照してください。
+
+両経路とも外部APIや実modelの品質評価を含みません。
 
 別versionや未実測環境はNot qualified / Not testedとして扱います。外部API、実modelの品質、installed-wheel live acceptanceなどの`NOT_RUN`を、非互換性やUnsupportedの実証へ読み替えません。
 

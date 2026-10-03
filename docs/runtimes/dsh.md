@@ -6,7 +6,7 @@ Beta: Supported on qualified profile。公開statusの一覧は[Runtime support]
 
 ## Tested profile
 
-DSH `0.2.0-rc.2`、headless、official DeepSeek Messages adapter、plain text、fresh Session、single Agent、single owner、no additional extension fields、retry disabledに限定します。Receiptは`messages-plain-text-owner-no-retry`を明示的に有効化します。Toolなしの直列実行で、最終検証のtaskは固定の`FINALIZE` / `FINALIZED`です。試した環境はLinux / WSL2、Node `22.22.1`、CPython `3.14.4`です。
+DSH `0.2.0-rc.2`、headless、official DeepSeek Messages adapter、plain text、fresh Session、single Agent、single owner、no additional extension fields、known gate ordering、retry disabledに限定します。Receiptは`messages-plain-text-owner-no-retry`を明示的に有効化します。Toolなしの直列実行で、最終検証のtaskは固定の`FINALIZE` / `FINALIZED`です。試した環境はLinux / WSL2、Node `22.22.1`、CPython `3.14.4`です。
 
 ## Verified path
 
@@ -18,13 +18,13 @@ Native transition → receipt → fresh reconciliationと未完了workの再評�
 
 Stock pi-ai / OpenAI-compatible path、other provider adapters、additional extension fields、file / image / tool projection、retry-enabled path、restart、Desktop、parallel execution、background execution、subagentのreceipt / resumeはUnsupportedです。別versionや上記条件を満たさない構成はNot qualifiedで、他versionの動作はNot testedです。
 
-外部DeepSeek API、実modelのtask品質、installed-wheel live acceptance、alternate client、crash recoveryは`NOT_RUN`です。公開CLI launcherはなく、Python ownerへのtransport、task観測、workspaceのfresh read、直列実行はembedding hostが用意します。Runtime-wide atomic freezeや外部writer排除は保証しません。
+外部DeepSeek API、実modelのtask品質、installed-wheel live acceptance、alternate client、general tool incorporation、crash recoveryは`NOT_RUN`です。公開CLI launcherはなく、Python ownerへのtransport、task観測、workspaceのfresh read、直列実行はembedding hostが用意します。Runtime-wide atomic freezeや外部writer排除は保証しません。
 
 ## Safety behavior
 
 Identity / hash / task / workspaceのmismatch、stale / foreign evidence、owner loss、retry開始、profile逸脱では停止します。Dispatchやcompletionが不確かな場合もclaimとbindingを戻さず、blind retryしません。Receipt成功だけで再開を認めず、新しいstate照合と最終検証を要求します。
 
-## Adapter contractと先行検証
+## Native transition
 
 `DshAdapter`と`DshNativeCompletionPolicy`は、DSHのnative serviceへ
 `dsh_host.mjs`から接続する限定adapterです。試した対象は`0.2.0-rc.2`、
@@ -61,16 +61,13 @@ text continuationと`RESUME_VERIFIED`まで確認しています。
 Native binding / completionはin-memoryで、schema-1 snapshot journalへ保存しません。
 Yohaku checkpointとadapter decision record、DSH native persistenceは別です。
 
-Parallel、background、subagent、alternate client、general tool incorporation、
-installed-wheel live acceptance、crash recoveryは未検証です。
-専有hostの条件はexternal writer排除やRuntime-wide atomic freezeを保証しません。
-共有契約は[Adapter Contract](../development/adapter-contract.md)を参照してください。
+対応範囲と未検証項目は[Limitations](#limitations)、共有契約は
+[Adapter Contract](../development/adapter-contract.md)を参照してください。
 
+## Handoff receipt
 
-Receiptは`messages-plain-text-owner-no-retry`を明示的に有効化した場合だけ
-対応します。対象は公式DeepSeek Messages adapter、全request historyがplain text、
-fresh Session、single Agent / single owner、toolなし、追加extension fieldなし、
-既知のgate ordering、retry disabledです。Loopback protocol fixtureとstock HTTP
+Receiptのexact条件は[Tested profile](#tested-profile)に記載します。
+Plain textの条件は全request historyに適用します。Loopback protocol fixtureとstock HTTP
 transportによる先行receipt qualificationで`HANDOFF_RECEIVED`まで確認しました。
 外部DeepSeek API、実model、実taskの継続品質は検証していません。
 
@@ -114,6 +111,8 @@ Gate中のdirect readをpost-receipt observationとして再利用しません�
 request signal破棄はreceiptを取り消しませんが、error / abort terminal、retry、別attempt、
 owner lossはresume qualificationを通過できません。
 
+## Late-bound continuation
+
 `qualify_resume(observe=..., reassess=...)`はdurable handoffを再読し、post-receipt stateと
 declared workspace scopeを照合します。Trusted `reassess(document, current)`は実際のtask
 readからhistorical unresolved workを再評価し、まだ必要なら`next_action_candidate`、
@@ -143,7 +142,9 @@ Loopback protocol fixtureとstock transportによるR4-R2 acceptanceでは、rec
 final fresh stateを確認しました。Task requestをendpoint受信後に切断する別fresh Sessionでも、
 消費済みpermitとbindingを保持し、追加送信せず停止しました。実modelの品質評価ではありません。
 
-R4-P-Iでは、`continue_task()`の後に`verify_finalized(observe=...)`を明示的に呼ぶと、
+## Runtime-owned verification
+
+`continue_task()`の後に`verify_finalized(observe=...)`を明示的に呼ぶと、
 DSH固有の検証結果から既存`ResumeVerification`を構成し、
 `Controller.verify_resume()`で`RESUME_VERIFIED`へ進みます。Core、`ResumeProof`、
 codec、persistence schemaは変更していません。`continue_task()`単独の返却値は従来どおりで、
@@ -180,7 +181,3 @@ claimとbindingを保持します。再検証で新しいcontinuationを送る�
 Fresh Session一回のloopback protocol fixtureとstock HTTP transportで、この順序から
 `RESUME_VERIFIED`への到達とbarrier解除を確認しました。Task request一件、`FINALIZED`一回、
 正常な終端とfinal fresh stateが成立しています。外部APIと実modelの品質は検証していません。
-
-Receiptはstock pi-ai / OpenAI-compatible経路、他provider adapter、追加extension fields、
-file / image / tool projections、retry、restart、parallel / background / subagentでは
-`UNSUPPORTED`です。このreceipt/continuation profileのDSH Desktopは`UNSUPPORTED`です。

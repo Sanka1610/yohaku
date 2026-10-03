@@ -1,7 +1,6 @@
 """Bounded automatic-compaction observation, using existing storage and recovery."""
 
 from dataclasses import replace
-from pathlib import Path
 import time
 
 from .codec import encode

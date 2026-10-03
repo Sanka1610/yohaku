@@ -63,13 +63,14 @@ class HermesCLIAdapter:
         event = dict(seq=len(self.events) + 1, kind=kind,
                      session_id=self.core.snapshot.thread_id, **data)
         try:
-            self.store._write(self.records / f'{event["seq"]:06d}.json', event)
+            path = self.records / f'{event["seq"]:06d}.json'
+            self.store._write(path, event)
         except Exception:
             self.stopped = True
             self.core.fail('Hermes evidence write uncertain')
             raise
         self.events.append(event)
-        return str(self.records / f'{event["seq"]:06d}.json')
+        return str(path)
 
     def _ready(self):
         self.store._ready()
