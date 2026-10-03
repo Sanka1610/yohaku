@@ -20,6 +20,8 @@ Python `>=3.11`が必要です。Operational CLIはLinuxのlocal POSIX filesyste
 
 [Documentation Index](docs/index.md)から、操作、保存と復旧、設計、adapter開発の文書へ進めます。Supportの段階と更新・配布方針は[Support Policy](SUPPORT_POLICY.md)を参照してください。
 
+`yohaku doctor`でlocal Runtimeの検出とprofileの対応条件を確認できます。読み取り専用の診断で、live sessionのqualificationは実行時に確認します。[Operations](docs/operations.md#doctor)を参照してください。
+
 Runtime全体のatomic freeze、外部writerの排除、一般的なexactly-once、任意taskのrestart recoveryは保証しません。`AMBIGUOUS`や`RECOVERY_REQUIRED`では状態を保持して確認してください。[問題の報告方法](docs/issue-reporting.md)も参照できます。
 
 Licenseは[Apache License 2.0](LICENSE)（SPDX: `Apache-2.0`）です。

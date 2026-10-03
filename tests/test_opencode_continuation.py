@@ -190,8 +190,11 @@ class LateContinuationTests(unittest.TestCase):
     def test_late_send_uncertainty_keeps_claim_no_retry(self):
         self.qualified()
         self.uncertain_send = True
-        with self.assertRaises(TimeoutError):
+        with self.assertRaises(TimeoutError) as stopped:
             self.a.continue_task("stage two")
+        notes = ' '.join(stopped.exception.__notes__)
+        self.assertIn('may have been admitted', notes)
+        self.assertIn('without restoring the consumed claim or retrying', notes)
         self.assertTrue(self.a.core.snapshot.continuation_request_id)
         self.assertEqual(self.a.core.snapshot.state, State.RECOVERY_REQUIRED)
         with self.assertRaises(TransitionError):
@@ -204,8 +207,10 @@ class LateContinuationTests(unittest.TestCase):
         future.result(timeout=1)
         self.assertEqual(self.seal_task(identity)["action"], "allow")
         self.uncertain_completion = True
-        with self.assertRaises(TimeoutError):
+        with self.assertRaises(TimeoutError) as stopped:
             self.a.complete_continuation()
+        self.assertIn('may have completed', ' '.join(stopped.exception.__notes__))
+        self.assertIn('without retrying', ' '.join(stopped.exception.__notes__))
         self.assertEqual(self.a.core.snapshot.handoff.continuation_turn_id, admission["id"])
         self.assertEqual(self.a.core.snapshot.state, State.RECOVERY_REQUIRED)
         with self.assertRaises(TransitionError):

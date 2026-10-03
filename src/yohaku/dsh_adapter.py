@@ -129,7 +129,9 @@ class DshAdapter:
         if (host.version != DSH_VERSION or store.thread_id != host.session_id
                 or store.latest is not None or tuple(store.checkpoints.iterdir())
                 or tuple(store.journal.iterdir()) or fresh['seq'] != 0):
-            raise TransitionError('DSH needs the pinned, fresh headless owner and store')
+            refusal = TransitionError('DSH needs the pinned, fresh headless owner and store')
+            refusal.add_note('This configuration is outside the Beta-qualified profile. No transition was started. Check the version, fresh Session/store and exclusive headless owner; yohaku doctor checks local version information only.')
+            raise refusal
         store._ready()
         self.host, self.store = host, store
         policy = (DshReceiptCompletionPolicy() if getattr(host, 'receipt_profile', None)
@@ -253,9 +255,10 @@ class DshAdapter:
             if not self.core.observe_completion(event):
                 raise TransitionError('DSH native completion proof rejected')
             self.completion = event
-        except BaseException:
+        except BaseException as exc:
             self.stopped = True
             self.core.fail('DSH dispatch or completion uncertain; no blind retry')
+            exc.add_note('The native transition may have executed; completion is uncertain. Yohaku stopped without retrying. Preserve state and reconcile the native Session and compaction evidence before proceeding.')
             raise
         try:
             # A new deriveMessages call AFTER completion/readback, never cached pre-state.
@@ -362,8 +365,9 @@ class DshAdapter:
                                                  receipt_evidence=ref)
             self.receipt = evidence
             return received
-        except BaseException:
+        except BaseException as exc:
             self._stop_receipt('DSH receipt uncertain; no retry or continuation')
+            exc.add_note('Handoff receipt could not be verified. Yohaku stopped without retrying or starting the task continuation. Check the offered handoff, actual attempt identity and fresh task/Session state.')
             raise
 
     def qualify_resume(self, *, observe, reassess):
@@ -498,7 +502,9 @@ class DshAdapter:
             accepted = self.host.authorize_task(candidate, final, authorization)
             if (accepted['binding'] != candidate or accepted['freshRevision'] != final['revision']
                     or accepted['result'] != 'http-accepted'):
-                raise TransitionError('task dispatch outcome uncertain')
+                refusal = TransitionError('task dispatch outcome uncertain')
+                refusal.add_note('The continuation may have been sent. Yohaku stops without restoring the claim or retrying. Preserve state and reconcile the native task and provider acceptance before proceeding.')
+                raise refusal
             dispatch_ref = self._record('task_http_accepted', evidence=accepted)
             native = self.host.post_task()
             self._idle(native)
@@ -518,8 +524,9 @@ class DshAdapter:
                 binding=ref, release=release_ref, dispatch=dispatch_ref, completion=completion_ref))
             self.task_result = result
             return result
-        except BaseException:
+        except BaseException as exc:
             self._stop_receipt('DSH task dispatch/binding/completion uncertain; no retry')
+            exc.add_note('The continuation may have been sent or completed. Yohaku stopped without restoring the claim/binding or retrying. Preserve state and reconcile the actual native task and provider acceptance before proceeding.')
             raise
 
     def verify_finalized(self, *, observe):

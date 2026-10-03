@@ -188,7 +188,13 @@ class RecoveryTests(unittest.TestCase):
             self.assertEqual(self.c.store.latest[0].continuation_request_id, message['id'])
             raise OSError("unknown send")
         self.c.recovery.send = broken
-        with self.assertRaises(TransitionError):self.start()
+        with self.assertRaises(TransitionError) as stopped:
+            self.start()
+        self.assertEqual(str(stopped.exception), 'continuation dispatch uncertain; never resend')
+        notes = ' '.join(stopped.exception.__notes__)
+        self.assertIn('may have been sent', notes)
+        self.assertIn('without retrying', notes)
+        self.assertNotIn('Retrying is safe', notes)
         self.restart()
         with self.assertRaises(TransitionError):self.start()
         self.assertEqual(self.c.snapshot.state, State.RECOVERY_REQUIRED)

@@ -163,7 +163,11 @@ class OperationalTests(unittest.TestCase):
             self.assertIn('RUNTIME_VERSION_MISMATCH', report['errors'])
             op.set_enabled(self.path, True)
             with patch('yohaku.operational_hosts.CodexOperationalHost') as host:
-                self.assertEqual(self.cli('start')[0], 2)
+                code, result = self.cli('start')
+                self.assertEqual(code, 2)
+                self.assertIn('RUNTIME_VERSION_MISMATCH', result['error'])
+                self.assertIn('No runtime was launched', result['guidance'])
+                self.assertIn('yohaku doctor --config', result['guidance'])
                 host.assert_not_called()
 
     def test_unsupported_and_missing_owner_assumptions(self):
@@ -198,6 +202,11 @@ class OperationalTests(unittest.TestCase):
         s = op.status(self.config)
         self.assertEqual(s['operational']['state'], 'RECOVERY_REQUIRED')
         self.assertFalse(s['recovery']['fresh_start_allowed'])
+        code, result = self.cli('stop')
+        self.assertEqual(code, 2)
+        self.assertIn('RECOVERY_REQUIRED', result['error'])
+        self.assertIn('retained the saved state', result['guidance'])
+        self.assertNotIn('yohaku doctor', result['guidance'])
         with self.assertRaises(op.OperationError):
             op.set_enabled(self.path, False)
         self.assertEqual(self.cli('stop')[0], 2)

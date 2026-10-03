@@ -169,6 +169,18 @@ class OpenCodeReceiptTests(unittest.TestCase):
         with self.assertRaises(TransitionError):
             self.a.continue_task("continue")
 
+    def test_unknown_terminal_graph_is_a_profile_mismatch(self):
+        with self.assertRaises(TransitionError) as stopped:
+            OpenCodeReceiptAdapter(None, receipt_host=None, known_terminal_graph=False,
+                observe_current=None, owner_alive=None, provider_request_url=None)
+        self.assertEqual(str(stopped.exception), 'known terminal hook graph is required')
+        message = ' '.join(stopped.exception.__notes__)
+        self.assertIn('outside the Beta-qualified profile', message)
+        self.assertIn('No receipt attachment was started', message)
+        self.assertIn('Verify the live terminal hook graph', message)
+        self.assertNotIn('OpenCode is unsupported', message)
+        self.assertNotIn('yohaku doctor', message)
+
     def test_payload_readback_mismatch_has_no_offer(self):
         self.wrong_payload = True
         with self.assertRaises(TransitionError):

@@ -466,8 +466,10 @@ class DshReceiptAdapterTests(unittest.TestCase):
         self.qualify()
         original = getattr(self.host, method)
         setattr(self.host, method, lambda *args: replacement(original, *args))
-        with self.assertRaises((TransitionError, OSError)):
+        with self.assertRaises((TransitionError, OSError)) as stopped:
             self.adapter.continue_task(observe=lambda: self.current)
+        self.assertIn('may have been sent or completed', ' '.join(stopped.exception.__notes__))
+        self.assertIn('without restoring the claim/binding or retrying', ' '.join(stopped.exception.__notes__))
         snapshot = self.adapter.core.snapshot
         self.assertIsNotNone(snapshot.continuation_request_id)
         self.assertEqual(bool(snapshot.handoff.continuation_turn_id), bound)

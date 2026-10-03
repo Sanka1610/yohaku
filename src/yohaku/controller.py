@@ -216,7 +216,9 @@ class Controller:
                 or execution_revision != lease.execution_revision
                 or workspace != lease.workspace):
             self.invalidate("final revision revalidation failed")
-            raise TransitionError("final revision revalidation failed")
+            refusal = TransitionError('final revision revalidation failed')
+            refusal.add_note('Yohaku rejected the transition request. Re-check the current task and workspace before requesting new authority.')
+            raise refusal
         request = Request(self._id(), s.thread_id, s.transition_id, s.boundary_id,
                           s.checkpoint.checkpoint_id, lease.lease_id, s.rollover_generation)
         self._change(state=State.ROLLOVER_REQUESTED, request=request)
@@ -316,7 +318,9 @@ class Controller:
                 or (s.handoff is not None and (s.handoff.request != r
                     or s.handoff.intent_revision != cp.revisions.intent_revision
                     or s.handoff.execution_revision != cp.revisions.execution_revision))):
-            raise TransitionError("continuation requires the current snapshot, request and handoff")
+            refusal = TransitionError('continuation requires the current snapshot, request and handoff')
+            refusal.add_note('Yohaku rejected this claim or binding. Reconcile the current task, workspace and handoff; do not reuse stale evidence.')
+            raise refusal
 
     def claim_continuation(self, *, expected_snapshot: Snapshot | None = None) -> str:
         """Consume the transition's one task continuation permit before I/O.
@@ -338,7 +342,9 @@ class Controller:
             if expected_snapshot is not None:
                 self._check_continuation_snapshot(expected_snapshot)
         if not self._completed() or s.continuation_request_id is not None:
-            raise TransitionError("continuation requires completion and an unused dispatch permit")
+            refusal = TransitionError('continuation requires completion and an unused dispatch permit')
+            refusal.add_note('Yohaku did not grant another claim. Check completion evidence and the existing claim; a consumed permit is not restored for retry.')
+            raise refusal
         request_id = self._id()
         self._change(continuation_request_id=request_id)
         return request_id
@@ -378,7 +384,9 @@ class Controller:
                         receipt_evidence: str) -> bool:
         s = self.snapshot
         if s.handoff is None or handoff != s.handoff or not injection_evidence or not receipt_evidence:
-            raise TransitionError("receipt needs offered identity and actual injection evidence")
+            refusal = TransitionError('receipt needs offered identity and actual injection evidence')
+            refusal.add_note('Yohaku did not accept this receipt. Check the original handoff and runtime delivery identity; receipt success alone does not verify resume.')
+            raise refusal
         if s.receipt_evidence:
             return False
         if not handoff.continuation_turn_id:
@@ -412,7 +420,9 @@ class Controller:
                 or binding.thread_id != s.thread_id
                 or not isinstance(binding.turn_id, str) or not binding.turn_id.strip()
                 or not self._completion_policy.permits_continuation(s.binding, binding)):
-            raise TransitionError("binding requires the active claim and an observed task identity")
+            refusal = TransitionError('binding requires the active claim and an observed task identity')
+            refusal.add_note('Yohaku did not bind this continuation or restore its consumed permit. Check the existing claim and actual native task identity before proceeding.')
+            raise refusal
         handoff = replace(s.handoff, continuation_turn_id=binding.turn_id)
         self._change(handoff=handoff)
         return handoff
@@ -447,7 +457,9 @@ class Controller:
                 or (workspace != s.workspace and
                     (workspace.mutation_epoch <= s.workspace.mutation_epoch
                      or execution_revision <= s.revisions.execution_revision))):
-            raise TransitionError("stale resume context")
+            refusal = TransitionError('stale resume context')
+            refusal.add_note('Yohaku rejected this observation. Read the current task and workspace again before reconciliation; do not reuse older evidence.')
+            raise refusal
         self._change(revisions=replace(s.revisions, intent_revision=intent_revision,
                                       execution_revision=execution_revision), workspace=workspace)
 

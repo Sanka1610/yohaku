@@ -128,7 +128,9 @@ class OpenCodeReceiptAdapter(OpenCodeAdapter):
                  observe_current, owner_alive, provider_request_url, **kwargs):
         # These are trusted embedding-host attestations, not discovery results.
         if known_terminal_graph is not True:
-            raise TransitionError("known terminal hook graph is required")
+            refusal = TransitionError('known terminal hook graph is required')
+            refusal.add_note('This configuration is outside the Beta-qualified profile. No receipt attachment was started. Verify the live terminal hook graph and absence of later mutators before execution.')
+            raise refusal
         self.host = receipt_host
         self.provider_request_url = provider_request_url
         self.observe_current, self.owner_alive = observe_current, owner_alive
@@ -166,12 +168,16 @@ class OpenCodeReceiptAdapter(OpenCodeAdapter):
                 or any(p["source"]["type"] != "builtin" for p in catalog if p["id"] in BUILTINS)
                 or not any(p["id"] == PLUGIN_ID and p["source"].get("type") == "local"
                     and Path(p["source"]["path"]).resolve() == self.host.plugin_path for p in catalog)):
-            raise TransitionError("unknown plugin graph; receipt disabled")
+            refusal = TransitionError('unknown plugin graph; receipt disabled')
+            refusal.add_note('This configuration is outside the Beta-qualified profile. Yohaku rejected this receipt profile check. Check the live terminal hook graph and later mutators before execution.')
+            raise refusal
         agent = self._api("GET", "/api/agent/build?directory=" +
                           urllib.parse.quote(self.directory))["data"]
         if (agent.get("id") != "build" or not agent.get("permissions")
                 or agent["permissions"][-1] != {"action": "*", "resource": "*", "effect": "deny"}):
-            raise TransitionError("bounded text profile requires native deny-all tool permissions")
+            refusal = TransitionError('bounded text profile requires native deny-all tool permissions')
+            refusal.add_note('This configuration is outside the Beta-qualified profile. Yohaku rejected this receipt profile check. Check the native receipt tool permissions before execution.')
+            raise refusal
 
     def _receipt_ready(self):
         # R3 completion still requires intact SSE. R4 receipt uses API/SQLite/hook.
@@ -196,7 +202,9 @@ class OpenCodeReceiptAdapter(OpenCodeAdapter):
     def _stop(self, reason):
         with self.host.lock:
             self._invalidate(reason)
-        raise TransitionError(reason)
+        refusal = TransitionError(reason)
+        refusal.add_note('Yohaku stopped this receipt attachment without retrying; delivery or task execution may be uncertain. Preserve state and reconcile the native session, handoff and task effects before proceeding.')
+        raise refusal
 
     def close(self):
         with self.host.lock:
@@ -230,8 +238,9 @@ class OpenCodeReceiptAdapter(OpenCodeAdapter):
                 self.task_input_id = admission["id"]
                 self._record("continuation_input_admitted", admission=admission)
                 return admission
-            except Exception:
+            except Exception as exc:
                 self._invalidate("continuation send/admission uncertain; no retry")
+                exc.add_note("The continuation may have been admitted. Yohaku stopped without restoring the consumed claim or retrying. Preserve state and reconcile the actual native input, provider attempt and task effects.")
                 raise
 
     def _native_state(self):
@@ -396,8 +405,9 @@ class OpenCodeReceiptAdapter(OpenCodeAdapter):
                     state=observation[1], sqlite_rows=observation[2], native_id=self.task_input_id,
                     host_local_attempt_id=c["id"])
                 return observation[1]
-            except Exception:
+            except Exception as exc:
                 self._invalidate("continuation completion uncertain; no retry")
+                exc.add_note("The continuation may have completed; successful settlement could not be verified. Yohaku stopped without retrying. Preserve state and check the native terminal, task effects and fresh readback before proceeding.")
                 raise
 
     def _task_final(self):

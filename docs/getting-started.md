@@ -17,6 +17,7 @@ python3 -m venv "$YOH_VENV"
 "$YOH_VENV/bin/python" -m pip check
 "$YOH_VENV/bin/yohaku" --version
 "$YOH_VENV/bin/yohaku" profiles
+"$YOH_VENV/bin/yohaku" doctor
 ```
 
 Non-editable wheelを使います。Editable installや`PYTHONPATH=src`は開発用です。Hermesの場合は専用sourceの既存`venv`へ導入し、native dependenciesを変更しません。Runtime version / source pinとtested configurationの違いは[Runtime support](runtime-support.md#hard-requirementとtested-configuration)を参照してください。

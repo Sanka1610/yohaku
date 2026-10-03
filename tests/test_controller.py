@@ -190,8 +190,10 @@ class ControllerTests(unittest.TestCase):
     def test_delayed_binding_requires_claim_and_matching_identity(self):
         c = self.controller
         self.delayed_received()
-        with self.assertRaises(TransitionError):
+        with self.assertRaises(TransitionError) as stopped:
             c.bind_continuation(self.continuation_binding(), expected_snapshot=c.snapshot)
+        self.assertIn('active claim and an observed task identity', str(stopped.exception))
+        self.assertIn('did not bind this continuation', ' '.join(stopped.exception.__notes__))
         c.claim_continuation(expected_snapshot=c.snapshot)
         before = c.snapshot
         for binding in (replace(self.continuation_binding(), request_id="foreign-claim"),
@@ -201,8 +203,9 @@ class ControllerTests(unittest.TestCase):
             with self.subTest(binding=binding), self.assertRaises(TransitionError):
                 c.bind_continuation(binding, expected_snapshot=before)
         self.assertEqual(c.snapshot, before)
-        with self.assertRaises(TransitionError):
+        with self.assertRaises(TransitionError) as stopped:
             c.claim_continuation(expected_snapshot=before)
+        self.assertIn('did not grant another claim', ' '.join(stopped.exception.__notes__))
 
     def test_delayed_rebind_unbind_and_old_receipt_are_rejected(self):
         c = self.controller
@@ -214,8 +217,10 @@ class ControllerTests(unittest.TestCase):
         for turn in ("actual-task", "another-task", ""):
             with self.subTest(turn=turn), self.assertRaises(TransitionError):
                 c.bind_continuation(self.continuation_binding(turn), expected_snapshot=before)
-        with self.assertRaises(TransitionError):
+        with self.assertRaises(TransitionError) as stopped:
             c.receive_handoff(unbound, injection_evidence="input", receipt_evidence="receipt")
+        self.assertIn('did not accept this receipt', ' '.join(stopped.exception.__notes__))
+        self.assertIn('original handoff and runtime delivery identity', ' '.join(stopped.exception.__notes__))
         self.assertFalse(c.receive_handoff(handoff, injection_evidence="input", receipt_evidence="receipt"))
         with self.assertRaises(TransitionError):
             c.claim_continuation(expected_snapshot=before)

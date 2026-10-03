@@ -48,7 +48,9 @@ class OpenCodeAdapter:
         self._stream = None
         info = self._api("GET", "/api/info")
         if info.get("version") != OPENCODE_VERSION:
-            raise TransitionError("OpenCode server must be 2.0.21")
+            refusal = TransitionError('OpenCode server must be 2.0.21')
+            refusal.add_note('This version is outside the Beta-qualified profile. No transition was started. Check the server version; yohaku doctor can inspect local executable/package information only.')
+            raise refusal
         state = self.current_state()
         if state["context"] or state["inbox"] or session_id in state["active"]:
             raise TransitionError("OpenCode native session is not fresh and inactive")
@@ -97,7 +99,9 @@ class OpenCodeAdapter:
             self.core.completion_unknown(reason)
         else:
             self.core.fail(reason)
-        raise TransitionError(reason)
+        refusal = TransitionError(reason)
+        refusal.add_note('Yohaku stopped this attachment without retrying; execution or completion may be uncertain. Preserve state and reconcile the native session and task effects before proceeding.')
+        raise refusal
 
     def _read_events(self):
         try:

@@ -262,7 +262,9 @@ class RecoveryLifecycle:
             unchanged = False
         if not unchanged:
             self.stop("current state changed before continuation")
-            raise TransitionError("continuation revalidation failed")
+            refusal = TransitionError('continuation revalidation failed')
+            refusal.add_note('Yohaku stopped before sending this continuation and retained the consumed permit. Reconcile the current task and workspace; do not resend using this claim.')
+            raise refusal
         self._live = True
         self._dispatching = True
         if native:
@@ -273,7 +275,9 @@ class RecoveryLifecycle:
                 "threadId": s.thread_id, "input": [{"type": "text", "text": CONTINUATION_PROMPT}]}})
         except Exception:
             self.stop("continuation dispatch uncertain")
-            raise TransitionError("continuation dispatch uncertain; never resend") from None
+            refusal = TransitionError('continuation dispatch uncertain; never resend')
+            refusal.add_note("The continuation may have been sent. Yohaku stopped and retained the consumed permit without retrying. Preserve state and reconcile the runtime's actual turn and task effects.")
+            raise refusal from None
         return ident
 
     def _bind(self, turn_id):
