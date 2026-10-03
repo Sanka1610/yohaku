@@ -1,6 +1,6 @@
 # Getting Started
 
-この手順は未公開のBeta candidateに対応します。公開済みAlpha wheelを使う場合は[対応tagの文書](https://github.com/Sanka1610/yohaku/tree/v0.1.0a1)を参照してください。Alpha wheelと未公開sourceを混ぜず、配布物を更新するときは新しいversionを使います。
+この手順はYohaku v0.1.0b1 Betaに対応します。Alpha wheelを使う場合は[対応tagの文書](https://github.com/Sanka1610/yohaku/tree/v0.1.0a1)を参照してください。Wheelとsourceは同じversionを使い、配布物を更新するときは新しいversionを使います。
 
 ## Wheelを導入する
 

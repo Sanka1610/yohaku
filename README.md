@@ -12,7 +12,7 @@ BetaのSupported対象はCodexとHermesの既存検証経路、およびDSHとOp
 
 Context Assist Stage 1はdeterministic / model-freeでSupportedです。Stage 2 / 3はDeferredです。[表示内容と制限](docs/storage-and-recovery.md#context-assist-stage-1)を参照してください。
 
-現在のcheckoutは未公開のBeta candidateです。公開wheelを使う場合は、そのtagの文書を参照してください。配布版、release notes、assetsは[GitHub Releases](https://github.com/Sanka1610/yohaku/releases)で確認できます。
+この文書はYohaku v0.1.0b1 Betaに対応します。公開wheelを使う場合は、そのtagの文書を参照してください。配布版、release notes、assetsは[GitHub Releases](https://github.com/Sanka1610/yohaku/releases)で確認できます。
 
 ## 導入と文書
 

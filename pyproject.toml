@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yohaku"
-version = "0.1.0a1"
+version = "0.1.0b1"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Proactive Context Compaction Manager"
