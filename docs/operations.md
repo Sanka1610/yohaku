@@ -8,7 +8,7 @@
 
 CodexとDSHのversion queryには3秒のtimeoutを設けています。OpenCodeはCLI初期化の副作用を避けるため、実行ファイルに対応する`@opencode/cli`のpackage metadataだけを読みます。Hermesはconfig指定時のsource pinを確認し、OrcaはPATH上の検出に留めます。確認できないversionは`unknown`、確認を実施しない項目は`not checked`、実行ファイル等が見つからない場合は`not detected`です。
 
-Versionやsource pinの一致だけではlive qualificationを認めません。DSHのofficial Messages adapter / single ownerやOpenCodeのterminal hook graph / deny-all toolsなどは実行時の確認が必要です。対応条件外の構成とRuntime全体のsupport statusを区別し、Orcaのproduction integrationは未実装と表示します。Exact条件は[Runtime support](runtime-support.md)を参照してください。
+Versionやsource pinの一致だけではlive qualificationを認めません。DSHのofficial Messages adapter / single ownerやOpenCodeのterminal hook graph / deny-all toolsなどは実行時の確認が必要です。対応条件外の構成とRuntime全体のsupport statusを区別し、Orcaのproduction integrationはprototype / transition-only、recoveryはunsupportedと表示します。Exact条件は[Runtime support](runtime-support.md)を参照してください。
 
 Doctorはconfig、provider files、stateを変更せず、Runtime session、hookの導入、repair、network accessを実行しません。Mismatchや未確認項目を検出しても、診断完了ならexit codeは`0`、doctor自体の失敗は既存CLIと同じ`2`です。
 

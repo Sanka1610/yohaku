@@ -6,13 +6,13 @@ Yohakuは、長時間続くAI agent taskでcontext transitionを管理するPyth
 
 ## 利用できる範囲
 
-BetaのSupported対象はCodexとHermesの既存検証経路、およびDSHとOpenCodeのqualified profileです。Supportedは明記した条件とworkflowに限ります。Orca structured CodexはProduction adapter prototype — transition-onlyで、限定profileの`ROLLOVER_OBSERVED`まで確認しています。このprofileのrecoveryはunsupportedです。Exact version、profile、対応機能と未検証範囲は[Runtime support](docs/runtime-support.md)を参照してください。
+BetaのSupported対象はCodexとHermesの既存検証経路、およびDSHとOpenCodeのqualified profileです。Supportedは明記した条件とworkflowに限ります。Orca structured CodexはPreviewで、Production adapter prototype — transition-onlyです。限定profileの`ROLLOVER_OBSERVED`まで確認しており、recoveryはunsupportedです。Exact version、profile、対応機能と未検証範囲は[Runtime support](docs/runtime-support.md)を参照してください。
 
 公開CLIの固定taskは`codex-document-review-report-v1`で、manual compact一回とcreate-only report一つを扱います。文章品質・事実性は評価しません。DSHとOpenCodeはembedding hostから利用します。Claude Code CLIはexperimentalです。
 
 Context Assist Stage 1はdeterministic / model-freeでSupportedです。Stage 2 / 3はDeferredです。[表示内容と制限](docs/storage-and-recovery.md#context-assist-stage-1)を参照してください。
 
-現在のcheckoutはBeta準備中の未公開変更を含みます。公開wheelを使う場合は、そのtagの文書を参照してください。配布版、release notes、assetsは[GitHub Releases](https://github.com/Sanka1610/yohaku/releases)で確認できます。
+現在のcheckoutは未公開のBeta candidateです。公開wheelを使う場合は、そのtagの文書を参照してください。配布版、release notes、assetsは[GitHub Releases](https://github.com/Sanka1610/yohaku/releases)で確認できます。
 
 ## 導入と文書
 
@@ -21,6 +21,8 @@ Python `>=3.11`が必要です。Operational CLIはLinuxのlocal POSIX filesyste
 [Documentation Index](docs/index.md)から、操作、保存と復旧、設計、adapter開発の文書へ進めます。Supportの段階と更新・配布方針は[Support Policy](SUPPORT_POLICY.md)を参照してください。
 
 `yohaku doctor`でlocal Runtimeの検出とprofileの対応条件を確認できます。読み取り専用の診断で、live sessionのqualificationは実行時に確認します。[Operations](docs/operations.md#doctor)を参照してください。
+
+[Minimal Supervisor](docs/architecture.md#minimal-supervisor)はprocess-local / non-durableで、1 trigger / N observersを扱います。Betaの[既知制限](docs/runtime-support.md#共通のknown-limitations)も確認してください。
 
 Runtime全体のatomic freeze、外部writerの排除、一般的なexactly-once、任意taskのrestart recoveryは保証しません。`AMBIGUOUS`や`RECOVERY_REQUIRED`では状態を保持して確認してください。[問題の報告方法](docs/issue-reporting.md)も参照できます。
 

@@ -281,6 +281,10 @@ blind resendしない。
 | Historical Codex native-auto | Fresh lifecycleとは別 | Post-compaction provenanceを再構成できない | Restart `UNSUPPORTED` |
 | Hermes lifecycle / adapter | lifecycle launcherはclean stop後にfresh lifecycle。adapterはfresh store / session前提 | Existing owner attach、Core snapshot restart、inflight ledger再構成なし | Interrupted adapter ownerのrestart `UNSUPPORTED` |
 | Claude Code CLI profiles | Formal operational launcherなし | Accepted pathはsame retained process / bounded host-local continuation | Process restart / general reconnect `UNSUPPORTED` |
+| DSH / OpenCode qualified profiles | Fresh dedicated owner / sessionを使う | Same retained ownerでのfresh reconciliationに限定。Proof restore / observation-loss reconciliationなし | Restart / cross-process recovery `UNSUPPORTED`。Retry-enabled receiptも対応範囲外 |
+| Orca structured Codex | Fresh owned session、一回のtransitionのみ | Transition evidenceを保持し、recovery inputを送らない | Recovery / resume `UNSUPPORTED`。`HANDOFF_RECEIVED`はNOT_REACHED |
+
+Minimal Supervisorの登録とdispatch記録はprocess-local / non-durableである。Restart後にauthorityや衝突防止の記録を復元しない。詳細は[Architecture](architecture.md#minimal-supervisor)、Beta全体の制限は[Runtime support](runtime-support.md#共通のknown-limitations)に記載する。
 
 Operational CLIは`status.recovery.fresh_start_allowed`と`resume_supported`を別fieldで表示する。
 現在のoperational CLIでは`resume_supported=false`である。Clean stop後のfresh lifecycleを

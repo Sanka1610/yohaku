@@ -1,6 +1,6 @@
 # Getting Started
 
-この手順はcurrent checkoutに対応します。Beta準備中のCLI変更を含むため、公開済みAlpha wheelを使う場合は[対応tagの文書](https://github.com/Sanka1610/yohaku/tree/v0.1.0a1)を参照してください。Alpha wheelと未公開sourceを混ぜず、配布物を更新するときは新しいversionを使います。
+この手順は未公開のBeta candidateに対応します。公開済みAlpha wheelを使う場合は[対応tagの文書](https://github.com/Sanka1610/yohaku/tree/v0.1.0a1)を参照してください。Alpha wheelと未公開sourceを混ぜず、配布物を更新するときは新しいversionを使います。
 
 ## Wheelを導入する
 
@@ -21,6 +21,8 @@ python3 -m venv "$YOH_VENV"
 ```
 
 Non-editable wheelを使います。Editable installや`PYTHONPATH=src`は開発用です。Hermesの場合は専用sourceの既存`venv`へ導入し、native dependenciesを変更しません。Runtime version / source pinとtested configurationの違いは[Runtime support](runtime-support.md#hard-requirementとtested-configuration)を参照してください。
+
+起動前にdoctorの検出結果と[Beta support表](runtime-support.md#beta-support-status)を照合し、使うprofileのexact条件を確認してください。`unknown` / `not detected` / `not checked`は確認済みの互換性を意味しません。以下のCLI例はCodexのlaunch-supported profile用です。DSH / OpenCodeとOrcaは各Runtimeページのembedding host契約を使います。
 
 Config、state、workspaceにはabsolute pathを使い、symlinkや`..`を含めません。Configとstateはcurrent UIDが所有しgroup / otherからアクセスできない必要があります。State rootとworkspaceは別directoryとし、親子関係にも置きません。`configure`がstate rootを新規作成するため、先に作らないでください。
 

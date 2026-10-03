@@ -10,10 +10,12 @@
 | [Hermes](runtimes/hermes.md) | Supported | 既存のlifecycle-only / single fixture tool経路。下記CLI profileの範囲に限定 |
 | [DSH](runtimes/dsh.md#tested-profile) | Supported — qualified profile | `0.2.0-rc.2` / headless / official DeepSeek Messages / plain text。Exact条件はRuntime pageに記載 |
 | [OpenCode](runtimes/opencode.md#tested-profile) | Supported — qualified profile | `2.0.21` / Linux / known terminal `http.request` hook graph / native deny-all tools。Exact条件はRuntime pageに記載 |
-| Orca structured Codex | Production adapter prototype — transition-only | 限定profileでSupervisorから一回のcompactと`ROLLOVER_OBSERVED`を確認。Recoveryはunsupported。下記と[Orca](runtimes/orca.md)に限定 |
+| [Orca structured Codex](runtimes/orca.md) | Preview / transition-only | Production adapter prototype — transition-only。限定profileでSupervisorから一回のcompactと`ROLLOVER_OBSERVED`を確認。Recoveryはunsupported |
 | [Context Assist Stage 1](storage-and-recovery.md#context-assist-stage-1) | Supported | Current baselineへ統合済み。Deterministic / model-freeのhandoff表示補助 |
 | Context Assist Stage 2 | Deferred | Beta非搭載 |
 | Context Assist Stage 3 | Deferred | Post-Beta |
+| [Doctor](operations.md#doctor) | Available | 読み取り専用のlocal inspection。Live qualificationは実行時に確認 |
+| [Minimal Supervisor](architecture.md#minimal-supervisor) | Available / process-local | Non-durable、1 trigger / N observers。Hostによる直列化と明示ownership factsが必要 |
 | [Claude Code CLI](runtimes/claude-code-cli.md) | Experimental | Subscription completionとlocal fixture recoveryを分けて扱う。下記profileの範囲に限定 |
 
 DSH / OpenCodeのadapterはembedding hostから利用し、CLI registryには登録していません。両Runtimeのqualified profileはnative transition、receipt、fresh reconciliation、late-bound continuation、Runtime固有の最終検証と既存`ResumeVerification`を経て`RESUME_VERIFIED`まで確認しています。Receipt成功だけではresume成功としません。
@@ -45,6 +47,10 @@ Codexのexact versionとHermesのsource pin / clean tree / host venvは、内部
 Runtime-wide atomic freeze、外部writerの排除、general exactly-onceは成立していません。Local owner lockは協調するlauncherだけを排他します。Parallel、background、detached、subagent、反復transition、power-loss recoveryは一般的な対応範囲に含みません。
 
 Runtime-native historyはYohaku checkpointやarchiveとは別です。Receipt、fresh current-state reconciliation、task assessmentのどれかが欠ければresume成功にはなりません。Mechanical completionは文章・コード・事実品質を保証しません。
+
+DSH / OpenCodeのqualified pathはsame retained owner内のfresh reconciliationに限り、restart、proof restore、observation-loss reconciliation、retry-enabled receiptには対応しません。Orca structured CodexのPreviewはtransition-onlyで、recovery / resumeはunsupportedです。Runtimeごとの条件は下記と各Runtimeページを参照してください。
+
+Minimal Supervisorはprocess-local / non-durableです。協調するhost内の1 trigger / N observersを扱い、別processのauthorityや衝突防止、restart recoveryは提供しません。Context Assist Stage 2 / 3はDeferredです。
 
 ## Qualified profiles
 
