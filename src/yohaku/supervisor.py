@@ -43,6 +43,10 @@ def failure_guidance(code):
             'The requesting adapter is not the selected transition authority.',
             'No transition was started by this request.',
             'Route the request through the selected trigger; keep observers read-only.'),
+        'SUPERVISOR_ORCA_DIRECT_TRIGGER': (
+            'This Codex session is owned by Orca structured chat. Trigger authority: Orca.',
+            'Direct Codex transition was not started.',
+            'Request the transition through the Orca adapter in the Supervisor.'),
         'SUPERVISOR_DUPLICATE_REQUEST': (
             'A transition method was already entered for this session and checkpoint.',
             'Yohaku stopped this request before dispatch and did not retry.',
@@ -193,6 +197,9 @@ class YohakuSupervisor:
         if requester not in self._adapters[self._key(session)]:
             raise SupervisorError('SUPERVISOR_FOREIGN_SESSION')
         if requester != selected.name:
+            if (session.harness == 'codex' and selected.name == 'orca'
+                    and session.ownership_source == 'orca-structured-session' and requester == 'codex'):
+                raise SupervisorError('SUPERVISOR_ORCA_DIRECT_TRIGGER')
             raise SupervisorError('SUPERVISOR_NOT_TRIGGER')
         snapshot = self._check_identity(selected)
         key = self._key(session)

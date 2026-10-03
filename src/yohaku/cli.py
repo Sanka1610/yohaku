@@ -8,10 +8,11 @@ from importlib.metadata import PackageNotFoundError, version
 from . import operational as op
 from .profiles import PROFILES, profile
 from .supervisor import SupervisorError, failure_guidance as supervisor_guidance
+from .orca_adapter import failure_guidance as orca_guidance
 
 
 def _failure_guidance(reason):
-    guidance = supervisor_guidance(reason)
+    guidance = supervisor_guidance(reason) or orca_guidance(reason)
     if guidance:
         return guidance
     codes = reason.split('; ')

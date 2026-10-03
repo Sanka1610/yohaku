@@ -23,7 +23,7 @@ CLIを組み込むhostまたはembedding hostは、`YohakuSupervisor`へsession�
 
 `resolve()`はselected registrationを返し、`request_transition()`はrequesterがselected triggerであることを確認して既存transition methodを呼びます。複数のtrigger claimは、明示されたsession-specific authorityで一つに絞ります。そのfactがない競合、ownerが不明、trigger不在、native identityの不一致はdispatch前に拒否します。Adapterの優先順位表や実行ファイルの存在からownerを決めません。
 
-Yohakuの一つのinstallationにはCodex、Hermes、DSH、OpenCodeのbuilt-in adapterが含まれます。登録には既にattachしたinstanceを使い、関係するadapterだけをsessionごとに有効にします。`register_builtin()`でsessionを省略する呼び出しは、hostによる明示的なstandalone宣言です。そのadapterをtriggerとobserverに登録します。Ownership discoveryやRuntime起動は行いません。
+Yohakuの一つのinstallationにはCodex、Hermes、DSH、OpenCode、Orcaのbuilt-in adapterが含まれます。登録には既にattachしたinstanceを使い、関係するadapterだけをsessionごとに有効にします。`register_builtin()`でsessionを省略する呼び出しは、hostによる明示的なstandalone宣言です。そのadapterをtriggerとobserverに登録します。Orca-owned sessionは`OrcaAdapter.register()`がidentityを検査して登録します。Ownership discoveryやRuntime起動は行いません。
 
 ```python
 from yohaku.supervisor import YohakuSupervisor
@@ -43,7 +43,7 @@ Codexは`request_compact()`、Hermesは`compress()`、DSHとOpenCodeは`compact(
 
 Embedding hostは`doctor.render(supervisor=supervisor)`または`cli.main(["doctor"], supervisor=supervisor)`で、登録済みsessionのharness、trigger、observersを表示できます。表示はprovided factsに限定し、native session IDやownership sourceの内容は出しません。Supervisorを渡さない`yohaku doctor`は従来のlocal inspectionを維持します。Live ownership discoveryは行いません。
 
-Orca production adapterとdaemon、server、MCP、cross-process registryはBeta supervisorの範囲外です。
+Package同梱の[Orca adapter](runtimes/orca.md)は限定structured Codex local profileをこのSupervisorへ登録します。一つのCoreを共有し、Orcaを唯一のtrigger、Codexをprovider evidence observerとします。Transitionは`ROLLOVER_OBSERVED`まで確認し、recovery入口で停止します。Daemon、server、MCP、cross-process registryはBeta supervisorの範囲外です。
 
 ## Control flow
 

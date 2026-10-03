@@ -10,7 +10,7 @@
 | [Hermes](runtimes/hermes.md) | Supported | 既存のlifecycle-only / single fixture tool経路。下記CLI profileの範囲に限定 |
 | [DSH](runtimes/dsh.md#tested-profile) | Supported — qualified profile | `0.2.0-rc.2` / headless / official DeepSeek Messages / plain text。Exact条件はRuntime pageに記載 |
 | [OpenCode](runtimes/opencode.md#tested-profile) | Supported — qualified profile | `2.0.21` / Linux / known terminal `http.request` hook graph / native deny-all tools。Exact条件はRuntime pageに記載 |
-| Orca structured Codex | Probe validated / not production-supported | O1 / O2 / O3 PASS。Production adapter未実装。下記のprototype候補に限定 |
+| Orca structured Codex | Production adapter prototype — partial | 限定profileでSupervisorから一回のcompactと`ROLLOVER_OBSERVED`を確認。Handoff / receipt / resumeは未qualification。下記と[Orca](runtimes/orca.md)に限定 |
 | [Context Assist Stage 1](storage-and-recovery.md#context-assist-stage-1) | Supported | Current baselineへ統合済み。Deterministic / model-freeのhandoff表示補助 |
 | Context Assist Stage 2 | Deferred | Beta非搭載 |
 | Context Assist Stage 3 | Deferred | Post-Beta |
@@ -59,6 +59,8 @@ Exact条件、対応範囲外の構成、安全停止の詳細は各Runtimeペ�
 
 両Runtimeのtrusted adapterはRuntime固有のcompletion evidence、final fresh state、bounded task assessmentを照合・保存し、既存`ResumeVerification`を`Controller.verify_resume()`へ渡します。Coreのlate-binding対応以外にadapter固有のCore変更はありません。新Runtimeの実装は[Adapter Contract](development/adapter-contract.md)を入口とします。
 
-## Orca prototype候補
+## Orca production adapter prototype
 
-O1 / O2 / O3のProbeはPASSです。O3で成立したprofileは`orca/structured/codex/local`、Orca `1.4.218`、Windows-native、local、Windows-local workspace、Codex `0.159.0-alpha.12.1`です。Structured transitionとbounded continuationを確認したprototype候補で、production adapterとYohaku Core bindingは未実装です。Orca上のYohaku `RESUME_VERIFIED`は`NOT_RUN`です。
+Phase 5の判定はPARTIALです。Package同梱のadapterは`orca/structured/codex/local`、Orca `1.4.218`、Windows-native、local、Windows-local workspace、`wslDistro=null`、Codex `0.159.0-alpha.12.1`に限ります。Orcaを唯一のtrigger、Codexをprovider-native evidence observerとしてSupervisorへ登録します。Fresh sessionで一回のstructured compact、native completion、fresh stateと既存Coreの`ROLLOVER_OBSERVED`を確認しました。
+
+Handoff delivery / receipt / gated task continuationのproduction seamは未qualificationです。Adapterはrecovery inputを送る前に停止します。`HANDOFF_RECEIVED`はNOT_REACHED、continuationと`RESUME_VERIFIED`はNOT_RUNです。O3のbounded continuation PASSは、このproduction recoveryの実測結果として扱いません。Embedding hostのI/O契約と制限は[Orca](runtimes/orca.md)を参照してください。

@@ -15,6 +15,7 @@ from .hermes import HERMES_SOURCE
 from .opencode import OPENCODE_VERSION
 from .profiles import PROFILES, profile
 from .supervisor import SupervisorError, failure_guidance
+from .orca_adapter import OrcaAdapter, ORCA_PROFILE, ORCA_VERSION
 
 
 def _query(args):
@@ -91,7 +92,7 @@ def render(config_path=None, *, supervisor=None):
         lines.append('    Version: ' + (actual if actual else 'unknown' if queryable else 'not checked'))
         if runtime == 'orca':
             lines += ['    Probe status: validated (bounded structured Codex profile)',
-                      '    Production integration: not available',
+                      '    Production integration: prototype — partial (recovery unqualified)',
                       '    Session ownership / trigger authority: not checked']
             continue
         if runtime == 'claude':
@@ -150,6 +151,13 @@ def render(config_path=None, *, supervisor=None):
                 lines += [f'    Trigger authority: {trigger.name}',
                           '    Observers: ' + (', '.join(item.name for item in observers) or 'none'),
                           '    Ownership facts: supplied by embedding host']
+                owner = getattr(trigger.transition, '__self__', None)
+                if (isinstance(owner, OrcaAdapter) and session.ownership_source == 'orca-structured-session'
+                        and session.harness == 'codex' and trigger.name == 'orca'
+                        and {item.name for item in observers} == {'orca', 'codex'}):
+                    lines += ['    Ownership: Orca structured', '    Provider authority: Codex',
+                              f'    Orca version: {ORCA_VERSION}', f'    Profile: {ORCA_PROFILE}',
+                              '    Recovery: unqualified; no continuation transport']
             except SupervisorError as exc:
                 lines.append('    Trigger authority: unresolved')
                 lines.extend('    ' + line for line in failure_guidance(str(exc)).splitlines())

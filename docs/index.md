@@ -14,4 +14,4 @@
 | 固定文書reviewのinput / output contract | [document-review-report-v1](task-profiles/document-review-report-v1.md) |
 | 不具合とprivacy | [Issue reporting](issue-reporting.md) |
 
-Runtime固有のcompletion、identity、receiptは[Codex](runtimes/codex.md)、[Hermes](runtimes/hermes.md)、[Claude Code CLI](runtimes/claude-code-cli.md)、[OpenCode](runtimes/opencode.md)、[DSH](runtimes/dsh.md)に記載します。
+Runtime固有のcompletion、identity、receiptは[Codex](runtimes/codex.md)、[Hermes](runtimes/hermes.md)、[Claude Code CLI](runtimes/claude-code-cli.md)、[OpenCode](runtimes/opencode.md)、[DSH](runtimes/dsh.md)、[Orca](runtimes/orca.md)に記載します。
