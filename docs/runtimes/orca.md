@@ -1,6 +1,6 @@
 # Orca structured Codex
 
-現在の判定はProduction adapter prototype — partialです。限定profileのtransitionを既存Coreへ接続し、recoveryは未qualificationの入口で停止します。
+現在の判定はProduction adapter prototype — transition-onlyです。限定profileのtransitionを既存Coreへ接続し、`ROLLOVER_OBSERVED`まで確認しています。Recovery on Orca structured Codex: unsupported/unqualifiedです。
 
 ## Role and qualified profile
 
@@ -41,7 +41,11 @@ Orcaのadmissionは`expectedRuntimeFence`を検査しないため、adapterがre
 
 ## Recovery and limitations
 
-既存Codex early-bound recoveryはdirect transportとhook/native tool observationを前提とします。Orca structured sendはnative input incorporationを観測できますが、receipt後のtask release gateは未qualificationです。`offer_handoff()`はinput送信、Handoff作成、continuation claimの前に`ORCA_RECOVERY_UNQUALIFIED`で停止します。
+Phase 5-Rでは固定sourceとfresh sessionのtools-free入力一回でsend orderingを確認しました。Orca structured sendはmessage保存後にdelivery loopを自動起動し、native `turn/start`へ渡します。Sendのpending受付にはnative turn/input identityがなく、そのidentityを後から観測することはできますが、観測に対するclient acknowledgementを待つ経路はありません。`agentSession.hold/release`もこの版ではno-opです。
+
+既存early-bound Core offerはactual turn identityを必要とします。Stock structured surfaceにはnative turnを確保してからbound Handoffを作成し、その後にpayload deliveryをreleaseする経路がありません。Input送信後の事後bindや観測時間差をgateとして使うことはqualificationしません。既存late-bound経路に必要なnon-effectful native receiptとbind-before-effectも成立しません。
+
+従ってこのprofileのrecoveryはUNSUPPORTEDです。`offer_handoff()`はinput送信、Handoff作成、continuation claimの前に既存の`ORCA_RECOVERY_UNQUALIFIED`で停止します。Ordering probeでnative payloadの一致とtools-free terminalを確認したことは、Core receiptやresumeの成功を意味しません。Providerの最終serialized request membershipやHTTP開始時点を取得した証拠でもありません。
 
 `HANDOFF_RECEIVED`はNOT_REACHED、continuationと`RESUME_VERIFIED`はNOT_RUNです。Core semantics、persistent schema、ResumeProof / ResumeVerificationは変更していません。
 

@@ -107,7 +107,7 @@ class DoctorTests(unittest.TestCase):
         self.assertIn('Detected: yes', orca)
         self.assertIn('Version: not checked', orca)
         self.assertIn('Probe status: validated', orca)
-        self.assertIn('Production integration: prototype — partial', orca)
+        self.assertIn('Production integration: prototype — transition-only', orca)
         self.assertNotIn('Supported', orca)
         self.assertIn('Supported runtimes detected (presence only): 0', output)
         query.assert_not_called()

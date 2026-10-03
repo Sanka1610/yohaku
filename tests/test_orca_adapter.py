@@ -244,6 +244,8 @@ class OrcaTests(unittest.TestCase):
         self.assertIn('Provider authority: Codex', out)
         self.assertIn('Observers: codex, orca', out)
         self.assertIn('Profile: orca/structured/codex/local', out)
+        self.assertIn('Recovery: unsupported on this profile', out)
+        self.assertIn('Resume: unsupported on this profile', out)
         self.assertNotIn('Ownership: Orca structured', static)
         for code in ('ORCA_PROFILE_MISMATCH', 'ORCA_OWNERSHIP_MISMATCH', 'ORCA_FENCE_CHANGED',
                      'ORCA_BOUNDARY_UNSAFE', 'ORCA_COMPLETION_AMBIGUOUS', 'ORCA_RECOVERY_UNQUALIFIED',

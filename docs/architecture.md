@@ -43,7 +43,7 @@ Codexは`request_compact()`、Hermesは`compress()`、DSHとOpenCodeは`compact(
 
 Embedding hostは`doctor.render(supervisor=supervisor)`または`cli.main(["doctor"], supervisor=supervisor)`で、登録済みsessionのharness、trigger、observersを表示できます。表示はprovided factsに限定し、native session IDやownership sourceの内容は出しません。Supervisorを渡さない`yohaku doctor`は従来のlocal inspectionを維持します。Live ownership discoveryは行いません。
 
-Package同梱の[Orca adapter](runtimes/orca.md)は限定structured Codex local profileをこのSupervisorへ登録します。一つのCoreを共有し、Orcaを唯一のtrigger、Codexをprovider evidence observerとします。Transitionは`ROLLOVER_OBSERVED`まで確認し、recovery入口で停止します。Daemon、server、MCP、cross-process registryはBeta supervisorの範囲外です。
+Package同梱の[Orca adapter](runtimes/orca.md)は限定structured Codex local profileをこのSupervisorへ登録します。一つのCoreを共有し、Orcaを唯一のtrigger、Codexをprovider evidence observerとします。Transitionは`ROLLOVER_OBSERVED`まで確認しています。このprofileのrecoveryはunsupportedで、input送信前に停止します。Daemon、server、MCP、cross-process registryはBeta supervisorの範囲外です。
 
 ## Control flow
 

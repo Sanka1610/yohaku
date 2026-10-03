@@ -92,7 +92,7 @@ def render(config_path=None, *, supervisor=None):
         lines.append('    Version: ' + (actual if actual else 'unknown' if queryable else 'not checked'))
         if runtime == 'orca':
             lines += ['    Probe status: validated (bounded structured Codex profile)',
-                      '    Production integration: prototype — partial (recovery unqualified)',
+                      '    Production integration: prototype — transition-only (recovery unsupported)',
                       '    Session ownership / trigger authority: not checked']
             continue
         if runtime == 'claude':
@@ -157,7 +157,8 @@ def render(config_path=None, *, supervisor=None):
                         and {item.name for item in observers} == {'orca', 'codex'}):
                     lines += ['    Ownership: Orca structured', '    Provider authority: Codex',
                               f'    Orca version: {ORCA_VERSION}', f'    Profile: {ORCA_PROFILE}',
-                              '    Recovery: unqualified; no continuation transport']
+                              '    Recovery: unsupported on this profile; no continuation transport',
+                              '    Resume: unsupported on this profile']
             except SupervisorError as exc:
                 lines.append('    Trigger authority: unresolved')
                 lines.extend('    ' + line for line in failure_guidance(str(exc)).splitlines())

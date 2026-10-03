@@ -10,7 +10,7 @@
 | [Hermes](runtimes/hermes.md) | Supported | 既存のlifecycle-only / single fixture tool経路。下記CLI profileの範囲に限定 |
 | [DSH](runtimes/dsh.md#tested-profile) | Supported — qualified profile | `0.2.0-rc.2` / headless / official DeepSeek Messages / plain text。Exact条件はRuntime pageに記載 |
 | [OpenCode](runtimes/opencode.md#tested-profile) | Supported — qualified profile | `2.0.21` / Linux / known terminal `http.request` hook graph / native deny-all tools。Exact条件はRuntime pageに記載 |
-| Orca structured Codex | Production adapter prototype — partial | 限定profileでSupervisorから一回のcompactと`ROLLOVER_OBSERVED`を確認。Handoff / receipt / resumeは未qualification。下記と[Orca](runtimes/orca.md)に限定 |
+| Orca structured Codex | Production adapter prototype — transition-only | 限定profileでSupervisorから一回のcompactと`ROLLOVER_OBSERVED`を確認。Recoveryはunsupported。下記と[Orca](runtimes/orca.md)に限定 |
 | [Context Assist Stage 1](storage-and-recovery.md#context-assist-stage-1) | Supported | Current baselineへ統合済み。Deterministic / model-freeのhandoff表示補助 |
 | Context Assist Stage 2 | Deferred | Beta非搭載 |
 | Context Assist Stage 3 | Deferred | Post-Beta |
@@ -61,6 +61,6 @@ Exact条件、対応範囲外の構成、安全停止の詳細は各Runtimeペ�
 
 ## Orca production adapter prototype
 
-Phase 5の判定はPARTIALです。Package同梱のadapterは`orca/structured/codex/local`、Orca `1.4.218`、Windows-native、local、Windows-local workspace、`wslDistro=null`、Codex `0.159.0-alpha.12.1`に限ります。Orcaを唯一のtrigger、Codexをprovider-native evidence observerとしてSupervisorへ登録します。Fresh sessionで一回のstructured compact、native completion、fresh stateと既存Coreの`ROLLOVER_OBSERVED`を確認しました。
+Phase 5でtransitionを確認し、Phase 5-RではこのprofileのrecoveryをUNSUPPORTEDと判定しました。Package同梱のadapterは`orca/structured/codex/local`、Orca `1.4.218`、Windows-native、local、Windows-local workspace、`wslDistro=null`、Codex `0.159.0-alpha.12.1`に限ります。Orcaを唯一のtrigger、Codexをprovider-native evidence observerとしてSupervisorへ登録します。Fresh sessionで一回のstructured compact、native completion、fresh stateと既存Coreの`ROLLOVER_OBSERVED`を確認しました。
 
-Handoff delivery / receipt / gated task continuationのproduction seamは未qualificationです。Adapterはrecovery inputを送る前に停止します。`HANDOFF_RECEIVED`はNOT_REACHED、continuationと`RESUME_VERIFIED`はNOT_RUNです。O3のbounded continuation PASSは、このproduction recoveryの実測結果として扱いません。Embedding hostのI/O契約と制限は[Orca](runtimes/orca.md)を参照してください。
+Recovery on Orca structured Codex: unsupported/unqualifiedです。Structured sendは保存後に自動dispatchされ、actual native turnを取得した後にHandoff deliveryやprovider effectを待たせる外部gateがありません。既存early-bound / late-boundの安全条件を維持するproduction seamは成立しません。Adapterはrecovery inputを送る前に停止します。`HANDOFF_RECEIVED`はNOT_REACHED、production continuationと`RESUME_VERIFIED`はNOT_RUNです。O3のbounded continuation PASSは、このproduction recoveryの実測結果として扱いません。Embedding hostのI/O契約と制限は[Orca](runtimes/orca.md)を参照してください。
