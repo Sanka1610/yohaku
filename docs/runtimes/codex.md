@@ -1,6 +1,6 @@
 # Codex Runtime
 
-Codexのprofile一覧とstatusは[Runtime support](../runtime-support.md)に記載します。Current launcherは`0.158.0-alpha.2.1`、Historical Referenceは`0.155.0-alpha.16.4`です。
+CodexはBetaで既存検証経路をSupportedとします。対象はcurrent lifecycle-only launcherと固定document-review taskで、CLI registryのprofile maturityは`alpha`を保持します。Profileごとの対応機能と制限は[Runtime support](../runtime-support.md)に記載します。Current launcherは`0.158.0-alpha.2.1`、Historical Referenceは`0.155.0-alpha.16.4`です。
 
 ## Version pinと実行surface
 

@@ -109,6 +109,8 @@ permitを戻さず`RECOVERY_REQUIRED`へ進み、同じcontinuationをblind rese
 
 ### Context Assist Stage 1
 
+Stage 1はcurrent baselineへ統合済みで、BetaではSupportedである。Stage 2はBeta非搭載、Stage 3はPost-BetaへDeferredとする。対応範囲の一覧は[Runtime support](runtime-support.md)に記載する。
+
 `HandoffDocument.render()`は、既存の`RecoveredData`をtask再開向けのstructured textへ整形する。
 Goal、completed、unresolved、next-action candidate、workspace / Archive参照を原文のまま表示し、
 呼出側が渡したCheckpointのverificationも保持する。検証結果はhistorical sourceの記録であり、

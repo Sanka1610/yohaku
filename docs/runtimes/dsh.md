@@ -1,5 +1,31 @@
 # DSH Runtime
 
+## Status
+
+Beta: Supported on qualified profile。公開statusの一覧は[Runtime support](../runtime-support.md)に記載します。以下の条件内でVerified Context Transitionを提供します。
+
+## Tested profile
+
+DSH `0.2.0-rc.2`、headless、official DeepSeek Messages adapter、plain text、fresh Session、single Agent、single owner、no additional extension fields、retry disabledに限定します。Receiptは`messages-plain-text-owner-no-retry`を明示的に有効化します。Toolなしの直列実行で、最終検証のtaskは固定の`FINALIZE` / `FINALIZED`です。試した環境はLinux / WSL2、Node `22.22.1`、CPython `3.14.4`です。
+
+## Verified path
+
+Native transition → receipt → fresh reconciliationと未完了workの再評価 → one-shot claim → actual native identityへのlate-bound continuation → Runtime固有の最終検証 → `ResumeVerification` → `RESUME_VERIFIED`までPASSです。
+
+保存済みacceptanceはfresh Session一回のloopback protocol fixtureとstock HTTP transportによるmechanical verificationです。Receiptとtask turnを分離し、binding保存後のtask request一件、`FINALIZED`一回、正常終端と独立final readbackを照合しています。
+
+## Limitations
+
+Stock pi-ai / OpenAI-compatible path、other provider adapters、additional extension fields、file / image / tool projection、retry-enabled path、restart、Desktop、parallel execution、background execution、subagentのreceipt / resumeはUnsupportedです。別versionや上記条件を満たさない構成はNot qualifiedで、他versionの動作はNot testedです。
+
+外部DeepSeek API、実modelのtask品質、installed-wheel live acceptance、alternate client、crash recoveryは`NOT_RUN`です。公開CLI launcherはなく、Python ownerへのtransport、task観測、workspaceのfresh read、直列実行はembedding hostが用意します。Runtime-wide atomic freezeや外部writer排除は保証しません。
+
+## Safety behavior
+
+Identity / hash / task / workspaceのmismatch、stale / foreign evidence、owner loss、retry開始、profile逸脱では停止します。Dispatchやcompletionが不確かな場合もclaimとbindingを戻さず、blind retryしません。Receipt成功だけで再開を認めず、新しいstate照合と最終検証を要求します。
+
+## Adapter contractと先行検証
+
 `DshAdapter`と`DshNativeCompletionPolicy`は、DSHのnative serviceへ
 `dsh_host.mjs`から接続する限定adapterです。試した対象は`0.2.0-rc.2`、
 公式tag `dsh-v0.2.0-rc.2`、Linux / WSL2、Node `22.22.1`、CPython `3.14.4`、
@@ -27,10 +53,10 @@ workspaceの一致を確認します。Native summaryは置換しません。
 Completion不明は`AMBIGUOUS`、completion後のpost-state不一致は
 `RECOVERY_REQUIRED`で停止し、blind retryしません。
 
-限定live acceptanceはnative transitionとfresh post-stateが`PASS`でした。
-既存profileのaccepted endpointは`ROLLOVER_OBSERVED`です。Stock pi-ai /
+先行R3のlive acceptanceはnative transitionとfresh post-stateが`PASS`でした。
+R3 profileのaccepted endpointは`ROLLOVER_OBSERVED`です。Stock pi-ai /
 OpenAI-compatible経路のreceiptは`UNSUPPORTED`です。Restartは`UNSUPPORTED`、
-このprofileのtask continuationは`NOT_RUN`です。下記のMessages限定profileでは
+先行R3でのtask continuationは`NOT_RUN`でした。現在のMessages qualified profileでは
 text continuationと`RESUME_VERIFIED`まで確認しています。
 Native binding / completionはin-memoryで、schema-1 snapshot journalへ保存しません。
 Yohaku checkpointとadapter decision record、DSH native persistenceは別です。
@@ -45,7 +71,7 @@ Receiptは`messages-plain-text-owner-no-retry`を明示的に有効化した場�
 対応します。対象は公式DeepSeek Messages adapter、全request historyがplain text、
 fresh Session、single Agent / single owner、toolなし、追加extension fieldなし、
 既知のgate ordering、retry disabledです。Loopback protocol fixtureとstock HTTP
-transportによるmechanical acceptanceで`HANDOFF_RECEIVED`まで確認しました。
+transportによる先行receipt qualificationで`HANDOFF_RECEIVED`まで確認しました。
 外部DeepSeek API、実model、実taskの継続品質は検証していません。
 
 Embedding ownerは公式`DeepSeekAdapter`の`prepareExtensions`へ

@@ -6,9 +6,9 @@ Yohakuは、長時間続くAI agent taskでcontext transitionを管理するPyth
 
 ## 利用できる範囲
 
-現在の主対象はCodexの二つのalpha profileです。`codex-operational-0.158`はinferenceを行わない起動・停止の診断用、`codex-document-review-report-v1`は宣言した文書を読み、manual compactを一回行い、Markdown reportを一つ新規作成する限定taskです。Reportの文章品質・事実性は評価しません。
+BetaのSupported対象はCodexとHermesの既存検証経路、およびDSHとOpenCodeのqualified profileです。Supportedは明記した条件とworkflowに限ります。Orca structured CodexはProbe validatedで、production adapterは未実装です。Exact version、profile、対応機能と未検証範囲は[Runtime support](docs/runtime-support.md)を参照してください。
 
-HermesとClaude Code CLIにはexperimentalなadapterがあります。DSHとOpenCodeはembedding host向けの限定profileで、late-bound continuationから`RESUME_VERIFIED`まで確認しています。Profileごとの対応機能と未検証範囲は[Runtime support](docs/runtime-support.md)にまとめています。
+公開CLIの固定taskは`codex-document-review-report-v1`で、manual compact一回とcreate-only report一つを扱います。文章品質・事実性は評価しません。DSHとOpenCodeはembedding hostから利用します。Claude Code CLIはexperimentalです。Context Assist Stage 1は統合済みで、deterministic / model-freeの表示補助としてSupportedです。Stage 2はBeta非搭載、Stage 3はPost-BetaへDeferredとしています。
 
 現在のcheckoutはBeta準備中の未公開変更を含みます。公開wheelを使う場合は、そのtagの文書を参照してください。配布版、release notes、assetsは[GitHub Releases](https://github.com/Sanka1610/yohaku/releases)で確認できます。
 

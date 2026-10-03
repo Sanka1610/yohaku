@@ -1,6 +1,6 @@
 # Hermes Runtime
 
-Hermesにはlifecycle-only launcherと、single fixture toolを使う限定transition adapterがあります。両方ともexperimentalで、profile一覧は[Runtime support](../runtime-support.md)に記載します。
+HermesはBetaで既存検証経路をSupportedとします。対象はlifecycle-only launcherと、single fixture tool、manual compression一回、receipt、fresh continuationで`RESUME_VERIFIED`へ到達した限定adapterです。CLI registryのprofile maturityは両方とも`experimental`を保持します。Profileごとの対応機能と制限は[Runtime support](../runtime-support.md)に記載します。
 
 ## Source pinとtested configuration
 

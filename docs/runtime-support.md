@@ -1,8 +1,28 @@
 # Runtime support
 
-以下は各profileで試した範囲です。CLI registryにあるprofileは`yohaku profiles`でも確認できます。DSH / OpenCodeのadapterはembedding hostから利用し、CLI registryには登録していません。両Runtimeは下記の限定profileで`RESUME_VERIFIED`まで確認しています。
+このページをcurrent checkoutのBeta support statusの正本とします。Supportedは明記した検証経路に限ります。DSH / OpenCodeの`Supported — qualified profile`は、実測・acceptedされた条件内でVerified Context Transitionを提供するという意味です。Supportの定義とprofile maturityの違いは[Support Policy](../SUPPORT_POLICY.md#beta-supportの表記)に記載します。
 
-| Profile | Status | 試した環境・workflow | 対応機能と制限 |
+## Beta support status
+
+| Target | Beta status | Qualification |
+|---|---|---|
+| [Codex](runtimes/codex.md) | Supported | 既存のcurrent lifecycle-only / fixed document-review経路。下記CLI profileの範囲に限定 |
+| [Hermes](runtimes/hermes.md) | Supported | 既存のlifecycle-only / single fixture tool経路。下記CLI profileの範囲に限定 |
+| [DSH](runtimes/dsh.md#tested-profile) | Supported — qualified profile | `0.2.0-rc.2` / headless / official DeepSeek Messages / plain text。Exact条件はRuntime pageに記載 |
+| [OpenCode](runtimes/opencode.md#tested-profile) | Supported — qualified profile | `2.0.21` / Linux / known terminal `http.request` hook graph / native deny-all tools。Exact条件はRuntime pageに記載 |
+| Orca structured Codex | Probe validated / not production-supported | O1 / O2 / O3 PASS。Production adapter未実装。下記のprototype候補に限定 |
+| [Context Assist Stage 1](storage-and-recovery.md#context-assist-stage-1) | Supported | Current baselineへ統合済み。Deterministic / model-freeのhandoff表示補助 |
+| Context Assist Stage 2 | Deferred | Beta非搭載 |
+| Context Assist Stage 3 | Deferred | Post-Beta |
+| [Claude Code CLI](runtimes/claude-code-cli.md) | Experimental | Subscription completionとlocal fixture recoveryを分けて扱う。下記profileの範囲に限定 |
+
+DSH / OpenCodeのadapterはembedding hostから利用し、CLI registryには登録していません。両Runtimeのqualified profileはnative transition、receipt、fresh reconciliation、late-bound continuation、Runtime固有の最終検証と既存`ResumeVerification`を経て`RESUME_VERIFIED`まで確認しています。Receipt成功だけではresume成功としません。
+
+## CLI profiles
+
+CLI registryにあるprofileは`yohaku profiles`でも確認できます。表のRegistry statusは既存のprofile maturityであり、上記Beta support statusや配布版のrelease段階とは別です。
+
+| Profile | Registry status | 試した環境・workflow | 対応機能と制限 |
 |---|---|---|---|
 | `codex-operational-0.158` | alpha | Codex `0.158.0-alpha.2.1`、WSL2 Linux / CPython `3.14.4`。Start / status / stop / fresh lifecycle | Lifecycle supported。Inference、task、transitionはunsupported |
 | `codex-document-review-report-v1` | alpha | 同じCodex / OS / Python。公開文書2点、manual compact一回、create-only report一つ。`RESUME_VERIFIED` | 固定task supported。文章品質untested。Restart、反復transition、一般文書・coding taskはunsupported |
@@ -26,8 +46,16 @@ Runtime-wide atomic freeze、外部writerの排除、general exactly-onceは成�
 
 Runtime-native historyはYohaku checkpointやarchiveとは別です。Receipt、fresh current-state reconciliation、task assessmentのどれかが欠ければresume成功にはなりません。Mechanical completionは文章・コード・事実品質を保証しません。
 
-OpenCodeの[adapter](runtimes/opencode.md)は`2.0.21` / Linux / fresh owned Session、single owner、known terminal `http.request` hook graph、later body mutatorなし、native deny-all tools、一つのbounded foreground text task、retry disabledに限定してVerified Context Transitionをsupportedとします。Unbound receipt、fresh API / SQLite / task reconciliation、post-receipt claim、別のactual native inputへのlate binding、binding保存後のcontinuation一回、final fresh stateとbounded assessmentを経て`RESUME_VERIFIED`まで確認しました。Receiptとtaskのattempt・completion evidenceは分離しています。実測はlocal controlled providerによるfresh Session一回で、実model inferenceや一般taskの品質は未評価です。Restart、cross-process recovery、unknown hook graph、later mutator、tools-enabled receipt、retry、external client、DCP、parallel / background / subagentはunsupportedです。
+## Qualified profiles
 
-DSHの[adapter](runtimes/dsh.md)は`0.2.0-rc.2` / headless / fresh Session、公式DeepSeek Messages adapter、plain text、single Agent / single owner、追加extension fieldsなし、retry disabledに限定してVerified Context Transitionをsupportedとします。Unbound receipt、fresh reconciliation、未完了workの再評価、post-receipt claim、actual native turnへのlate binding、binding保存後のtext continuation一回、独立final readbackを経て`RESUME_VERIFIED`まで確認しました。対象taskは固定の`FINALIZE` / `FINALIZED`です。実測はloopback protocol fixtureとstock HTTP transportによるmechanical acceptanceで、外部APIや実modelの品質評価は含みません。Stock pi-ai / OpenAI-compatible経路、他provider adapter、追加extension fields、file / image / tool projections、retry、restart、Desktop、parallel / background / subagentのreceipt / resumeはunsupportedです。
+DSHのexact profileは`0.2.0-rc.2`、headless、公式DeepSeek Messages adapter、plain text、fresh Session、single Agent、single owner、追加extension fieldsなし、retry disabledです。対象taskは固定の`FINALIZE` / `FINALIZED`です。保存済みacceptanceはloopback protocol fixtureとstock HTTP transportによるmechanical verificationで、外部APIや実modelの品質評価を含みません。Stock pi-ai / OpenAI-compatible経路、他provider adapter、追加extension fields、file / image / tool projections、retry-enabled path、restart、Desktop、parallel / background / subagentのreceipt / resumeはUnsupportedです。[DSHの制限と安全停止](runtimes/dsh.md#limitations)を参照してください。
+
+OpenCodeのexact profileは`2.0.21`、Linux、fresh owned Session、single owner、known terminal `http.request` hook graph、later body mutatorなし、native deny-all tools、一つのbounded foreground text task、retry disabledです。保存済みacceptanceは実OpenCodeとlocal controlled providerによるfresh Session一回で、実model inferenceや一般taskの品質は未評価です。Unknown hook graph、later body mutator、tools-enabled receipt profile、retry-enabled path、restart、cross-process recovery、external client、DCP、parallel / background / subagentはUnsupportedです。[OpenCodeの制限と安全停止](runtimes/opencode.md#limitations)を参照してください。
+
+別versionや未実測環境はNot qualified / Not testedとして扱います。外部API、実modelの品質、installed-wheel live acceptanceなどの`NOT_RUN`を、非互換性やUnsupportedの実証へ読み替えません。
 
 両Runtimeのtrusted adapterはRuntime固有のcompletion evidence、final fresh state、bounded task assessmentを照合・保存し、既存`ResumeVerification`を`Controller.verify_resume()`へ渡します。Coreのlate-binding対応以外にadapter固有のCore変更はありません。新Runtimeの実装は[Adapter Contract](development/adapter-contract.md)を入口とします。
+
+## Orca prototype候補
+
+O1 / O2 / O3のProbeはPASSです。O3で成立したprofileは`orca/structured/codex/local`、Orca `1.4.218`、Windows-native、local、Windows-local workspace、Codex `0.159.0-alpha.12.1`です。Structured transitionとbounded continuationを確認したprototype候補で、production adapterとYohaku Core bindingは未実装です。Orca上のYohaku `RESUME_VERIFIED`は`NOT_RUN`です。

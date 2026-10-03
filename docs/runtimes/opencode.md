@@ -1,5 +1,31 @@
 # OpenCode Runtime
 
+## Status
+
+Beta: Supported on qualified profile。公開statusの一覧は[Runtime support](../runtime-support.md)に記載します。以下の条件内でVerified Context Transitionを提供します。
+
+## Tested profile
+
+OpenCode `2.0.21`、Linux、fresh owned Session、single owner、known terminal `http.request` hook graph、no later body mutator、native deny-all tools、one bounded foreground text task、retry disabledに限定します。Embedding hostが専用Session / server / configとterminal hook位置を保証します。試した環境はLinux / WSL2です。
+
+## Verified path
+
+Native transition → receipt → fresh reconciliationと未完了workの再評価 → one-shot claim → 別のactual native inputへのlate-bound continuation → Runtime固有の最終検証 → `ResumeVerification` → `RESUME_VERIFIED`までPASSです。
+
+保存済みacceptanceは実OpenCodeとlocal controlled providerによるfresh Session一回です。Receiptとtaskのidentity、attempt、authorizationを分離し、binding保存後のtask provider実行一回、tool実行ゼロ、正常終端、final fresh API / SQLite / task stateを照合しています。
+
+## Limitations
+
+Unknown hook graph、later body mutator、tools-enabled receipt profile、retry-enabled path、restart、cross-process recovery、external client、DCP、parallel execution、background execution、subagentはUnsupportedです。別versionや上記条件を満たさない構成はNot qualifiedで、他versionの動作はNot testedです。
+
+実model inference、一般taskの品質、installed-wheel live acceptance、general tool incorporation、external client conflict、plugin conflict、crash / power-loss durabilityは`NOT_RUN`です。公開CLI launcherや一般Task Profileはありません。Hostの専有条件はRuntime-wide atomic freezeを意味しません。
+
+## Safety behavior
+
+Unknown graph、body / identity / task / workspaceのmismatch、stale / foreign evidence、owner loss、retryではcandidateを失効させて停止します。Claimやbindingを戻さず、blind retryしません。Receiptとtaskの証拠を流用せず、新しいstate照合と最終検証を要求します。成功記録の保存に失敗した場合もownerを停止し、成功を返しません。
+
+## Adapter contractと先行検証
+
 `OpenCodeAdapter`はserver/client APIを使う限定adapterです。試した対象は
 `@opencode/cli@2.0.21`、公式tag `v2.0.21`、Linux / WSL2、fresh Session、
 foreground text task一つ、native compact一回です。追加compaction plugin、DCP、

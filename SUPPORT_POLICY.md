@@ -4,6 +4,14 @@ SupportはRuntime名だけでなく、profileごとに示します。各profile�
 
 `untested`は非互換という意味ではありません。動作に必要なhard requirementと、試したtested configurationを区別します。Runtime APIへの依存からversionやsourceを固定する場合は、Runtime文書に理由を記載します。別環境への結果の適用は、変更がcompletion、identity、storage、task observationへ与える影響で判断します。
 
+## Beta supportの表記
+
+現在のBeta対応範囲の正本は[Runtime support](docs/runtime-support.md)です。`Supported`は明記した既存検証経路、`Supported — qualified profile`はexact version、構成、owner条件、task範囲を固定した経路でVerified Context Transitionを提供することを意味します。DSHとOpenCodeのqualified profileは、保存済みbounded acceptanceで`RESUME_VERIFIED`まで確認しています。実modelの品質、一般task、別構成への対応を含みません。
+
+`Unsupported`は対応範囲外、`Not qualified`は昇格条件を満たしていない構成、`Not tested` / `NOT_RUN`は未実測です。未実測だけを理由に`Unsupported`へ変換しません。`Probe validated`は調査でprimitiveを確認した段階で、production supportを意味しません。`Deferred`は今回のBetaに搭載しない予定の機能です。
+
+このsupport表記と、下記のprofile maturity、CLI registryの`status`、配布版のrelease段階は別です。既存Codex / Hermes profileのregistryにある`alpha` / `experimental`は保持し、Betaの対応範囲はRuntime supportで示します。Qualified profileの昇格だけでpackage全体のBeta配布条件を満たしたとは扱いません。
+
 ## Profile status
 
 | Status | 意味 |
