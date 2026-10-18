@@ -20,6 +20,24 @@ Stock pi-ai / OpenAI-compatible path、other provider adapters、additional exte
 
 外部DeepSeek API、実modelのtask品質、installed-wheel live acceptance、alternate client、general tool incorporation、crash recoveryは`NOT_RUN`です。公開CLI launcherはなく、Python ownerへのtransport、task観測、workspaceのfresh read、直列実行はembedding hostが用意します。Runtime-wide atomic freezeや外部writer排除は保証しません。
 
+## 内部 foreground helper（公開対応とは別）
+
+専用embedding owner向けのopt-in helperを用意しています。
+[Foreground host](<../../src/yohaku/dsh_foreground.mjs>) はnative tool callの実行前gateと、result / commit / 次requestへの取込 / physical terminal / effectsの観測を分離します。
+[Native owner](<../../src/yohaku/dsh_foreground_native.mjs>) はactual frame、frozen request、owner全体のidleとrequest-boundなmanual compactの事実を扱います。
+どちらもRuntime launcherや一般taskの成功判定を提供せず、既存Beta profileを置き換えません。
+Callback解除にもfreshなinbox / workの静止を要求し、待機中のworkがあればguardを保持して停止します。
+
+[pi-ai gate](<../../src/yohaku/dsh_pi_ai_gate.mjs>) はpinned private seamでJSON / zstdの送信bytesを照合し、一回のHTTP acceptanceだけを扱います。
+`bindDshPiAiGateToOwnedAdapter()` はfresh・専有・未登録instanceに接続し、外側のwrapper / config / auth closureを保持します。
+元methodがbinding前に他consumerへ露出していないこと、owner全体のquiescenceを観測することはcallerの責務です。
+接続口は差し替え不能なgetterで、retire後は保持済みprepared call / callback / 未開始iteratorと生成済みattempt gateを拒否し、無gate methodへ戻しません。
+Inner portのretireは、それより前のouter認証やmetadata通信の停止、任意producerの認証、外部writerやprocess treeの封鎖を証明しません。
+
+[Host回帰](<../../tests/test_dsh_foreground.mjs>)、[owner回帰](<../../tests/test_dsh_foreground_native.mjs>)、[gate回帰](<../../tests/test_dsh_pi_ai_gate.mjs>) はSDKを起動しないMockです。
+実SDK 0.2.0-rc.2のmetadata-only componentでもretire後の保持済みcall拒否は確認しましたが、subscription pluginの実接続・実送信・一般coding・receipt / resume / 反復の資格確認ではありません。
+このcheckpointでCore保存形式、CLI profile、公開supportの条件は変更していません。
+
 ## Safety behavior
 
 Identity / hash / task / workspaceのmismatch、stale / foreign evidence、owner loss、retry開始、profile逸脱では停止します。Dispatchやcompletionが不確かな場合もclaimとbindingを戻さず、blind retryしません。Receipt成功だけで再開を認めず、新しいstate照合と最終検証を要求します。
